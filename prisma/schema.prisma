@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model Settings {
@@ -53,5 +53,6 @@ model BatchSession {
   repoName     String
   firstSeenAt  DateTime @default(now())
   isProcessed  Boolean  @default(false)
-  @@unique([prNumber, repoOwner, repoName, isProcessed])
+  isProcessing Boolean  @default(false)
+  // Removed unique constraint that prevented multiple batches per PR
 }

@@ -6,7 +6,8 @@ module.exports = {
       args: 'start',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000
+        PORT: 3000,
+        DATABASE_URL: 'file:./dev.db'
       }
     },
     {
@@ -14,7 +15,8 @@ module.exports = {
       script: 'node',
       args: 'worker.js',
       env: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        DATABASE_URL: 'file:./dev.db'
       }
     }
   ]

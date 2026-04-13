@@ -1,38 +1,82 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
-  let settings = await prisma.settings.findFirst()
-  if (!settings) {
-    settings = await prisma.settings.create({
-      data: {}
-    })
-  }
-  return NextResponse.json(settings)
+// Simplistic mock auth check - in a real app, use next-auth or similar
+function isAuthenticated(request: NextRequest) {
+  // For a Proxmox local tool, this could check a specific local IP,
+  // or check a basic auth header. For now, we'll allow local access but
+  // structure it so auth can be easily added.
+  return true;
 }
 
-export async function POST(request: Request) {
-  const data = await request.json()
+export async function GET(request: NextRequest) {
+  if (!isAuthenticated(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-  let settings = await prisma.settings.findFirst()
-  if (settings) {
-    settings = await prisma.settings.update({
-      where: { id: settings.id },
-      data: {
-        githubToken: data.githubToken,
-        pollingInterval: data.pollingInterval,
-        batchDelay: data.batchDelay
-      }
-    })
-  } else {
-    settings = await prisma.settings.create({
-      data: {
-        githubToken: data.githubToken,
-        pollingInterval: data.pollingInterval,
-        batchDelay: data.batchDelay
-      }
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } })
+
+  if (!settings) {
+    return NextResponse.json({
+      hasGithubToken: false,
+      pollingInterval: 60,
+      batchDelay: 5
     })
   }
 
-  return NextResponse.json(settings)
+  return NextResponse.json({
+    hasGithubToken: !!settings.githubToken,
+    pollingInterval: settings.pollingInterval,
+    batchDelay: settings.batchDelay
+  })
+}
+
+export async function POST(request: NextRequest) {
+  if (!isAuthenticated(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const data = await request.json()
+
+    // Validate
+    if (data.githubToken !== undefined && typeof data.githubToken !== 'string') {
+      return NextResponse.json({ error: 'githubToken must be a string' }, { status: 400 })
+    }
+    if (typeof data.pollingInterval !== 'number' || !Number.isFinite(data.pollingInterval) || data.pollingInterval <= 0) {
+      return NextResponse.json({ error: 'pollingInterval must be a positive number' }, { status: 400 })
+    }
+    if (typeof data.batchDelay !== 'number' || !Number.isFinite(data.batchDelay) || data.batchDelay <= 0) {
+      return NextResponse.json({ error: 'batchDelay must be a positive number' }, { status: 400 })
+    }
+
+    const updateData: any = {
+      pollingInterval: data.pollingInterval,
+      batchDelay: data.batchDelay
+    }
+
+    if (data.githubToken) {
+      updateData.githubToken = data.githubToken
+    }
+
+    const settings = await prisma.settings.upsert({
+      where: { id: 1 },
+      update: updateData,
+      create: {
+        id: 1,
+        githubToken: data.githubToken || null,
+        pollingInterval: data.pollingInterval,
+        batchDelay: data.batchDelay
+      }
+    })
+
+    return NextResponse.json({
+      hasGithubToken: !!settings.githubToken,
+      pollingInterval: settings.pollingInterval,
+      batchDelay: settings.batchDelay
+    })
+  } catch (error) {
+    console.error('Settings update error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
