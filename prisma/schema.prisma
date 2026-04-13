@@ -36,7 +36,7 @@ model TargetReviewer {
 
 model ProcessedComment {
   id         String   @id @default(cuid())
-  commentId  BigInt   @unique
+  commentId  String   @unique // Changed to String to allow prefixed identifiers like "issue_123"
   prNumber   Int
   repoOwner  String
   repoName   String

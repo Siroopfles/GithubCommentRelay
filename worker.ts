@@ -80,22 +80,22 @@ async function processRepositories() {
           per_page: 100
         })
 
-        // Unify all comments
+        // Unify all comments with a prefixed ID string to avoid collisions between issues, reviews, and review comments
         const allComments = [
           ...issueComments.map(c => ({
-            id: c.id,
+            id: `issue_${c.id}`,
             user: c.user,
             body: c.body,
             created_at: c.created_at
           })),
           ...reviewComments.map(c => ({
-            id: c.id,
+            id: `review_comment_${c.id}`,
             user: c.user,
             body: c.body,
             created_at: c.created_at
           })),
           ...reviews.filter(r => r.body).map(c => ({
-            id: c.id,
+            id: `review_${c.id}`,
             user: c.user,
             body: c.body as string, // filtered above
             created_at: c.submitted_at || new Date().toISOString()
@@ -243,6 +243,8 @@ async function start() {
       cron.schedule(cronExpression, () => {
         void processRepositories()
       })
+      // Trigger immediate first run for consistency
+      void processRepositories()
     } catch (err) {
       console.error('Failed to schedule cron job:', err)
     }

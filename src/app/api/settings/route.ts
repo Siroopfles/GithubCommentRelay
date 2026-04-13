@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
       batchDelay: data.batchDelay
     }
 
-    if (data.githubToken) {
-      updateData.githubToken = data.githubToken
+    if (data.githubToken !== undefined) {
+      updateData.githubToken = data.githubToken === '' ? null : data.githubToken;
     }
 
     const settings = await prisma.settings.upsert({
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       update: updateData,
       create: {
         id: 1,
-        githubToken: data.githubToken || null,
+        githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
         pollingInterval: data.pollingInterval,
         batchDelay: data.batchDelay
       }
