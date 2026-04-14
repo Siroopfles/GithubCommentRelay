@@ -80,34 +80,36 @@ async function processRepositories() {
           per_page: 100
         })
 
-        // Unify all comments with a prefixed ID string to avoid collisions between issues, reviews, and review comments
         const allComments = [
           ...issueComments.map(c => ({
-            id: `issue_${c.id}`,
+            id: BigInt(c.id),
+            source: 'issue',
             user: c.user,
             body: c.body,
             created_at: c.created_at
           })),
           ...reviewComments.map(c => ({
-            id: `review_comment_${c.id}`,
+            id: BigInt(c.id),
+            source: 'review_comment',
             user: c.user,
             body: c.body,
             created_at: c.created_at
           })),
           ...reviews.filter(r => r.body).map(c => ({
-            id: `review_${c.id}`,
+            id: BigInt(c.id),
+            source: 'review',
             user: c.user,
             body: c.body as string, // filtered above
             created_at: c.submitted_at || new Date().toISOString()
           }))
-        ];
+        ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
         for (const comment of allComments) {
           if (!comment.user || !comment.body) continue;
 
           if (reviewerUsernames.includes(comment.user.login.toLowerCase())) {
             const exists = await prisma.processedComment.findUnique({
-              where: { commentId: comment.id }
+              where: { commentId_source: { commentId: comment.id, source: comment.source } }
             })
 
             if (!exists) {
@@ -118,6 +120,7 @@ async function processRepositories() {
               await prisma.processedComment.create({
                 data: {
                   commentId: comment.id,
+                  source: comment.source,
                   prNumber: pr.number,
                   repoOwner: repo.owner,
                   repoName: repo.name,

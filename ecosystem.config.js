@@ -7,7 +7,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
-        DATABASE_URL: 'file:./dev.db'
+        DATABASE_URL: 'file:./data.db'
       }
     },
     {
@@ -16,7 +16,7 @@ module.exports = {
       args: 'worker.js',
       env: {
         NODE_ENV: 'production',
-        DATABASE_URL: 'file:./dev.db'
+        DATABASE_URL: 'file:./data.db'
       }
     }
   ]

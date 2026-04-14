@@ -36,7 +36,8 @@ model TargetReviewer {
 
 model ProcessedComment {
   id         String   @id @default(cuid())
-  commentId  String   @unique // Changed to String to allow prefixed identifiers like "issue_123"
+  commentId  BigInt
+  source     String
   prNumber   Int
   repoOwner  String
   repoName   String
@@ -44,6 +45,9 @@ model ProcessedComment {
   body       String
   postedAt   DateTime
   processedAt DateTime @default(now())
+
+  @@unique([commentId, source])
+  @@index([repoOwner, repoName, prNumber, postedAt])
 }
 
 model BatchSession {

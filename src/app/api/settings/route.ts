@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
     if (data.githubToken !== undefined && typeof data.githubToken !== 'string') {
       return NextResponse.json({ error: 'githubToken must be a string' }, { status: 400 })
     }
-    if (typeof data.pollingInterval !== 'number' || !Number.isFinite(data.pollingInterval) || data.pollingInterval <= 0) {
-      return NextResponse.json({ error: 'pollingInterval must be a positive number' }, { status: 400 })
+    if (typeof data.pollingInterval !== 'number' || !Number.isInteger(data.pollingInterval) || data.pollingInterval <= 0) {
+      return NextResponse.json({ error: 'pollingInterval must be a positive integer' }, { status: 400 })
     }
-    if (typeof data.batchDelay !== 'number' || !Number.isFinite(data.batchDelay) || data.batchDelay <= 0) {
-      return NextResponse.json({ error: 'batchDelay must be a positive number' }, { status: 400 })
+    if (typeof data.batchDelay !== 'number' || !Number.isInteger(data.batchDelay) || data.batchDelay <= 0) {
+      return NextResponse.json({ error: 'batchDelay must be a positive integer' }, { status: 400 })
     }
 
     const updateData: any = {
