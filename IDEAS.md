@@ -1,4 +1,4 @@
-# Brainstormsessie & Uitbreidingsroadmap: GitHub PR Comment Aggregator
+# Brainstormsessie IDEEËN: GitHub PR Comment Aggregator
 
 ## 1. Context & Visie
 Dit project is een lichtgewicht, lokaal gehoste (Proxmox LXC) tool. Het primaire doel is het efficiënt aggregeren van bot-comments op GitHub Pull Requests. De toekomstige visie is om deze applicatie te laten fungeren als een centrale "hub" die naadloos samenwerkt met je lokaal gehoste AI-agents. De AI-agents moeten via dit systeem informatie kunnen ophalen en acties kunnen triggeren. Let op: Externe of zware, gehoste LLM's worden niet direct in deze tool geïntegreerd, aangezien alles lokaal en behapbaar moet blijven.
