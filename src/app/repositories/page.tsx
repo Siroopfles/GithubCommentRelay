@@ -161,6 +161,7 @@ export default function RepositoriesPage() {
                 {editingId === repo.id ? (
                   <td colSpan={4} className="px-6 py-4 bg-yellow-50">
                     <form onSubmit={handleSubmitEdit(onSaveEdit)} className="space-y-4">
+                      <input type="hidden" {...registerEdit('id')} />
                       <div className="flex items-center gap-2 font-medium text-gray-900">
                         Editing Settings for: {repo.owner} / {repo.name}
                       </div>

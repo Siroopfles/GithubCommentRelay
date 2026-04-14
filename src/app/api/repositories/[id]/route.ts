@@ -20,7 +20,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (json.requiredApprovals !== undefined) {
-      updateData.requiredApprovals = parseInt(json.requiredApprovals, 10)
+      const approvals = parseInt(json.requiredApprovals, 10)
+      if (isNaN(approvals) || approvals < 0) {
+        return NextResponse.json({ error: 'requiredApprovals must be a positive number' }, { status: 400 })
+      }
+      updateData.requiredApprovals = approvals
     }
 
     if (json.requireCI !== undefined) {

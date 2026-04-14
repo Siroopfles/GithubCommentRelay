@@ -32,8 +32,8 @@ async function processRepositories() {
     const repos = await prisma.repository.findMany({ where: { isActive: true } })
     const reviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } })
 
-    if (repos.length === 0 || reviewers.length === 0) {
-      console.log('Skipping cycle: No active repositories or reviewers configured.')
+    if (repos.length === 0) {
+      console.log('Skipping cycle: No active repositories configured.')
       return
     }
 
@@ -103,6 +103,11 @@ async function processRepositories() {
                   canMerge = false;
                 }
 
+                // If requireCI is true but absolutely no CI pipelines exist, we should not merge.
+                if (checkRuns.total_count === 0 && combinedStatus.total_count === 0) {
+                  canMerge = false;
+                }
+
                 // If totally empty, you might want to wait, or maybe they just have no CI.
                 // Assuming canMerge = false if absolutely no checks exist might break repos with no CI.
                 // We'll leave it simple for now: if there ARE checks, they must pass.
@@ -119,7 +124,7 @@ async function processRepositories() {
                 // Group by reviewer and get the latest state
                 const reviewerStates = new Map<string, string>();
                 for (const review of prReviews) {
-                  if (review.user && review.state !== 'DISMISSED') {
+                  if (review.user && review.state !== 'DISMISSED' && review.state !== 'COMMENTED' && review.state !== 'PENDING') {
                     reviewerStates.set(review.user.login, review.state);
                   }
                 }
@@ -165,18 +170,24 @@ async function processRepositories() {
             // We shouldn't fail the whole loop on one auto-merge fail
             // Also log to DB if it's not already merged
             if (error.status !== 405) { // 405 usually means not mergeable right now
-               await prisma.autoMergeLog.create({
-                 data: {
-                   repoOwner: repo.owner,
-                   repoName: repo.name,
-                   prNumber: pr.number,
-                   status: 'FAILED',
-                   message: error.message
-                 }
-               });
+               try {
+                 await prisma.autoMergeLog.create({
+                   data: {
+                     repoOwner: repo.owner,
+                     repoName: repo.name,
+                     prNumber: pr.number,
+                     status: 'FAILED',
+                     message: error.message
+                   }
+                 });
+               } catch (logError) {
+                 console.error('Failed to log auto-merge error:', logError);
+               }
             }
           }
         }
+
+        if (reviewers.length === 0) continue; // Skip comment aggregation if no target reviewers
 
         // Fetch Issue Comments
         const { data: issueComments } = await octokit.rest.issues.listComments({
