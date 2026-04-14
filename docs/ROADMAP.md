@@ -41,7 +41,7 @@
     *   We are already tracking comments in `ProcessedComment`. We might need to add a flag `forwardedToJules` (Boolean). This flag must be authoritative to enforce idempotent delivery.
     *   Create a new cron-like process (or expand the existing one) that queries `ProcessedComment` where `postedAt < cutoffTime` AND `forwardedToJules == false`. The `cutoffTime` should be computed in the application (e.g., UTC now minus `julesChatForwardDelay`) to avoid DB/timezone drift.
     *   For these comments, first verify delivery using the chosen mechanism (e.g., delivery status check or persisted unique key based on GitHub comment ID) before posting to the Jules API.
-    *   Mark `forwardedToJules` as true only after a confirmed successful post. Add/document a retry policy and unique delivery key (GitHub comment ID + delivery status) to guarantee idempotency and prevent duplicate/noisy resends.
+    *   Mark `forwardedToJules` as true only after a confirmed successful post. Add/document a retry policy and unique delivery key (composed of GitHub comment ID, delivery status, source, and repository/PR scope `owner/repo/pr#`) to guarantee idempotency and avoid cross-source collisions.
 *   **Database Schema (`prisma/schema.prisma`):**
     *   Add `julesChatForwardDelay` to the `Settings` model.
     *   Add `forwardedToJules` to the `ProcessedComment` model (default `false`).
