@@ -1,122 +1,125 @@
 # Brainstormsessie IDEEËN: GitHub PR Comment Aggregator
 
 ## 1. Context & Visie
-Dit project is een lichtgewicht, lokaal gehoste (Proxmox LXC) tool. Het primaire doel is het efficiënt aggregeren van bot-comments op GitHub Pull Requests. De toekomstige visie is om deze applicatie te laten fungeren als een centrale "hub" die naadloos samenwerkt met je lokaal gehoste AI-agents. De AI-agents moeten via dit systeem informatie kunnen ophalen en acties kunnen triggeren. Let op: Externe of zware, gehoste LLM's worden niet direct in deze tool geïntegreerd, aangezien alles lokaal en behapbaar moet blijven.
+Dit project is een lichtgewicht, lokaal gehoste (Proxmox LXC) tool. Het primaire doel is het efficiënt aggregeren van bot-comments op GitHub Pull Requests. De visie is om de output van deze tool zo te optimaliseren en automatiseren dat **jouw AI-agents, die meelezen in de GitHub PR-chat**, perfect gestructureerde data, heldere context en eventueel sturende commando's ontvangen. De tool communiceert niet direct via API's of webhooks naar de agents; de GitHub comment sectie is de enige en centrale communicatielaag.
 
 ---
 
 ## 2. 25 Ideeën tot Uitbreiding
 
-Hieronder volgt de lijst met 25 concrete opties om het project naar het volgende niveau te tillen. Elk idee is volledig zelfstandig uitgewerkt en kan door een autonome developer (of AI developer) als losse feature-branch worden opgepakt.
+Hieronder volgt de lijst met 25 concrete opties om de output en werking van de aggregator naar het volgende niveau te tillen.
 
-### Categorie A: AI Agent Integraties & Data Connectivity
-*Focus op het faciliteren van data en acties voor je lokale AI-agents.*
+### Categorie A: Optimalisatie van Comments voor AI-Agents (Data Structuur)
+*Ideeën om de geaggregeerde posts perfect leesbaar en bruikbaar te maken voor AI's in de GitHub chat.*
 
-**1. Lokale Webhook Push (Event Broadcaster)**
-- **Wat:** Bij specifieke GitHub-events (bijv. een nieuwe PR of een verzonden batch aan comments), verstuurt deze tool direct een POST-request naar een geconfigureerde lokale URL (bijv. de luisterpoort van je AI-agent).
-- **Waarom:** Dit haalt de last van het pollen weg bij je agents en zorgt voor real-time triggers.
+**1. JSON-Injectie in Markdown Comments**
+- **Wat:** Verstop een onzichtbaar of opvouwbaar JSON-blok (tussen `<!-- -->` of in een `<details>` tag) in de geaggregeerde comment met de gestructureerde ruwe data van alle bots.
+- **Waarom:** AI-agents kunnen JSON feilloos parsen. Zo krijgen ze niet alleen de menselijke tekst, maar ook gestructureerde foutcodes, line-nummers en tool-namen in een voorspelbaar formaat.
 
-**2. REST API voor Agent-Status (Lezen)**
-- **Wat:** Ontwikkel specifieke, simpele endpoints zoals `GET /api/agents/prs/active` of `GET /api/agents/metrics`.
-- **Waarom:** Je agents hebben hierdoor een gestructureerde (JSON) manier om de huidige status van openstaande pull requests en geaggregeerde comments op te vragen, zonder scraping te hoeven toepassen.
+**2. Standaardiseren via een AI-Prompt Header**
+- **Wat:** Plaats bovenaan de geaggregeerde comment een vaste instructie of "system prompt" gericht aan de luisterende AI. Bijv: *"@ai-agent, analyseer de onderstaande samengevoegde feedback en stel direct een fix voor."*
+- **Waarom:** Automatiseert de trigger voor je AI-agent; de agent weet precies wat er van hem verwacht wordt zodra de tool post.
 
-**3. REST API voor Agent-Acties (Schrijven)**
-- **Wat:** Ontwikkel een beveiligd endpoint (bijv. `POST /api/agents/action`) waarmee een lokaal netwerk-device een opdracht kan sturen naar dit project, zoals "Plaats een specifiek bericht op PR #15".
-- **Waarom:** Dit project wordt daarmee de exclusieve beheerder van de GitHub Token, en agents sturen hun GitHub-acties simpelweg door via deze tool.
+**3. Actie-Tags & Commando's per Bot-Fout**
+- **Wat:** De aggregator voegt specifieke tags toe aan de output, afhankelijk van welke tool iets meldt. Bijv. bij linter errors voegt het `[ACTION: FIX_LINT]` toe, bij security issues `[ACTION: SEC_REVIEW]`.
+- **Waarom:** Dit maakt het voor jouw AI-agent heel makkelijk om de feedback te routeren of specifieke gedragingen te activeren op basis van simpele tekst-tags.
 
-**4. MQTT Broker Koppeling**
-- **Wat:** Verbind het project met een lokale MQTT broker (bijv. Eclipse Mosquitto) op je Proxmox/netwerk. De tool publiceert topics zoals `home/github/pr/new_comment`.
-- **Waarom:** Zeer efficiënt voor IoT- of Home Assistant-integraties. Je agents kunnen op deze topics abonneren in plaats van te luisteren naar HTTP-webhooks.
+**4. Dynamische Template Builder (UI)**
+- **Wat:** Maak een beheerpagina in de UI waarin je het Markdown-sjabloon van de output volledig kunt samenstellen met variabelen zoals `{{bot_name}}`, `{{file_path}}`, `{{error_code}}`.
+- **Waarom:** Zo kun je de output finetunen op precies dat formaat dat jouw specifieke AI-agent het beste begrijpt, zonder in de code te hoeven duiken.
 
-**5. Historische Data-Dump via API**
-- **Wat:** Maak een tool/cronjob die de SQLite-database (met alle `ProcessedComment` records) exporteert als schoon JSON- of CSV-bestand naar een gedeelde lokale directory.
-- **Waarom:** Ideaal voor AI-agents die met Retrieval-Augmented Generation (RAG) werken en lokaal historische bot-beslissingen willen bestuderen zonder direct de SQLite DB te locken.
+**5. Bestand- en Context-Mapping**
+- **Wat:** Als een bot-comment betrekking heeft op een specifiek bestand (bijv. `src/utils.ts`), laat de aggregator dan automatisch bovenaan het blok de absolute padnaam en wellicht een link naar de diff in GitHub genereren.
+- **Waarom:** AI-agents in de PR-chat hebben vaak de exacte bestandslocatie nodig om goede suggesties of auto-fixes te genereren.
 
-**6. Integratie met Lokale Notificatiediensten**
-- **Wat:** Voeg koppelingen toe voor ntfy, Gotify of een lokale Discord-webhook, die getriggerd worden bij fouten of succesvolle aggregaties.
-- **Waarom:** Je agents of jijzelf kunnen direct via een lokale chat op de hoogte blijven van het worker-proces.
+### Categorie B: Geavanceerde Filtering & Deduplicatie (Ruis Verminderen)
+*Voorkomen dat AI-agents in de war raken door dubbele of nutteloze informatie.*
 
-### Categorie B: User Experience (UI / UX)
-*Focus op een comfortabeler lokaal beheer en snellere inzichten.*
+**6. Strikte Inhoudelijke Deduplicatie**
+- **Wat:** De aggregator controleert of twee verschillende CI-tools (bijv. ESLint en Prettier) klagen over exact dezelfde regel en dezelfde fout, en voegt deze samen tot één punt.
+- **Waarom:** Dubbele meldingen in de chat vervuilen de context window van je AI-agents en kunnen leiden tot verwarrende of dubbele fixes.
 
-**7. Live Worker Logs in de Browser (WebSockets / SSE)**
-- **Wat:** Stream de `console.log` output van `worker.ts` via Server-Sent Events (SSE) direct naar een terminal-widget op het webdashboard.
-- **Waarom:** Het bespaart je het openen van de Proxmox shell via SSH. Fouten zijn direct zichtbaar.
+**7. "No Action Needed" Filtering**
+- **Wat:** Stel Regex-regels in per target bot om comments zoals *"Coverage did not change"* of *"0 vulnerabilities found"* volledig eruit te filteren en niet te aggregeren.
+- **Waarom:** Het bespaart tokens en contextruimte voor de AI-agent als louter succes-berichten worden achtergehouden.
 
-**8. Handmatige "Sync Nu" Functionaliteit**
-- **Wat:** Voeg een prominente knop toe in het menu om onmiddellijk `processRepositories()` uit te voeren.
-- **Waarom:** Soms wil je direct zien of een zojuist gemergde of aangemaakte PR wordt opgepakt, zonder op de ingestelde polling-timer te moeten wachten.
+**8. Prioritering en Sortering van Feedback**
+- **Wat:** De tool sorteert de geaggregeerde comments voordat deze gepost worden. Bijvoorbeeld: Security-waarschuwingen (Dependabot/Snyk) bovenaan, daarna Type-errors, daarna linter-warnings.
+- **Waarom:** AI-agents schenken vaak meer aandacht aan de bovenste delen van een prompt. Belangrijke fixes worden zo sneller opgepakt.
 
-**9. Volledige Dark Mode (Tailwind)**
-- **Wat:** Implementeer `dark:` classes en een globale state (of `next-themes`) om de UI om te schakelen naar een donker thema.
-- **Waarom:** Zorgt voor een modernere uitstraling en is prettiger bij gebruik in combinatie met andere development tools.
+**9. Verbergen/Resolven van Originele Bot Comments**
+- **Wat:** Zodra de geaggregeerde comment geplaatst is, gebruikt de tool de GitHub GraphQL API om de originele, losse bot comments dicht te klappen (Minimize as "Resolved").
+- **Waarom:** Dit voorkomt dat de AI-agent de feedback dubbel leest (één keer los, één keer in de aggregatie) tijdens het scannen van de PR-tijdlijn.
 
-**10. Interactieve GitHub Token Tester**
-- **Wat:** Een knop in de Settings UI genaamd "Test Token", die een kleine call doet naar de GitHub API (`/user`) om rechten (scopes) te verifiëren.
-- **Waarom:** Voorkomt het zogenaamde "stille falen". Je ziet direct in de UI in plaats van in de worker logs of de opgegeven token de juiste rechten heeft.
+**10. "Diff" Extractie uit Comments**
+- **Wat:** Als een originele bot-comment een voorgestelde code-diff bevat (in markdown codeblocks), zorgt de aggregator dat deze codeblocks extra goed worden geïsoleerd en gemarkeerd in de samenvatting.
+- **Waarom:** AI-agents kunnen deze code-diffs dan direct overnemen of evalueren zonder de opmaak te verliezen.
 
-**11. Visuele Status per Repository**
-- **Wat:** Breid de `/repositories` pagina uit met metadata: "Laatst gecheckt: 5 minuten geleden" en een gekleurd bolletje (Groen/Rood) dat de API-status van die specifieke repo aangeeft.
-- **Waarom:** Geeft direct visueel vertrouwen dat het systeem goed configureerd is per repository.
+### Categorie C: Gebruikerservaring & Workflow (UI / UX)
+*Makkelijker beheer van de aggregator op je Proxmox LXC.*
 
-**12. Historische Viewer in UI (Gearchiveerde Comments)**
-- **Wat:** Maak een nieuwe tab in het dashboard ("History") waar je alle succesvol samengevoegde berichten inclusief de originele auteur(s) kunt teruglezen en doorzoeken.
-- **Waarom:** Biedt controle en inzicht, mocht je willen weten wat bots maanden geleden precies rapporteerden.
+**11. Handmatige "Aggregate Now" Knop per PR**
+- **Wat:** Een dashboard in de UI waar je openstaande PR's ziet, met een knop om direct, zonder wachten, de aggregatie te forceren.
+- **Waarom:** Soms heb je de AI-agent direct nodig en wil je niet wachten op de geconfigureerde "Batch Delay".
 
-### Categorie C: Geavanceerde Bot & Comment Logica
-*Verbeteringen aan de manier waarop GitHub-data wordt verwerkt.*
+**12. "Dry Run" / Preview Modus**
+- **Wat:** Een toggle in de UI waarmee je de tool kunt laten proefdraaien: de tool toont in het dashboard hoe de geaggregeerde post eruit zou zien, zonder hem daadwerkelijk op GitHub te plaatsen.
+- **Waarom:** Ideaal om je Markdown-templates en JSON-injecties te testen en te kijken hoe een AI-agent daarop zou reageren, zonder PR's te spammen.
 
-**13. Intelligente "Ignore" Woordenlijst (Regex Filtering)**
-- **Wat:** Maak het mogelijk om per Bot (in de DB) keywords of regex in te stellen. Als de bot een bericht post met dat keyword (bijv. "No changes detected"), wordt deze volledig overgeslagen.
-- **Waarom:** Zorgt voor veel schonere PR's door useless spam te negeren, in plaats van die spam te aggregeren.
+**13. Historisch Archief in het Dashboard**
+- **Wat:** Een logboek in de UI waar je alle samengevoegde berichten uit het verleden kunt teruglezen, inclusief een status of de AI-agent erop heeft geantwoord (indien te detecteren).
+- **Waarom:** Handig om te debuggen waarom een AI-agent een bepaalde instructie uit een eerdere comment niet begreep.
 
-**14. Inhoudelijke Deduplicatie van Bot Comments**
-- **Wat:** Voordat het geaggregeerde bericht wordt gepost, controleert de logica of meerdere bots toevallig niet *exact* dezelfde tekst (of lint-fout) hebben gerapporteerd.
-- **Waarom:** Soms triggeren meerdere lokaal geconfigureerde pipelines dezelfde fout. Deze deduplicatie logica (via simpele string similarity) voorkomt een dubbel opgemaakt overzicht.
+**14. Visuele Status Indicators per Repository**
+- **Wat:** Een groen/rood icoon op de `/repositories` pagina die toont of de verbinding met GitHub voor die specifieke repo succesvol is (validatie van repo-naam en toegangsrechten).
+- **Waarom:** Voorkomt "stil falen" als je een typfout maakt in de repo naam.
 
-**15. Automatisch "Minimizen" van Originele Comments**
-- **Wat:** Nadat de bot het verzamelde bericht plaatst, gebruikt de worker de GitHub GraphQL API om de originele losse bot-berichten als "Resolved" of "Outdated" te verbergen in GitHub's UI.
-- **Waarom:** Dit is de ultieme manier om de PR-tijdlijn schoon te maken. Nu staan zowel de losse comments als de samengevoegde comments in beeld.
+**15. Volledige Dark Mode Interface**
+- **Wat:** Voeg `dark:` varianten toe in Tailwind voor het volledige Next.js dashboard.
+- **Waarom:** Biedt een veel prettigere beheeromgeving, passend bij de meeste development setups.
 
-**16. Aanpasbare Output Templates (Markdown)**
-- **Wat:** Voeg een instellingenveld toe voor een Markdown-sjabloon (bijv. met Liquid tags of simpele string-vervangingen) voor het uiteindelijke verzamelbericht.
-- **Waarom:** Zo kun je het aggregatie-bericht de branding/styling geven die jij prefereert (bijvoorbeeld als een mooie tabel in plaats van een lijst).
+### Categorie D: Timing, Repositories & Flexibiliteit
+*Meer controle over wanneer en waar comments worden verzameld.*
 
-**17. Dynamische Delay per Repository of Bot**
-- **Wat:** Zorg dat de "Batch Delay" niet één globaal getal is, maar dat je dit per repo of per tool kunt overrulen. (Bijv. Repo A heeft een traag CI systeem en wacht 15 min, Repo B wacht 2 min).
-- **Waarom:** Veel fijnmazigere controle over de timing van de worker.
+**16. Dynamische Batch Delays per Repo**
+- **Wat:** Laat het veld "Batch Delay" (hoe lang de tool wacht op comments) instelbaar zijn per specifieke repository.
+- **Waarom:** Een grote monorepo heeft misschien CI pipelines die 15 minuten duren, terwijl een kleine repo in 2 minuten klaar is. Dit zorgt dat de AI-agent op het juiste moment getriggerd wordt.
 
-**18. Specifieke Branch Whitelisting**
-- **Wat:** Voeg in de UI de mogelijkheid toe om aan te geven dat een Repo alleen comments hoeft te scannen als de Pull Request naar `main` of `develop` gaat.
-- **Waarom:** Bespaart API requests voor kleine WIP/Draft test-branches.
+**17. Branch-Specifieke Aggregatie (Whitelisting)**
+- **Wat:** Voeg instellingen toe om de tool alleen te laten werken op specifieke branches, bijvoorbeeld alleen op PR's gericht naar `main` of `develop`.
+- **Waarom:** Voorkomt onnodige activering van AI-agents (die wellicht duur zijn in API kosten) op tijdelijke WIP- of experimentele branches.
 
-**19. Meerdere Auteurs (Multi-Token Support)**
-- **Wat:** De architectuur voorbereiden op meerdere users, zodat je een `Account` model aanmaakt en per Repo aangeeft welke token gebruikt moet worden om de uiteindelijke post te plaatsen.
-- **Waarom:** Zeer waardevol als je dit project wilt scheiden tussen persoonlijke hobby repo's en professionele werkrepo's die verschillende identiteiten vereisen.
+**18. Specifieke Target-Branches (Blacklisting)**
+- **Wat:** De mogelijkheid om bepaalde branches (zoals `gh-pages` of geautomatiseerde release-branches) volledig uit te sluiten van comment aggregatie.
+- **Waarom:** Voorkomt spam en onnodige verwerkingstijd.
 
-### Categorie D: Architectuur, Stabiliteit & DevOps
-*Zekerheid inbouwen voor 24/7 lokale hosting.*
+**19. Multi-Account Ondersteuning**
+- **Wat:** Voeg de mogelijkheid toe om meerdere GitHub Personal Access Tokens in te stellen en wijs per repository een token (identiteit) toe.
+- **Waarom:** Zo kan de ene AI-agent getriggerd worden onder naam A op repo X, en een andere onder naam B op repo Y.
 
-**20. Volledige Docker & Docker Compose Support**
-- **Wat:** Voeg een geoptimaliseerde multistage `Dockerfile` en een `docker-compose.yml` toe.
-- **Waarom:** Elimineert afhankelijkheden van LXC OS-packages (zoals specifieke node/PM2 versies) en maakt back-uppen van de SQLite volume kinderspel.
+**20. Update van Bestaande Aggregaties (Samenvoegen i.p.v. Nieuwe Posts)**
+- **Wat:** Als er binnen een lopende sessie wéér een trage bot comment binnenkomt, maakt de tool geen tweede verzamelbericht, maar bewerkt hij via de API het eerste bericht en voegt de nieuwe info toe.
+- **Waarom:** Houdt de GitHub chat extreem schoon; de AI-agent hoeft maar naar 1 "master" bericht te kijken in plaats van versnipperde posts.
 
-**21. Ontvangen van GitHub Webhooks (Event-driven Architecture)**
-- **Wat:** Ontwikkel een API route `/api/webhooks/github` die Push/Comment events ontvangt direct van GitHub, als vervanging (of aanvulling) op het pollen elke 60 seconden.
-- **Waarom:** Maakt de tool instant en verbruikt nagenoeg nul GitHub REST API rate limits. (Mits je LXC netwerk bereikbaar is voor GitHub via bijv. Cloudflare Tunnels).
+### Categorie E: Architectuur & Betrouwbaarheid (DevOps)
+*Verbeteringen voor langdurig en stabiel gebruik op Proxmox.*
+
+**21. Ontvangen van GitHub Webhooks (Event-driven)**
+- **Wat:** Ontwikkel een `/api/webhooks` endpoint in Next.js om pushberichten van GitHub op te vangen zodra een bot comment.
+- **Waarom:** Pollen (elke minuut checken) is inefficiënt en vreet GitHub API limieten op. Webhooks maken het proces instant en limiet-vrij.
 
 **22. Rate Limit Bewaking (Auto-Pauze)**
-- **Wat:** Voeg logica toe in `getOctokit` die de response header `x-ratelimit-remaining` uitleest. Zakt dit onder een kritieke grens (bijv. < 50), dan pauzeert de worker zichzelf voor een uur en toont hij dit luid in het Dashboard.
-- **Waarom:** Voorkomt langdurige API bans vanuit GitHub.
+- **Wat:** Lees de `x-ratelimit-remaining` headers van GitHub API calls uit. Als deze te laag worden, pauzeert de worker tijdelijk en toont een waarschuwing in het UI dashboard.
+- **Waarom:** Voorkomt dat je LXC-IP of GitHub token tijdelijk geblokkeerd wordt door te agressief te pollen.
 
 **23. Database Auto-Pruning Systeem**
-- **Wat:** Voeg logica toe in de worker die 1x per week draait om oude data (bijv. afgehandelde sessies en processedcomments ouder dan 60 dagen) fysiek uit de SQLite te verwijderen (`DELETE FROM`).
-- **Waarom:** Dit is cruciaal voor een lokaal, set-and-forget systeem; het voorkomt dat de database na een jaar pijnlijk langzaam wordt of te veel LXC opslag kost.
+- **Wat:** Een ingebouwde cronjob of worker-taak die oude `ProcessedComment` records in de SQLite database (ouder dan bijv. 60 dagen) automatisch weggooit.
+- **Waarom:** Cruciaal voor een hobby-tool op een LXC container; dit voorkomt dat de lokale opslag volloopt en de database langzaam wordt.
 
-**24. Gecentraliseerde File-Logging (Winston / Pino)**
-- **Wat:** Vervang de simpele `console.log` met een gestructureerde logger (zoals `winston`), die fouten wegschrijft naar JSON-geformatteerde logfiles in een `./logs` map inclusief bestandsrotatie.
-- **Waarom:** Hierdoor kunnen je AI-agents of andere monitoringstools op je Proxmox de error-logs veel eenvoudiger analyseren dan wanneer het vastzit in PM2 console output.
+**24. Gecentraliseerde File-based Logging**
+- **Wat:** Implementeer `winston` of `pino` om errors niet alleen naar de console te sturen, maar ook roterend op te slaan in `.log` bestanden op de schijf.
+- **Waarom:** Biedt je de mogelijkheid om achteraf te debuggen waarom een bepaalde bot comment niet is geaggregeerd, zonder de live console in de gaten te hoeven houden.
 
-**25. Lokale Netwerk Toegangsbeveiliging (Basic Security)**
-- **Wat:** Voeg Next.js Middleware toe voor het afschermen van de Admin/Settings endpoints door middel van een simpel vast wachtwoord (.env of database).
-- **Waarom:** Zelfs op een lokaal netwerk wil je soms vermijden dat andere apparaten/gebruikers onbedoeld bij de ruwe GitHub token in de settings interface kunnen komen.
+**25. Docker & Docker Compose Ondersteuning**
+- **Wat:** Voeg een `Dockerfile` en `docker-compose.yml` toe met de juiste Node.js en SQLite configuratie.
+- **Waarom:** Maakt de installatie op je Proxmox veel robuuster en reproduceerbaar, onafhankelijk van lokaal geïnstalleerde pakketten op de LXC.
