@@ -54,5 +54,6 @@ model BatchSession {
   firstSeenAt  DateTime @default(now())
   isProcessed  Boolean  @default(false)
   isProcessing Boolean  @default(false)
-  // Removed unique constraint that prevented multiple batches per PR
+
+  @@index([prNumber, repoOwner, repoName, isProcessed])
 }

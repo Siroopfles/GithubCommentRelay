@@ -4,46 +4,79 @@ import { useForm } from 'react-hook-form'
 
 type SettingsForm = {
   githubToken: string
-  pollingInterval: number
-  batchDelay: number
+  pollingInterval: string
+  batchDelay: string
 }
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+  const [hasToken, setHasToken] = useState(false)
   const { register, handleSubmit, reset } = useForm<SettingsForm>()
 
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
-        if (data) {
+        if (data && !data.error) {
+          setHasToken(data.hasGithubToken)
           reset({
-            githubToken: data.githubToken || '',
-            pollingInterval: data.pollingInterval,
-            batchDelay: data.batchDelay
+            githubToken: '', // Never pre-fill
+            pollingInterval: data.pollingInterval?.toString() || '60',
+            batchDelay: data.batchDelay?.toString() || '5'
           })
         }
+      })
+      .catch(() => {
+        setMessage({ type: 'error', text: 'Failed to load settings.' })
+      })
+      .finally(() => {
         setIsLoading(false)
       })
   }, [reset])
 
   const onSubmit = async (data: SettingsForm) => {
     setMessage(null)
+
+    const pollingInterval = Number(data.pollingInterval)
+    const batchDelay = Number(data.batchDelay)
+
+    if (!Number.isFinite(pollingInterval) || pollingInterval <= 0) {
+      setMessage({ type: 'error', text: 'Polling Interval must be a valid positive number.' })
+      return
+    }
+    if (!Number.isFinite(batchDelay) || batchDelay <= 0) {
+      setMessage({ type: 'error', text: 'Batch Delay must be a valid positive number.' })
+      return
+    }
+
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          githubToken: data.githubToken,
-          pollingInterval: Number(data.pollingInterval),
-          batchDelay: Number(data.batchDelay)
+          ...(data.githubToken ? { githubToken: data.githubToken } : {}),
+          pollingInterval,
+          batchDelay
         })
       })
-      if (!res.ok) throw new Error('Failed to save settings')
+
+      const responseData = await res.json()
+
+      if (!res.ok) {
+        throw new Error(responseData.error || 'Failed to save settings')
+      }
+
+      setHasToken(responseData.hasGithubToken)
+      reset({
+        githubToken: '', // Clear token field after save
+        pollingInterval: responseData.pollingInterval.toString(),
+        batchDelay: responseData.batchDelay.toString()
+      })
+
       setMessage({ type: 'success', text: 'Settings saved successfully' })
-    } catch {
-      setMessage({ type: 'error', text: 'An error occurred while saving settings' })
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'An error occurred while saving settings' })
     }
   }
 
@@ -66,9 +99,9 @@ export default function SettingsPage() {
             type="password"
             {...register('githubToken')}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black"
-            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            placeholder={hasToken ? "Token is securely stored. Enter a new one to update." : "ghp_xxxxxxxxxxxxxxxxxxxx"}
           />
-          <p className="mt-2 text-xs text-gray-500">This token will be used to post the aggregated comments under your name. Make sure it has `repo` permissions.</p>
+          <p className="mt-2 text-xs text-gray-500">This token will be used to post the aggregated comments under your name. Ensure it has fine-grained read/write permissions for issues and pull requests.</p>
         </div>
 
         <div>

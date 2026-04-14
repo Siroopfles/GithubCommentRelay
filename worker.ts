@@ -232,6 +232,16 @@ async function processRepositories() {
 }
 
 async function start() {
+  console.log('Cleaning up any stuck processing sessions from previous runs...')
+  try {
+    await prisma.batchSession.updateMany({
+      where: { isProcessing: true },
+      data: { isProcessing: false }
+    })
+  } catch (err) {
+    console.error('Failed to clean up stuck sessions:', err)
+  }
+
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
   const interval = settings?.pollingInterval || 60
 
