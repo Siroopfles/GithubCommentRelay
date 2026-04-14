@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Settings {
+  id             Int      @id @default(1)
+  githubToken    String?
+  pollingInterval Int      @default(60) // In seconds
+  batchDelay     Int      @default(5)  // In minutes
+  updatedAt      DateTime @updatedAt
+}
+
+model Repository {
+  id        String   @id @default(cuid())
+  owner     String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  @@unique([owner, name])
+}
+
+model TargetReviewer {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ProcessedComment {
+  id         String   @id @default(cuid())
+  commentId  BigInt
+  source     String
+  prNumber   Int
+  repoOwner  String
+  repoName   String
+  author     String
+  body       String
+  postedAt   DateTime
+  processedAt DateTime @default(now())
+
+  @@unique([commentId, source])
+  @@index([repoOwner, repoName, prNumber, postedAt])
+}
+
+model BatchSession {
+  id           String   @id @default(cuid())
+  prNumber     Int
+  repoOwner    String
+  repoName     String
+  firstSeenAt  DateTime @default(now())
+  isProcessed  Boolean  @default(false)
+  isProcessing Boolean  @default(false)
+
+  @@index([prNumber, repoOwner, repoName, isProcessed])
+}
