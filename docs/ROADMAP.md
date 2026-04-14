@@ -11,10 +11,10 @@
     *   `mergeStrategy` (String: 'merge', 'squash', 'rebase')
 *   **Worker Logic (`worker.ts`):**
     *   Currently, the worker checks for open PRs and aggregates comments. We need to expand this to also check the *status* of PRs.
-    *   Use the GitHub API (`octokit.rest.pulls.get`) to check if the PR is `mergeable`.
-    *   Use the GitHub API (`octokit.rest.checks.listForRef` or `octokit.rest.repos.getCombinedStatusForRef`) to verify CI/CD pipelines.
-    *   Use `octokit.rest.pulls.listReviews` to ensure necessary approvals are met.
-    *   If conditions are met, trigger the merge using `octokit.rest.pulls.merge`.
+    *   Check if a PR is mergeable using `octokit.rest.pulls.get`. This requires a retry/polling strategy with exponential backoff and a timeout to wait until `mergeable !== null` before acting.
+    *   Verify CI/CD pipelines using `octokit.rest.checks.listForRef` or `octokit.rest.repos.getCombinedStatusForRef`.
+    *   Ensure approvals via `octokit.rest.pulls.listReviews`. This requires client-side aggregation — compute each reviewer's latest non-dismissed state (APPROVED, CHANGES_REQUESTED, or COMMENT) by filtering out dismissed reviews and using the most recent review per reviewer. Then determine the effective approvals count and whether any outstanding CHANGES_REQUESTED blocks merging.
+    *   Only proceed to call `octokit.rest.pulls.merge` after (1) `mergeable === true`, (2) CI checks report success, and (3) the aggregated review state meets the required approval policy.
 *   **Database Schema (`prisma/schema.prisma`):**
     *   Update `Repository` or `Settings` models to store the auto-merge rules.
     *   Perhaps log auto-merge events in a new table `AutoMergeLog` for the Dashboard.
@@ -36,12 +36,12 @@
 *   **Verification Mechanism:** How do we know if a comment was "successfully forwarded"?
     *   *Option A:* Does the Jules API provide an endpoint to verify if a comment exists?
     *   *Option B:* Does Jules leave a "receipt" (like an emoji reaction or another comment on GitHub) that we can detect?
-    *   *Option C:* Do we just blindly send it if it's past the delay and we haven't tracked sending it ourselves?
+    *   *Option C:* Disallow blind resends. Require checking the delivery status using the chosen mechanism.
 *   **Worker Extension (`worker.ts`):**
-    *   We are already tracking comments in `ProcessedComment`. We might need to add a flag `forwardedToJules` (Boolean).
-    *   Create a new cron-like process (or expand the existing one) that queries `ProcessedComment` where `postedAt < NOW() - julesChatForwardDelay` AND `forwardedToJules == false`.
-    *   For these comments, verify if they were forwarded (using the mechanism chosen above).
-    *   If not, post them to the Jules chat using the Jules API and update the `forwardedToJules` flag to true.
+    *   We are already tracking comments in `ProcessedComment`. We might need to add a flag `forwardedToJules` (Boolean). This flag must be authoritative to enforce idempotent delivery.
+    *   Create a new cron-like process (or expand the existing one) that queries `ProcessedComment` where `postedAt < cutoffTime` AND `forwardedToJules == false`. The `cutoffTime` should be computed in the application (e.g., UTC now minus `julesChatForwardDelay`) to avoid DB/timezone drift.
+    *   For these comments, first verify delivery using the chosen mechanism (e.g., delivery status check or persisted unique key based on GitHub comment ID) before posting to the Jules API.
+    *   Mark `forwardedToJules` as true only after a confirmed successful post. Add/document a retry policy and unique delivery key (GitHub comment ID + delivery status) to guarantee idempotency and prevent duplicate/noisy resends.
 *   **Database Schema (`prisma/schema.prisma`):**
     *   Add `julesChatForwardDelay` to the `Settings` model.
     *   Add `forwardedToJules` to the `ProcessedComment` model (default `false`).
