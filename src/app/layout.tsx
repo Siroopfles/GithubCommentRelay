@@ -2,7 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
-import { Settings, GitBranch, Users, Activity } from 'lucide-react'
+import { Settings, GitBranch, Users, Activity, FileText } from 'lucide-react'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -41,6 +41,10 @@ export default function RootLayout({
                 <Link href="/reviewers" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                   <Users size={20} />
                   Reviewers
+                </Link>
+                <Link href="/logs" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                  <FileText size={20} />
+                  Logs
                 </Link>
                 <Link href="/settings" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                   <Settings size={20} />

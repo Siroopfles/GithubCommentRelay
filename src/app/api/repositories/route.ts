@@ -7,13 +7,20 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy } = await request.json()
   try {
     const repo = await prisma.repository.create({
-      data: { owner, name }
+      data: {
+        owner,
+        name,
+        autoMergeEnabled: autoMergeEnabled || false,
+        requiredApprovals: requiredApprovals !== undefined ? parseInt(requiredApprovals, 10) : 1,
+        requireCI: requireCI !== undefined ? requireCI : true,
+        mergeStrategy: mergeStrategy || 'merge'
+      }
     })
     return NextResponse.json(repo)
   } catch (error) {
-    return NextResponse.json({ error: 'Repository already exists' }, { status: 400 })
+    return NextResponse.json({ error: 'Repository already exists or validation failed' }, { status: 400 })
   }
 }

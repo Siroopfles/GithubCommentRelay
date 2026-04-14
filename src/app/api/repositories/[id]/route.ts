@@ -6,12 +6,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const json = await request.json()
-    if (typeof json.isActive !== 'boolean') {
-      return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
+    const updateData: any = {}
+
+    if (json.isActive !== undefined) {
+      if (typeof json.isActive !== 'boolean') {
+        return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
+      }
+      updateData.isActive = json.isActive
     }
+
+    if (json.autoMergeEnabled !== undefined) {
+      updateData.autoMergeEnabled = Boolean(json.autoMergeEnabled)
+    }
+
+    if (json.requiredApprovals !== undefined) {
+      updateData.requiredApprovals = parseInt(json.requiredApprovals, 10)
+    }
+
+    if (json.requireCI !== undefined) {
+      updateData.requireCI = Boolean(json.requireCI)
+    }
+
+    if (json.mergeStrategy !== undefined) {
+      if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) {
+        return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 })
+      }
+      updateData.mergeStrategy = json.mergeStrategy
+    }
+
     const repo = await prisma.repository.update({
       where: { id },
-      data: { isActive: json.isActive }
+      data: updateData
     })
     return NextResponse.json(repo)
   } catch (error: any) {
