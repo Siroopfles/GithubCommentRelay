@@ -1,4 +1,4 @@
-# Future Roadmap & Brainstorming
+# Toekomstige Ideeën & Brainstorming
 
 ## 1. Automatic Pull Request Merging
 **Goal**: The application should be able to automatically merge Pull Requests after certain conditions are met.
@@ -46,7 +46,7 @@
     *   Add `julesChatForwardDelay` to the `Settings` model.
     *   Add `forwardedToJules` to the `ProcessedComment` model (default `false`).
 
-## Summary of Next Steps for Implementation
+## Samenvatting van volgende stappen
 1.  **Gather Jules API Specs:** Obtain exact API URLs, authentication methods, and payload structures for (a) creating tasks and (b) posting chat messages.
 2.  **Define Auto-Merge Rules:** Clarify exactly when a PR is "ready" to be merged (CI passing, approvals, etc.).
 3.  **Define Verification Logic:** Determine the exact method to verify if a comment has already reached Jules chat.
