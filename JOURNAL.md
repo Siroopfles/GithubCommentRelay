@@ -35,3 +35,32 @@ We also established that this journal file (`JOURNAL.md`) will serve as persiste
 - The auto-merge feature heavily relies on the PR being owned by the same user who provided the GitHub Token (`pr.user.login === currentUser.login`).
 - `node-cron` and intervals are used for polling. Next steps on the roadmap involve Jules API integration.
 - The `JOURNAL.md` should be appended to at the end of each future session.
+
+## Session: Jules API Integration (Task Scheduling & Comment Forwarding)
+**Date**: 2026-04-15
+
+### Context
+The user requested implementation of the second and third items from `docs/ROADMAP.md`:
+2. "Jules API Integration (Task Scheduling)" - automatically starting a new Jules session after a PR is auto-merged.
+3. "Forwarding GitHub Comments to Jules Chat with Delay" - mirroring aggregated bot comments to the Jules session if configured.
+
+### Changes Made
+1. **Database Schema (`prisma/schema.prisma`)**
+   - Added `julesApiKey` to the `Settings` model.
+   - Added `taskSourceType`, `taskSourcePath`, `julesPromptTemplate`, `julesChatForwardMode`, and `julesChatForwardDelay` to the `Repository` model.
+   - Added `forwardedToJules` boolean field to the `ProcessedComment` model to track which comments have successfully reached Jules chat.
+   - Executed a Prisma migration (`add_jules_fields`).
+2. **Web UI & API**
+   - Updated `/api/settings` and `/app/settings/page.tsx` to handle the `julesApiKey` input fields and save logic.
+   - Updated `/api/repositories/*` and `/app/repositories/page.tsx` with UI controls for the new repository settings: task source type, prompt template, and forward modes (Always vs Failsafe).
+3. **Jules API Client (`src/lib/julesApi.ts`)**
+   - Built an HTTP client mapping the provided REST API documentation (v1alpha) supporting `createSession` and `sendMessage`.
+4. **Worker Logic (`worker.ts` & `patch_failsafe.ts`)**
+   - Implemented comment forwarding: extracting the `sessionId` via regex from PR descriptions (`jules.google.com/task/<id>`).
+   - Added logic for both "always" (forward right after aggregation) and "failsafe" (delayed forwarding using a separate `processFailsafeForwarding` check).
+   - Added task scheduling: pulling open issues from the GitHub API and creating a new Jules session upon successful PR merge.
+
+### Notes for Future Sessions
+- Task source type "local_folder" has placeholder logic for the actual filesystem reading since we depend on the user's explicit path which was outside the current requirements depth.
+- The regex correctly targets `jules.google.com/task/(\d+)` to find the active session.
+- `julesApiKey` must be configured in settings to trigger the new functionality.

@@ -1,0 +1,11 @@
+
+> github-bot@0.1.0 start
+> next start
+
+▲ Next.js 16.2.3
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 211ms
+prisma:query SELECT `main`.`Settings`.`id`, `main`.`Settings`.`githubToken`, `main`.`Settings`.`pollingInterval`, `main`.`Settings`.`batchDelay`, `main`.`Settings`.`julesApiKey`, `main`.`Settings`.`updatedAt` FROM `main`.`Settings` WHERE (`main`.`Settings`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Repository`.`id`, `main`.`Repository`.`owner`, `main`.`Repository`.`name`, `main`.`Repository`.`isActive`, `main`.`Repository`.`autoMergeEnabled`, `main`.`Repository`.`requiredApprovals`, `main`.`Repository`.`requireCI`, `main`.`Repository`.`mergeStrategy`, `main`.`Repository`.`taskSourceType`, `main`.`Repository`.`taskSourcePath`, `main`.`Repository`.`julesPromptTemplate`, `main`.`Repository`.`julesChatForwardMode`, `main`.`Repository`.`julesChatForwardDelay`, `main`.`Repository`.`createdAt` FROM `main`.`Repository` WHERE 1=1 ORDER BY `main`.`Repository`.`createdAt` DESC LIMIT ? OFFSET ?

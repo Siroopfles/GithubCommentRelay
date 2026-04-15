@@ -37,6 +37,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.requireCI = json.requireCI
     }
 
+    if (json.taskSourceType !== undefined) {
+      if (!["none", "local_folder", "github_issues"].includes(json.taskSourceType)) {
+        return NextResponse.json({ error: "Invalid taskSourceType" }, { status: 400 })
+      }
+      updateData.taskSourceType = json.taskSourceType
+    }
+    if (json.taskSourcePath !== undefined) {
+      updateData.taskSourcePath = json.taskSourcePath === "" ? null : json.taskSourcePath
+    }
+    if (json.julesPromptTemplate !== undefined) {
+      updateData.julesPromptTemplate = json.julesPromptTemplate === "" ? null : json.julesPromptTemplate
+    }
+    if (json.julesChatForwardMode !== undefined) {
+      if (!["off", "always", "failsafe"].includes(json.julesChatForwardMode)) {
+        return NextResponse.json({ error: "Invalid julesChatForwardMode" }, { status: 400 })
+      }
+      updateData.julesChatForwardMode = json.julesChatForwardMode
+    }
+    if (json.julesChatForwardDelay !== undefined) {
+      const delay = parseInt(json.julesChatForwardDelay, 10)
+      if (isNaN(delay) || delay < 0) {
+        return NextResponse.json({ error: "julesChatForwardDelay must be a non-negative number" }, { status: 400 })
+      }
+      updateData.julesChatForwardDelay = delay
+    }
+
     if (json.mergeStrategy !== undefined) {
       if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) {
         return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 })

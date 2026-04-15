@@ -1,3 +1,5 @@
+import { processFailsafeForwarding } from "./patch_failsafe";
+import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { Octokit } from 'octokit'
 // @ts-ignore
@@ -176,6 +178,58 @@ async function processRepositories() {
                   console.error('Failed to log auto-merge success:', logError);
                 }
 
+                // Jules Task Scheduling
+                if (settings?.julesApiKey && repo.taskSourceType !== 'none') {
+                  try {
+                    let taskTitle = '';
+                    let taskBody = '';
+                    let sourceRevision = '';
+
+                    if (repo.taskSourceType === 'github_issues') {
+                      const { data: issues } = await octokit.rest.issues.listForRepo({
+                        owner: repo.owner,
+                        repo: repo.name,
+                        state: 'open',
+                        sort: 'created',
+                        direction: 'asc',
+                        per_page: 1
+                      });
+
+                      // Filter out PRs (GitHub API returns PRs as issues)
+                      const actualIssues = issues.filter((issue: any) => !issue.pull_request);
+
+                      if (actualIssues.length > 0) {
+                        taskTitle = actualIssues[0].title;
+                        taskBody = actualIssues[0].body || '';
+                        sourceRevision = `refs/heads/${actualIssues[0].number}-fix`;
+                      }
+                    } else if (repo.taskSourceType === 'local_folder') {
+                       taskTitle = 'Next task from ' + (repo.taskSourcePath || 'local folder');
+                       taskBody = 'Read the next task from the configured local folder.';
+                    }
+
+                    if (taskTitle) {
+                       const promptTemplate = repo.julesPromptTemplate || "Start with the next task: {{task_title}}. Details: {{task_body}}.";
+                       const prompt = promptTemplate
+                         .replace(/\{\{task_title\}\}/g, taskTitle)
+                         .replace(/\{\{task_body\}\}/g, taskBody);
+
+                       await createSession(
+                         settings.julesApiKey,
+                         prompt,
+                         `github.com/${repo.owner}/${repo.name}`,
+                         sourceRevision || 'refs/heads/main'
+                       );
+                       console.log(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
+                    } else {
+                       console.log(`No pending tasks found for ${repo.owner}/${repo.name} (${repo.taskSourceType})`);
+                    }
+                  } catch (e) {
+                    console.error(`Failed to schedule next Jules task:`, e);
+                  }
+                }
+
+
                 // Skip the comment gathering if we just merged it.
                 continue;
               }
@@ -329,6 +383,8 @@ async function processRepositories() {
     const batchDelayMs = (settings.batchDelay || 5) * 60 * 1000
     const now = new Date().getTime()
 
+    await processFailsafeForwarding(prisma, octokit, settings)
+
     const pendingSessions = await prisma.batchSession.findMany({
       where: { isProcessed: false, isProcessing: false }
     })
@@ -379,9 +435,48 @@ async function processRepositories() {
               body: aggregatedBody
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+          // Jules Comment Forwarding
+          if (commentsToBatch.length > 0) {
+            const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
+            if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
+              const { data: pullRequest } = await octokit.rest.pulls.get({
+                owner: session.repoOwner,
+                repo: session.repoName,
+                pull_number: session.prNumber
+              })
+              const sessionIdMatch = pullRequest.body?.match(/jules\.google\.com\/task\/(\d+)/)
+              if (sessionIdMatch) {
+                const sessionId = sessionIdMatch[1]
+                let shouldForward = false
+                if (repoConfig.julesChatForwardMode === "always") {
+                   shouldForward = true
+                } else if (repoConfig.julesChatForwardMode === "failsafe") { /* Failsafe is handled by processFailsafeForwarding */ }
+                if (shouldForward) {
+                  try {
+                     await sendMessage(settings.julesApiKey, sessionId, aggregatedBody)
+                     await prisma.processedComment.updateMany({
+                       where: {
+                         prNumber: session.prNumber,
+                         repoOwner: session.repoOwner,
+                         repoName: session.repoName,
+                         postedAt: { gte: session.firstSeenAt }
+                       },
+                       data: { forwardedToJules: true }
+                     })
+                     console.log(`Forwarded aggregated comment to Jules session ${sessionId}`)
+                  } catch (e) {
+                     console.error(`Failed to forward comment to Jules:`, e)
+                  }
+                }
+              }
+            }
+          }
+
           }
 
           // Mark as fully processed
+
+
           await prisma.batchSession.update({
             where: { id: session.id },
             data: { isProcessed: true, isProcessing: false }
@@ -389,6 +484,8 @@ async function processRepositories() {
         } catch (error) {
           console.error(`Failed to process batch for PR #${session.prNumber}:`, error)
           // Revert claim on failure so it can be retried
+
+
           await prisma.batchSession.update({
             where: { id: session.id },
             data: { isProcessing: false }

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Trash2, Edit2, X, Save } from 'lucide-react'
 
+type RepoForm = Omit<Repo, "id" | "isActive" | "createdAt">;
 type Repo = {
   id: string
   owner: string
@@ -12,6 +13,11 @@ type Repo = {
   requiredApprovals: number
   requireCI: boolean
   mergeStrategy: 'merge' | 'squash' | 'rebase'
+    taskSourceType: string
+    taskSourcePath?: string
+    julesPromptTemplate?: string
+    julesChatForwardMode: string
+    julesChatForwardDelay: number
 }
 
 export default function RepositoriesPage() {
@@ -25,6 +31,11 @@ export default function RepositoriesPage() {
     requiredApprovals: number
     requireCI: boolean
     mergeStrategy: 'merge' | 'squash' | 'rebase'
+    taskSourceType: string
+    taskSourcePath?: string
+    julesPromptTemplate?: string
+    julesChatForwardMode: string
+    julesChatForwardDelay: number
   }>({
     defaultValues: {
       autoMergeEnabled: false,
@@ -128,7 +139,12 @@ export default function RepositoriesPage() {
           autoMergeEnabled: data.autoMergeEnabled,
           requiredApprovals: data.requiredApprovals,
           requireCI: data.requireCI,
-          mergeStrategy: data.mergeStrategy
+          mergeStrategy: data.mergeStrategy,
+          taskSourceType: data.taskSourceType,
+          taskSourcePath: data.taskSourcePath,
+          julesPromptTemplate: data.julesPromptTemplate,
+          julesChatForwardMode: data.julesChatForwardMode,
+          julesChatForwardDelay: data.julesChatForwardDelay
         })
       })
       if (res.ok) {
@@ -155,6 +171,37 @@ export default function RepositoriesPage() {
           <div className="flex-1">
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">Repository Name</label>
             <input id="name" {...register('name', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. vscode" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div>
+            <label htmlFor="taskSourceType" className="block text-sm font-medium text-gray-700 mb-2">Jules Task Source</label>
+            <select id="taskSourceType" {...register("taskSourceType")} className="w-full px-4 py-2 border border-gray-300 rounded-md">
+              <option value="none">None</option>
+              <option value="local_folder">Local Folder</option>
+              <option value="github_issues">GitHub Issues</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="taskSourcePath" className="block text-sm font-medium text-gray-700 mb-2">Source Path (Folder)</label>
+            <input id="taskSourcePath" {...register("taskSourcePath")} className="w-full px-4 py-2 border border-gray-300 rounded-md" placeholder="e.g. docs/tasks/" />
+          </div>
+          <div>
+            <label htmlFor="julesPromptTemplate" className="block text-sm font-medium text-gray-700 mb-2">Prompt Template</label>
+            <input id="julesPromptTemplate" {...register("julesPromptTemplate")} className="w-full px-4 py-2 border border-gray-300 rounded-md" placeholder="{{task_title}}" />
+          </div>
+          <div>
+            <label htmlFor="julesChatForwardMode" className="block text-sm font-medium text-gray-700 mb-2">Comment Forwarding</label>
+            <select id="julesChatForwardMode" {...register("julesChatForwardMode")} className="w-full px-4 py-2 border border-gray-300 rounded-md">
+              <option value="off">Off</option>
+              <option value="always">Always</option>
+              <option value="failsafe">Failsafe (Delay)</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="julesChatForwardDelay" className="block text-sm font-medium text-gray-700 mb-2">Failsafe Delay (min)</label>
+            <input id="julesChatForwardDelay" type="number" min="0" {...register("julesChatForwardDelay")} className="w-full px-4 py-2 border border-gray-300 rounded-md" />
           </div>
         </div>
 
@@ -213,6 +260,34 @@ export default function RepositoriesPage() {
                         Editing Settings for: {repo.owner} / {repo.name}
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label htmlFor="editTaskSourceType" className="block text-xs text-gray-500 mb-1">Task Source</label>
+                          <select id="editTaskSourceType" {...registerEdit("taskSourceType")} className="w-full px-2 py-1 border rounded">
+                            <option value="none">None</option>
+                            <option value="local_folder">Local Folder</option>
+                            <option value="github_issues">GitHub Issues</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="editTaskSourcePath" className="block text-xs text-gray-500 mb-1">Source Path</label>
+                          <input id="editTaskSourcePath" {...registerEdit("taskSourcePath")} className="w-full px-2 py-1 border rounded" />
+                        </div>
+                        <div>
+                          <label htmlFor="editJulesPromptTemplate" className="block text-xs text-gray-500 mb-1">Prompt Template</label>
+                          <input id="editJulesPromptTemplate" {...registerEdit("julesPromptTemplate")} className="w-full px-2 py-1 border rounded" />
+                        </div>
+                        <div>
+                          <label htmlFor="editJulesChatForwardMode" className="block text-xs text-gray-500 mb-1">Forwarding</label>
+                          <select id="editJulesChatForwardMode" {...registerEdit("julesChatForwardMode")} className="w-full px-2 py-1 border rounded">
+                            <option value="off">Off</option>
+                            <option value="always">Always</option>
+                            <option value="failsafe">Failsafe</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="editJulesChatForwardDelay" className="block text-xs text-gray-500 mb-1">Failsafe Delay (min)</label>
+                          <input id="editJulesChatForwardDelay" type="number" min="0" {...registerEdit("julesChatForwardDelay")} className="w-full px-2 py-1 border rounded" />
+                        </div>
                         <div>
                           <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 mb-1">Auto Merge</label>
                           <input id="editAutoMergeEnabled" type="checkbox" {...registerEdit('autoMergeEnabled')} className="h-5 w-5" />

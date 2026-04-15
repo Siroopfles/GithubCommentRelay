@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -26,7 +26,12 @@ export async function POST(request: Request) {
         autoMergeEnabled: autoMergeEnabled || false,
         requiredApprovals: parsedApprovals,
         requireCI: requireCI !== undefined ? requireCI : true,
-        mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge'
+        mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge',
+        taskSourceType: taskSourceType || 'none',
+        taskSourcePath: taskSourcePath || null,
+        julesPromptTemplate: julesPromptTemplate || null,
+        julesChatForwardMode: julesChatForwardMode || 'off',
+        julesChatForwardDelay: julesChatForwardDelay !== undefined ? parseInt(julesChatForwardDelay, 10) : 5
       }
     })
     return NextResponse.json(repo)
