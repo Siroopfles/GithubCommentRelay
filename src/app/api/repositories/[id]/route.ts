@@ -16,7 +16,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (json.autoMergeEnabled !== undefined) {
-      if (typeof json.autoMergeEnabled === 'boolean') updateData.autoMergeEnabled = json.autoMergeEnabled
+      if (typeof json.autoMergeEnabled !== 'boolean') {
+        return NextResponse.json({ error: 'autoMergeEnabled must be a boolean' }, { status: 400 })
+      }
+      updateData.autoMergeEnabled = json.autoMergeEnabled
     }
 
     if (json.requiredApprovals !== undefined) {
@@ -28,7 +31,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (json.requireCI !== undefined) {
-      if (typeof json.requireCI === 'boolean') updateData.requireCI = json.requireCI
+      if (typeof json.requireCI !== 'boolean') {
+        return NextResponse.json({ error: 'requireCI must be a boolean' }, { status: 400 })
+      }
+      updateData.requireCI = json.requireCI
     }
 
     if (json.mergeStrategy !== undefined) {

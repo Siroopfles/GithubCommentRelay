@@ -86,7 +86,8 @@ async function processRepositories() {
                 const { data: checkRuns } = await octokit.rest.checks.listForRef({
                   owner: repo.owner,
                   repo: repo.name,
-                  ref
+                  ref,
+                  per_page: 100
                 });
 
                 const allChecksSuccessful = checkRuns.check_runs.every(
