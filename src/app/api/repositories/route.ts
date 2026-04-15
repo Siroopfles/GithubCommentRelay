@@ -8,13 +8,23 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy } = await request.json()
+
+  // Validate requiredApprovals
+  let parsedApprovals = 1;
+  if (requiredApprovals !== undefined) {
+    parsedApprovals = parseInt(requiredApprovals, 10);
+    if (isNaN(parsedApprovals) || parsedApprovals < 0) {
+      return NextResponse.json({ error: 'requiredApprovals must be a non-negative number' }, { status: 400 });
+    }
+  }
+
   try {
     const repo = await prisma.repository.create({
       data: {
         owner,
         name,
         autoMergeEnabled: autoMergeEnabled || false,
-        requiredApprovals: requiredApprovals !== undefined ? Math.max(0, parseInt(requiredApprovals, 10) || 0) : 1,
+        requiredApprovals: parsedApprovals,
         requireCI: requireCI !== undefined ? requireCI : true,
         mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge'
       }

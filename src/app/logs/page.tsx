@@ -52,10 +52,14 @@ export default function LogsPage() {
                   {log.repoOwner}/{log.repoName} # {log.prNumber}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {log.status === 'SUCCESS' ? (
+                  {log.status === 'SUCCESS' && (
                     <span className="flex items-center gap-1 text-green-600 text-sm font-medium"><CheckCircle size={16}/> Success</span>
-                  ) : (
+                  )}
+                  {log.status === 'FAILED' && (
                     <span className="flex items-center gap-1 text-red-600 text-sm font-medium"><XCircle size={16}/> Failed</span>
+                  )}
+                  {log.status === 'SKIPPED' && (
+                    <span className="flex items-center gap-1 text-yellow-600 text-sm font-medium"><XCircle size={16}/> Skipped</span>
                   )}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">

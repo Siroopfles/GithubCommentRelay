@@ -90,6 +90,10 @@ async function processRepositories() {
                   per_page: 100
                 });
 
+                // If there are more checks than we fetched (we fetch 100), play it safe and refuse merge
+                if (checkRuns.total_count > checkRuns.check_runs.length) {
+                  canMerge = false;
+                }
                 const allChecksSuccessful = checkRuns.check_runs.every(
                   run => run.status === 'completed' && (run.conclusion === 'success' || run.conclusion === 'skipped' || run.conclusion === 'neutral')
                 );
