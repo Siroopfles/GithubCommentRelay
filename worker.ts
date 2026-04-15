@@ -101,7 +101,7 @@ async function processRepositories() {
                   canMerge = false;
                 }
 
-                if (checkRuns.total_count === 0 && combinedStatus.total_count > 0 && !classicStatusSuccess) {
+                if (combinedStatus.total_count > 0 && !classicStatusSuccess) {
                   canMerge = false;
                 }
 
@@ -153,15 +153,19 @@ async function processRepositories() {
                   merge_method: repo.mergeStrategy as 'merge' | 'squash' | 'rebase'
                 });
 
-                await prisma.autoMergeLog.create({
-                  data: {
-                    repoOwner: repo.owner,
-                    repoName: repo.name,
-                    prNumber: pr.number,
-                    status: 'SUCCESS',
-                    message: `Merged using ${repo.mergeStrategy} strategy`
-                  }
-                });
+                try {
+                  await prisma.autoMergeLog.create({
+                    data: {
+                      repoOwner: repo.owner,
+                      repoName: repo.name,
+                      prNumber: pr.number,
+                      status: 'SUCCESS',
+                      message: `Merged using ${repo.mergeStrategy} strategy`
+                    }
+                  });
+                } catch (logError) {
+                  console.error('Failed to log auto-merge success:', logError);
+                }
 
                 // Skip the comment gathering if we just merged it.
                 continue;

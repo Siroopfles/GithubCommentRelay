@@ -11,7 +11,7 @@ type Repo = {
   autoMergeEnabled: boolean
   requiredApprovals: number
   requireCI: boolean
-  mergeStrategy: string
+  mergeStrategy: 'merge' | 'squash' | 'rebase'
 }
 
 export default function RepositoriesPage() {
@@ -24,7 +24,7 @@ export default function RepositoriesPage() {
     autoMergeEnabled: boolean
     requiredApprovals: number
     requireCI: boolean
-    mergeStrategy: string
+    mergeStrategy: 'merge' | 'squash' | 'rebase'
   }>({
     defaultValues: {
       autoMergeEnabled: false,
@@ -118,35 +118,35 @@ export default function RepositoriesPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8 space-y-4">
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Owner (User / Org)</label>
-            <input {...register('owner', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. microsoft" />
+            <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-2">Owner (User / Org)</label>
+            <input id="owner" {...register('owner', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. microsoft" />
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Repository Name</label>
-            <input {...register('name', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. vscode" />
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">Repository Name</label>
+            <input id="name" {...register('name', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. vscode" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Auto Merge</label>
+            <label htmlFor="autoMergeEnabled" className="block text-sm font-medium text-gray-700 mb-2">Auto Merge</label>
             <div className="flex items-center h-10">
-              <input type="checkbox" {...register('autoMergeEnabled')} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
+              <input id="autoMergeEnabled" type="checkbox" {...register('autoMergeEnabled')} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Req. Approvals</label>
-            <input type="number" min="0" {...register('requiredApprovals', { valueAsNumber: true })} className="w-full px-4 py-2 border border-gray-300 rounded-md" />
+            <label htmlFor="requiredApprovals" className="block text-sm font-medium text-gray-700 mb-2">Req. Approvals</label>
+            <input id="requiredApprovals" type="number" min="0" {...register('requiredApprovals', { valueAsNumber: true })} className="w-full px-4 py-2 border border-gray-300 rounded-md" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Require CI</label>
+            <label htmlFor="requireCI" className="block text-sm font-medium text-gray-700 mb-2">Require CI</label>
             <div className="flex items-center h-10">
-              <input type="checkbox" {...register('requireCI')} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
+              <input id="requireCI" type="checkbox" {...register('requireCI')} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Strategy</label>
-            <select {...register('mergeStrategy')} className="w-full px-4 py-2 border border-gray-300 rounded-md">
+            <label htmlFor="mergeStrategy" className="block text-sm font-medium text-gray-700 mb-2">Strategy</label>
+            <select id="mergeStrategy" {...register('mergeStrategy')} className="w-full px-4 py-2 border border-gray-300 rounded-md">
               <option value="merge">Merge</option>
               <option value="squash">Squash</option>
               <option value="rebase">Rebase</option>
@@ -183,20 +183,20 @@ export default function RepositoriesPage() {
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Auto Merge</label>
-                          <input type="checkbox" {...registerEdit('autoMergeEnabled')} className="h-5 w-5" />
+                          <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 mb-1">Auto Merge</label>
+                          <input id="editAutoMergeEnabled" type="checkbox" {...registerEdit('autoMergeEnabled')} className="h-5 w-5" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Req. Approvals</label>
-                          <input type="number" min="0" {...registerEdit('requiredApprovals', { valueAsNumber: true })} className="w-full px-2 py-1 border rounded" />
+                          <label htmlFor="editRequiredApprovals" className="block text-xs text-gray-500 mb-1">Req. Approvals</label>
+                          <input id="editRequiredApprovals" type="number" min="0" {...registerEdit('requiredApprovals', { valueAsNumber: true })} className="w-full px-2 py-1 border rounded" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Require CI</label>
-                          <input type="checkbox" {...registerEdit('requireCI')} className="h-5 w-5" />
+                          <label htmlFor="editRequireCI" className="block text-xs text-gray-500 mb-1">Require CI</label>
+                          <input id="editRequireCI" type="checkbox" {...registerEdit('requireCI')} className="h-5 w-5" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Strategy</label>
-                          <select {...registerEdit('mergeStrategy')} className="w-full px-2 py-1 border rounded">
+                          <label htmlFor="editMergeStrategy" className="block text-xs text-gray-500 mb-1">Strategy</label>
+                          <select id="editMergeStrategy" {...registerEdit('mergeStrategy')} className="w-full px-2 py-1 border rounded">
                             <option value="merge">Merge</option>
                             <option value="squash">Squash</option>
                             <option value="rebase">Rebase</option>
