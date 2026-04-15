@@ -44,6 +44,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.mergeStrategy = json.mergeStrategy
     }
 
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 })
+    }
+
     const repo = await prisma.repository.update({
       where: { id },
       data: updateData
