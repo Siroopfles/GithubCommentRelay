@@ -27,11 +27,11 @@ export async function createSession(apiKey: string, prompt: string, source: stri
 }
 
 export async function sendMessage(apiKey: string, sessionId: string, message: string) {
-  // Extract just the ID if a full URL or name was provided
-  const idMatch = sessionId.match(/(\d+)/);
-  const cleanId = idMatch ? idMatch[1] : sessionId;
+  if (!/^\d+$/.test(sessionId)) {
+    throw new Error('sessionId must be a numeric string');
+  }
 
-  const res = await fetch(`${JULES_API_BASE}/sessions/${cleanId}:sendMessage`, {
+  const res = await fetch(`${JULES_API_BASE}/sessions/${sessionId}:sendMessage`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

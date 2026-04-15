@@ -17,7 +17,7 @@ CREATE TABLE "new_ProcessedComment" (
     "processedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "forwardedToJules" BOOLEAN NOT NULL DEFAULT false
 );
-INSERT INTO "new_ProcessedComment" ("author", "body", "commentId", "id", "postedAt", "prNumber", "processedAt", "repoName", "repoOwner", "source") SELECT "author", "body", "commentId", "id", "postedAt", "prNumber", "processedAt", "repoName", "repoOwner", "source" FROM "ProcessedComment";
+INSERT INTO "new_ProcessedComment" ("author", "body", "commentId", "id", "postedAt", "prNumber", "processedAt", "repoName", "repoOwner", "source", "forwardedToJules") SELECT "author", "body", "commentId", "id", "postedAt", "prNumber", "processedAt", "repoName", "repoOwner", "source", true AS "forwardedToJules" FROM "ProcessedComment";
 DROP TABLE "ProcessedComment";
 ALTER TABLE "new_ProcessedComment" RENAME TO "ProcessedComment";
 CREATE INDEX "ProcessedComment_repoOwner_repoName_prNumber_postedAt_idx" ON "ProcessedComment"("repoOwner", "repoName", "prNumber", "postedAt");

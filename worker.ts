@@ -192,7 +192,7 @@ async function processRepositories() {
                         state: 'open',
                         sort: 'created',
                         direction: 'asc',
-                        per_page: 1
+                        per_page: 20
                       });
 
                       // Filter out PRs (GitHub API returns PRs as issues)
@@ -541,3 +541,36 @@ async function start() {
 }
 
 void start()
+
+
+async function forwardCommentsToJules(session: any, aggregatedBody: string, settings: any, prisma: any, octokit: any) {
+  const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
+  if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
+    try {
+      const { data: pullRequest } = await octokit.rest.pulls.get({
+        owner: session.repoOwner,
+        repo: session.repoName,
+        pull_number: session.prNumber
+      })
+      const sessionIdMatch = pullRequest.body?.match(/jules\.google\.com\/task\/(\d+)/)
+      if (sessionIdMatch) {
+        const sessionId = sessionIdMatch[1]
+        if (repoConfig.julesChatForwardMode === "always") {
+          await sendMessage(settings.julesApiKey, sessionId, aggregatedBody)
+          await prisma.processedComment.updateMany({
+            where: {
+              prNumber: session.prNumber,
+              repoOwner: session.repoOwner,
+              repoName: session.repoName,
+              postedAt: { gte: session.firstSeenAt }
+            },
+            data: { forwardedToJules: true }
+          })
+          console.log(`Forwarded aggregated comment to Jules session ${sessionId}`)
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to forward comment to Jules:`, e)
+    }
+  }
+}

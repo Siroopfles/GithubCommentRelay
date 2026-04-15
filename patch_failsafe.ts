@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import { sendMessage } from './src/lib/julesApi'
-import { Octokit } from '@octokit/rest'
+import { Octokit } from 'octokit'
 
-export async function processFailsafeForwarding(prisma: PrismaClient, octokit: any, settings: any) {
+export async function processFailsafeForwarding(prisma: PrismaClient, octokit: Octokit, settings: any) {
   if (!settings?.julesApiKey) return;
 
   const repositories = await prisma.repository.findMany({
@@ -57,6 +57,12 @@ export async function processFailsafeForwarding(prisma: PrismaClient, octokit: a
           await sendMessage(settings.julesApiKey, sessionId, aggregatedBody);
 
           // Mark as forwarded
+          await prisma.processedComment.updateMany({
+            where: { id: { in: comments.map((c: any) => c.id) } },
+            data: { forwardedToJules: true }
+          });
+        } else {
+          // If there is no session ID, mark them as forwarded to prevent infinite retry
           await prisma.processedComment.updateMany({
             where: { id: { in: comments.map((c: any) => c.id) } },
             data: { forwardedToJules: true }
