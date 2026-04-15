@@ -91,7 +91,7 @@ async function processRepositories() {
                 });
 
                 const allChecksSuccessful = checkRuns.check_runs.every(
-                  run => run.status === 'completed' && (run.conclusion === 'success' || run.conclusion === 'skipped')
+                  run => run.status === 'completed' && (run.conclusion === 'success' || run.conclusion === 'skipped' || run.conclusion === 'neutral')
                 );
 
                 const classicStatusSuccess = combinedStatus.state === 'success';
@@ -187,15 +187,29 @@ async function processRepositories() {
 
             // Log less frequently or just log as skipped
             try {
-              await prisma.autoMergeLog.create({
-                data: {
+              const existingLog = await prisma.autoMergeLog.findFirst({
+                where: {
                   repoOwner: repo.owner,
                   repoName: repo.name,
                   prNumber: pr.number,
-                  status,
-                  message: msg
-                }
+                  status
+                },
+                orderBy: { createdAt: 'desc' }
               });
+
+              // Only log if we haven't logged this exact status in the last 15 minutes
+              const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+              if (!existingLog || existingLog.createdAt < fifteenMinsAgo || existingLog.message !== msg) {
+                await prisma.autoMergeLog.create({
+                  data: {
+                    repoOwner: repo.owner,
+                    repoName: repo.name,
+                    prNumber: pr.number,
+                    status,
+                    message: msg
+                  }
+                });
+              }
             } catch (logError) {
               console.error('Failed to log auto-merge error:', logError);
             }
