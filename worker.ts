@@ -121,18 +121,22 @@ async function processRepositories() {
               }
 
               if (canMerge) {
-                const { data: prReviews } = await octokit.rest.pulls.listReviews({
+                const prReviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
                   owner: repo.owner,
                   repo: repo.name,
                   pull_number: pr.number,
                   per_page: 100
-                })
+                });
 
                 // Group by reviewer and get the latest state
                 const reviewerStates = new Map<string, string>();
                 for (const review of prReviews) {
-                  if (review.user && review.state !== 'DISMISSED' && review.state !== 'COMMENTED' && review.state !== 'PENDING') {
-                    reviewerStates.set(review.user.login, review.state);
+                  if (review.user && review.state !== 'COMMENTED' && review.state !== 'PENDING') {
+                    if (review.state === 'DISMISSED') {
+                      reviewerStates.delete(review.user.login);
+                    } else {
+                      reviewerStates.set(review.user.login, review.state);
+                    }
                   }
                 }
 
