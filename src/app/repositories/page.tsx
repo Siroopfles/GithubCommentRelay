@@ -38,9 +38,24 @@ export default function RepositoriesPage() {
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit } = useForm<Repo>()
 
   const fetchRepos = async () => {
-    const res = await fetch('/api/repositories')
-    const data = await res.json()
-    setRepos(data)
+    try {
+      const res = await fetch('/api/repositories')
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setRepos(data)
+        } else {
+          console.error('Invalid data format received:', data)
+          setRepos([])
+        }
+      } else {
+        console.error('Failed to fetch repos:', await res.text())
+        setRepos([])
+      }
+    } catch (e) {
+      console.error('Network error fetching repos:', e)
+      setRepos([])
+    }
   }
 
   useEffect(() => {
@@ -66,17 +81,33 @@ export default function RepositoriesPage() {
   }
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
-    await fetch(`/api/repositories/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: !currentStatus })
-    })
-    fetchRepos()
+    try {
+      const res = await fetch(`/api/repositories/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentStatus })
+      })
+      if (res.ok) {
+        fetchRepos()
+      } else {
+        console.error('Failed to toggle active status:', await res.text())
+      }
+    } catch (e) {
+      console.error('Network error toggling status:', e)
+    }
   }
 
   const deleteRepo = async (id: string) => {
-    await fetch(`/api/repositories/${id}`, { method: 'DELETE' })
-    fetchRepos()
+    try {
+      const res = await fetch(`/api/repositories/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        fetchRepos()
+      } else {
+        console.error('Failed to delete repository:', await res.text())
+      }
+    } catch (e) {
+      console.error('Network error deleting repo:', e)
+    }
   }
 
   const startEdit = (repo: Repo) => {
