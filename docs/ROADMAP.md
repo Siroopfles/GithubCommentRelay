@@ -24,6 +24,7 @@
 
 **Brainstorming & Technical Considerations:**
 *   **API Discovery:** We need documentation on the Jules API. What are the endpoints? How do we authenticate? What is the expected JSON payload?
+*   **Documentation:** We have gathered the Jules API specifications. See [docs/jules-api.md](./jules-api.md) for full details on endpoints, authentication, and JSON payloads.
 *   **Integration Point:** Once a PR is auto-merged (or potentially right after an aggregated comment is posted), the system should trigger a call to the Jules API.
 *   **Task Definition:** What defines "the next batch of tasks"? Is this information stored in our database, or do we pull it from an external source (like a project management board)?
 *   **Implementation:** Create a new service file (e.g., `src/lib/julesApi.ts`) that handles the `fetch` requests to the Jules API endpoints.
@@ -47,7 +48,7 @@
     *   Add `forwardedToJules` to the `ProcessedComment` model (default `false`).
 
 ## Summary of Next Steps for Implementation
-1.  **Gather Jules API Specs:** Obtain exact API URLs, authentication methods, and payload structures for (a) creating tasks and (b) posting chat messages.
+1.  **Gather Jules API Specs:** DONE. (See `docs/jules-api.md`)
 2.  **Define Auto-Merge Rules:** Clarify exactly when a PR is "ready" to be merged (CI passing, approvals, etc.).
 3.  **Define Verification Logic:** Determine the exact method to verify if a comment has already reached Jules chat.
 4.  **Update Database & UI:** Add the new configuration fields to Prisma schema, run migrations, and update the Next.js Settings page.
