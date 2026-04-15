@@ -16,7 +16,7 @@ export async function POST(request: Request) {
         autoMergeEnabled: autoMergeEnabled || false,
         requiredApprovals: requiredApprovals !== undefined ? Math.max(0, parseInt(requiredApprovals, 10) || 0) : 1,
         requireCI: requireCI !== undefined ? requireCI : true,
-        mergeStrategy: mergeStrategy || 'merge'
+        mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge'
       }
     })
     return NextResponse.json(repo)

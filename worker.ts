@@ -26,6 +26,7 @@ async function processRepositories() {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
     if (!settings?.githubToken) {
       console.log('Skipping cycle: GitHub Token not configured.')
+      isRunning = false;
       return
     }
 
@@ -34,6 +35,7 @@ async function processRepositories() {
 
     if (repos.length === 0) {
       console.log('Skipping cycle: No active repositories configured.')
+      isRunning = false;
       return
     }
 
@@ -169,20 +171,28 @@ async function processRepositories() {
             console.error(`Failed to auto-merge PR #${pr.number}:`, error.message);
             // We shouldn't fail the whole loop on one auto-merge fail
             // Also log to DB if it's not already merged
-            if (error.status !== 405) { // 405 usually means not mergeable right now
-               try {
-                 await prisma.autoMergeLog.create({
-                   data: {
-                     repoOwner: repo.owner,
-                     repoName: repo.name,
-                     prNumber: pr.number,
-                     status: 'FAILED',
-                     message: error.message
-                   }
-                 });
-               } catch (logError) {
-                 console.error('Failed to log auto-merge error:', logError);
-               }
+
+            let status = 'FAILED';
+            let msg = error.message;
+
+            if (error.status === 405) {
+               status = 'SKIPPED';
+               msg = 'Method Not Allowed (Not mergeable)';
+            }
+
+            // Log less frequently or just log as skipped
+            try {
+              await prisma.autoMergeLog.create({
+                data: {
+                  repoOwner: repo.owner,
+                  repoName: repo.name,
+                  prNumber: pr.number,
+                  status,
+                  message: msg
+                }
+              });
+            } catch (logError) {
+              console.error('Failed to log auto-merge error:', logError);
             }
           }
         }

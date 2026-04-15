@@ -17,8 +17,10 @@ export default function LogsPage() {
 
   const fetchLogs = async () => {
     const res = await fetch('/api/logs')
-    const data = await res.json()
-    setLogs(data)
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data)) setLogs(data)
+    }
   }
 
   useEffect(() => {
