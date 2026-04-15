@@ -19,11 +19,15 @@ model Settings {
 }
 
 model Repository {
-  id        String   @id @default(cuid())
-  owner     String
-  name      String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  owner            String
+  name             String
+  isActive         Boolean  @default(true)
+  autoMergeEnabled Boolean  @default(false)
+  requiredApprovals Int     @default(1)
+  requireCI        Boolean  @default(true)
+  mergeStrategy    String   @default("merge") // 'merge', 'squash', 'rebase'
+  createdAt        DateTime @default(now())
   @@unique([owner, name])
 }
 
@@ -60,4 +64,16 @@ model BatchSession {
   isProcessing Boolean  @default(false)
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
+}
+
+model AutoMergeLog {
+  id        String   @id @default(cuid())
+  repoOwner String
+  repoName  String
+  prNumber  Int
+  status    String   // 'SUCCESS', 'FAILED'
+  message   String?
+  createdAt DateTime @default(now())
+
+  @@index([repoOwner, repoName, prNumber])
 }

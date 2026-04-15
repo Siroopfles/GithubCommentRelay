@@ -6,12 +6,51 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const json = await request.json()
-    if (typeof json.isActive !== 'boolean') {
-      return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
+    const updateData: any = {}
+
+    if (json.isActive !== undefined) {
+      if (typeof json.isActive !== 'boolean') {
+        return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
+      }
+      updateData.isActive = json.isActive
     }
+
+    if (json.autoMergeEnabled !== undefined) {
+      if (typeof json.autoMergeEnabled !== 'boolean') {
+        return NextResponse.json({ error: 'autoMergeEnabled must be a boolean' }, { status: 400 })
+      }
+      updateData.autoMergeEnabled = json.autoMergeEnabled
+    }
+
+    if (json.requiredApprovals !== undefined) {
+      const approvals = parseInt(json.requiredApprovals, 10)
+      if (isNaN(approvals) || approvals < 0) {
+        return NextResponse.json({ error: 'requiredApprovals must be a non-negative number' }, { status: 400 })
+      }
+      updateData.requiredApprovals = approvals
+    }
+
+    if (json.requireCI !== undefined) {
+      if (typeof json.requireCI !== 'boolean') {
+        return NextResponse.json({ error: 'requireCI must be a boolean' }, { status: 400 })
+      }
+      updateData.requireCI = json.requireCI
+    }
+
+    if (json.mergeStrategy !== undefined) {
+      if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) {
+        return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 })
+      }
+      updateData.mergeStrategy = json.mergeStrategy
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 })
+    }
+
     const repo = await prisma.repository.update({
       where: { id },
-      data: { isActive: json.isActive }
+      data: updateData
     })
     return NextResponse.json(repo)
   } catch (error: any) {

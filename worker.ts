@@ -26,14 +26,16 @@ async function processRepositories() {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
     if (!settings?.githubToken) {
       console.log('Skipping cycle: GitHub Token not configured.')
+      isRunning = false;
       return
     }
 
     const repos = await prisma.repository.findMany({ where: { isActive: true } })
     const reviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } })
 
-    if (repos.length === 0 || reviewers.length === 0) {
-      console.log('Skipping cycle: No active repositories or reviewers configured.')
+    if (repos.length === 0) {
+      console.log('Skipping cycle: No active repositories configured.')
+      isRunning = false;
       return
     }
 
@@ -54,7 +56,175 @@ async function processRepositories() {
       })
 
       for (const pr of prs) {
+        // Only process PRs created by the user running the bot
         if (pr.user?.login !== currentUser.login) continue;
+
+        // Auto Merge Logic
+        if (repo.autoMergeEnabled) {
+          try {
+            const { data: prDetails } = await octokit.rest.pulls.get({
+              owner: repo.owner,
+              repo: repo.name,
+              pull_number: pr.number
+            })
+
+            if (prDetails.mergeable === true) {
+              let canMerge = true;
+
+              if (repo.requireCI) {
+                // Determine the ref (branch commit) to check
+                const ref = prDetails.head.sha;
+
+                // Try to check combined status (classic)
+                const { data: combinedStatus } = await octokit.rest.repos.getCombinedStatusForRef({
+                  owner: repo.owner,
+                  repo: repo.name,
+                  ref
+                });
+
+                // Try to check Github Actions (checks)
+                const { data: checkRuns } = await octokit.rest.checks.listForRef({
+                  owner: repo.owner,
+                  repo: repo.name,
+                  ref,
+                  per_page: 100
+                });
+
+                // If there are more checks than we fetched (we fetch 100), play it safe and refuse merge
+                if (checkRuns.total_count > checkRuns.check_runs.length) {
+                  canMerge = false;
+                }
+                const allChecksSuccessful = checkRuns.check_runs.every(
+                  run => run.status === 'completed' && (run.conclusion === 'success' || run.conclusion === 'skipped' || run.conclusion === 'neutral')
+                );
+
+                const classicStatusSuccess = combinedStatus.state === 'success';
+
+                // Check either classic status or action checks to pass
+                // If there are no checks or statuses, we assume not ready if requireCI is true
+                if (checkRuns.total_count > 0 && !allChecksSuccessful) {
+                  canMerge = false;
+                }
+
+                if (combinedStatus.total_count > 0 && !classicStatusSuccess) {
+                  canMerge = false;
+                }
+
+                // If requireCI is true but absolutely no CI pipelines exist, we should not merge.
+                if (checkRuns.total_count === 0 && combinedStatus.total_count === 0) {
+                  canMerge = false;
+                }
+
+                // If totally empty, you might want to wait, or maybe they just have no CI.
+                // Assuming canMerge = false if absolutely no checks exist might break repos with no CI.
+                // We'll leave it simple for now: if there ARE checks, they must pass.
+              }
+
+              if (canMerge) {
+                const prReviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
+                  owner: repo.owner,
+                  repo: repo.name,
+                  pull_number: pr.number,
+                  per_page: 100
+                });
+
+                // Group by reviewer and get the latest state
+                const reviewerStates = new Map<string, string>();
+                for (const review of prReviews) {
+                  if (review.user && review.state !== 'COMMENTED' && review.state !== 'PENDING') {
+                    if (review.state === 'DISMISSED') {
+                      reviewerStates.delete(review.user.login);
+                    } else {
+                      reviewerStates.set(review.user.login, review.state);
+                    }
+                  }
+                }
+
+                let approvalCount = 0;
+                let hasChangesRequested = false;
+
+                reviewerStates.forEach(state => {
+                  if (state === 'APPROVED') approvalCount++;
+                  if (state === 'CHANGES_REQUESTED') hasChangesRequested = true;
+                });
+
+                if (hasChangesRequested || approvalCount < repo.requiredApprovals) {
+                  canMerge = false;
+                }
+              }
+
+              if (canMerge) {
+                console.log(`Auto-merging PR #${pr.number} for ${repo.owner}/${repo.name}...`);
+                await octokit.rest.pulls.merge({
+                  owner: repo.owner,
+                  repo: repo.name,
+                  pull_number: pr.number,
+                  merge_method: repo.mergeStrategy as 'merge' | 'squash' | 'rebase'
+                });
+
+                try {
+                  await prisma.autoMergeLog.create({
+                    data: {
+                      repoOwner: repo.owner,
+                      repoName: repo.name,
+                      prNumber: pr.number,
+                      status: 'SUCCESS',
+                      message: `Merged using ${repo.mergeStrategy} strategy`
+                    }
+                  });
+                } catch (logError) {
+                  console.error('Failed to log auto-merge success:', logError);
+                }
+
+                // Skip the comment gathering if we just merged it.
+                continue;
+              }
+            }
+          } catch (error: any) {
+            console.error(`Failed to auto-merge PR #${pr.number}:`, error.message);
+            // We shouldn't fail the whole loop on one auto-merge fail
+            // Also log to DB if it's not already merged
+
+            let status = 'FAILED';
+            let msg = error.message;
+
+            if (error.status === 405) {
+               status = 'SKIPPED';
+               msg = 'Method Not Allowed (Not mergeable)';
+            }
+
+            // Log less frequently or just log as skipped
+            try {
+              const existingLog = await prisma.autoMergeLog.findFirst({
+                where: {
+                  repoOwner: repo.owner,
+                  repoName: repo.name,
+                  prNumber: pr.number,
+                  status
+                },
+                orderBy: { createdAt: 'desc' }
+              });
+
+              // Only log if we haven't logged this exact status in the last 15 minutes
+              const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+              if (!existingLog || existingLog.createdAt < fifteenMinsAgo || existingLog.message !== msg) {
+                await prisma.autoMergeLog.create({
+                  data: {
+                    repoOwner: repo.owner,
+                    repoName: repo.name,
+                    prNumber: pr.number,
+                    status,
+                    message: msg
+                  }
+                });
+              }
+            } catch (logError) {
+              console.error('Failed to log auto-merge error:', logError);
+            }
+          }
+        }
+
+        if (reviewers.length === 0) continue; // Skip comment aggregation if no target reviewers
 
         // Fetch Issue Comments
         const { data: issueComments } = await octokit.rest.issues.listComments({
