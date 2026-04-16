@@ -30,16 +30,15 @@ export async function GET(
     // 1. Fetch live Open PRs from GitHub
     let prs = []
     try {
-      const { data } = await octokit.rest.pulls.list({
+      prs = await octokit.paginate(octokit.rest.pulls.list, {
         owner: repo.owner,
         repo: repo.name,
         state: 'open',
-        per_page: 50
+        per_page: 100
       })
-      prs = data
     } catch (githubError: any) {
       console.error('GitHub API Error:', githubError)
-      return NextResponse.json({ error: 'Failed to fetch PRs from GitHub', details: githubError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch PRs from GitHub' }, { status: 500 })
     }
 
     // 2. Fetch local data for these PRs
@@ -90,7 +89,10 @@ export async function GET(
         comments_count: prComments.length,
         is_batching: !!activeSession,
         batch_session: activeSession,
-        processed_comments: prComments,
+        processed_comments: prComments.map(c => ({
+          ...c,
+          commentId: c.commentId.toString()
+        })),
         recent_logs: prLogs.slice(0, 5) // Send top 5 recent logs per PR
       }
     })
@@ -102,6 +104,6 @@ export async function GET(
 
   } catch (error: any) {
     console.error('Error fetching PR details:', error)
-    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

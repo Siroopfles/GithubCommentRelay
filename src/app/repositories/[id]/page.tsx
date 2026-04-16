@@ -58,12 +58,14 @@ export default function RepositoryPRsPage() {
     return <div className="text-gray-500">Loading Pull Requests...</div>
   }
 
-  if (error) {
-    return <div className="text-red-500 bg-red-50 p-4 rounded-md">Error: {error}</div>
-  }
+  // Removed blocking error state to allow background polling to recover
 
   return (
     <div className="max-w-5xl text-black">
+      {error && <div className="text-red-500 bg-red-50 p-4 rounded-md mb-4 flex justify-between items-center">
+        <span>Error fetching updates: {error}</span>
+        <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900 font-medium">Dismiss</button>
+      </div>}
       <div className="flex items-center gap-4 mb-6">
         <Link href="/repositories" className="p-2 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
           <ArrowLeft size={20} />
@@ -105,9 +107,9 @@ export default function RepositoryPRsPage() {
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         <Clock size={14} /> Batching...
                       </span>
-                    ) : pr.recent_logs.length > 0 && pr.recent_logs[0].status === 'SUCCESS' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <CheckCircle size={14} /> Merged
+                    ) : pr.recent_logs.length > 0 && pr.recent_logs[0].status === 'FAILED' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <XCircle size={14} /> Merge Failed
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
