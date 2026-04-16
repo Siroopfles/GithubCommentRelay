@@ -106,12 +106,28 @@ export async function GET(
         updated_at: pr.updated_at,
         comments_count: prComments.length,
         is_batching: !!activeSession,
-        batch_session: activeSession ?? null,
+        batch_session: activeSession ? {
+          id: activeSession.id,
+          prNumber: activeSession.prNumber,
+          repoOwner: activeSession.repoOwner,
+          repoName: activeSession.repoName,
+          firstSeenAt: activeSession.firstSeenAt,
+          isProcessed: activeSession.isProcessed,
+          isProcessing: activeSession.isProcessing
+        } : null,
         processed_comments: prComments.map((c: any) => ({
-          ...c,
+          id: c.id,
+          author: c.author,
+          postedAt: c.postedAt,
+          body: c.body,
           commentId: c.commentId.toString()
         })),
-        recent_logs: prLogs.slice(0, 5) // Send top 5 recent logs per PR
+        recent_logs: prLogs.slice(0, 5).map((l: any) => ({
+          id: l.id,
+          status: l.status,
+          message: l.message,
+          createdAt: l.createdAt
+        }))
       }
     })
 

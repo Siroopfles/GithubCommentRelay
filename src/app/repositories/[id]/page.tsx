@@ -24,7 +24,7 @@ interface ProcessedComment {
 interface RecentLog {
   id: string
   status: string
-  message: string
+  message: string | null
   createdAt: string
 }
 
