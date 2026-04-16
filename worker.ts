@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { processFailsafeForwarding } from "./patch_failsafe";
+import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { Octokit } from 'octokit'
@@ -468,6 +469,13 @@ async function processRepositories() {
         if (claimed.count === 0) continue; // Someone else claimed it
 
         try {
+          // Get repository configuration for templates and prompts
+          const repoConfig = await prisma.repository.findUnique({
+            where: { owner_name: { owner: session.repoOwner, name: session.repoName } }
+          });
+          const aiSystemPrompt = repoConfig?.aiSystemPrompt;
+          const commentTemplate = repoConfig?.commentTemplate;
+
           const commentsToBatch = await prisma.processedComment.findMany({
             where: {
               prNumber: session.prNumber,
@@ -479,12 +487,7 @@ async function processRepositories() {
           })
 
           if (commentsToBatch.length > 0) {
-            let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`
-
-            for (const comment of commentsToBatch) {
-              aggregatedBody += `#### From **@${comment.author}**:\n`
-              aggregatedBody += `${comment.body}\n\n---\n\n`
-            }
+            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
             await octokit.rest.issues.createComment({
               owner: session.repoOwner,
@@ -494,7 +497,11 @@ async function processRepositories() {
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
 
-
+            try {
+              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
+            } catch (e) {
+              console.error(`Failed to forward comments to Jules for PR #${session.prNumber}, but comment was posted:`, e)
+            }
           }
 
           // Mark as fully processed
@@ -533,6 +540,24 @@ async function start() {
     })
   } catch (err) {
     console.error('Failed to clean up stuck sessions:', err)
+  }
+
+  // Setup interval for failsafe forwarding
+  setInterval(async () => {
+    console.log('Running failsafe forwarding for Jules...')
+    try {
+      await processFailsafeForwarding()
+    } catch (err) {
+      console.error('Failsafe forwarding task failed:', err)
+    }
+  }, 5 * 60 * 1000) // run every 5 minutes
+
+  // Run failsafe forwarding on boot
+  console.log('Running failsafe forwarding for Jules on boot...')
+  try {
+    await processFailsafeForwarding()
+  } catch (err) {
+    console.error('Failsafe forwarding boot task failed:', err)
   }
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })

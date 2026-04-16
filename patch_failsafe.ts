@@ -1,78 +1,78 @@
-import { PrismaClient } from '@prisma/client'
-import { sendMessage } from './src/lib/julesApi'
 import { Octokit } from 'octokit'
+import { sendMessage } from './src/lib/julesApi'
+import { formatAggregatedBody } from './src/lib/format_helper'
+import { prisma } from './src/lib/prisma'
 
-export async function processFailsafeForwarding(prisma: PrismaClient, octokit: Octokit, settings: any) {
-  if (!settings?.julesApiKey) return;
+export async function processFailsafeForwarding() {
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } })
+  if (!settings?.julesApiKey) return
 
-  const repositories = await prisma.repository.findMany({
+  const octokit = new Octokit({ auth: settings.githubToken })
+  const repos = await prisma.repository.findMany({
     where: { isActive: true, julesChatForwardMode: 'failsafe' }
-  });
+  })
 
-  const now = new Date();
-
-  for (const repo of repositories) {
-    const batchDelayMs = (settings?.batchDelay || 5) * 60 * 1000;
-    const forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000;
+  for (const repo of repos) {
+    if (!repo.julesChatForwardDelay) continue
+    const forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000
+    const batchDelayMs = (settings.batchDelay || 5) * 60 * 1000
     // Failsafe should never fire before the batch delay
-    const effectiveDelayMs = Math.max(forwardDelayMs, batchDelayMs);
-    const cutoffTime = new Date(now.getTime() - effectiveDelayMs);
+    const effectiveDelayMs = Math.max(forwardDelayMs, batchDelayMs)
 
-    // Find comments that haven't been forwarded, but have been processed (batched) and are older than the delay
+    const cutoffTime = new Date(Date.now() - effectiveDelayMs)
+
     const pendingComments = await prisma.processedComment.findMany({
       where: {
         repoOwner: repo.owner,
         repoName: repo.name,
-        forwardedToJules: false,
-        processedAt: { lte: cutoffTime }
-      }
-    });
+        postedAt: { lte: cutoffTime },
+        forwardedToJules: false
+      },
+      orderBy: { postedAt: 'asc' }
+    })
 
-    if (pendingComments.length === 0) continue;
+    if (pendingComments.length === 0) continue
 
     // Group by PR
-    const prGroups = pendingComments.reduce((acc: any, comment) => {
-      if (!acc[comment.prNumber]) acc[comment.prNumber] = [];
-      acc[comment.prNumber].push(comment);
-      return acc;
-    }, {});
+    const prGroups = pendingComments.reduce((acc, comment) => {
+      if (!acc[comment.prNumber]) acc[comment.prNumber] = []
+      acc[comment.prNumber].push(comment)
+      return acc
+    }, {} as Record<number, typeof pendingComments>)
 
-    for (const prNumberStr of Object.keys(prGroups)) {
-      const prNumber = parseInt(prNumberStr, 10);
-      const comments = prGroups[prNumber];
+    for (const [prNumberStr, comments] of Object.entries(prGroups)) {
+      const prNumber = parseInt(prNumberStr, 10)
 
       try {
         const { data: pullRequest } = await octokit.rest.pulls.get({
           owner: repo.owner,
           repo: repo.name,
           pull_number: prNumber
-        });
+        })
 
-        const sessionIdMatch = pullRequest.body?.match(/jules\.google\.com\/task\/(\d+)/);
+        const sessionIdMatch = pullRequest.body?.match(/jules\.google\.com\/task\/(\d+)/)
         if (sessionIdMatch) {
-          const sessionId = sessionIdMatch[1];
-          let aggregatedBody = `### 🤖 Auto-Forwarded Failsafe Comments\n\n`;
-          for (const c of comments) {
-            aggregatedBody += `#### From **@${c.author}**:\n${c.body}\n\n---\n\n`;
-          }
+          const sessionId = sessionIdMatch[1]
 
-          console.log(`Failsafe forwarding ${comments.length} comments to Jules PR #${prNumber}`);
-          await sendMessage(settings.julesApiKey, sessionId, aggregatedBody);
+          const aggregatedBody = formatAggregatedBody(comments, repo.aiSystemPrompt, repo.commentTemplate)
 
-          // Mark as forwarded
+          await sendMessage(settings.julesApiKey, sessionId, aggregatedBody)
+
           await prisma.processedComment.updateMany({
-            where: { id: { in: comments.map((c: any) => c.id) } },
+            where: { id: { in: comments.map(c => c.id) } },
             data: { forwardedToJules: true }
-          });
+          })
+          console.log(`[Failsafe] Forwarded ${comments.length} delayed comments to Jules session ${sessionId} for PR #${prNumber}`)
         } else {
-          // If there is no session ID, mark them as forwarded to prevent infinite retry
+          // If no session ID found, mark them as forwarded anyway to avoid infinite retries
           await prisma.processedComment.updateMany({
-            where: { id: { in: comments.map((c: any) => c.id) } },
+            where: { id: { in: comments.map(c => c.id) } },
             data: { forwardedToJules: true }
-          });
+          })
+          console.log(`[Failsafe] Marked ${comments.length} comments as forwarded (No Jules Session in PR #${prNumber})`)
         }
       } catch (e) {
-        console.error(`Failsafe forwarding failed for PR #${prNumber}:`, e);
+        console.error(`[Failsafe] Failed to forward comments for PR #${prNumber}:`, e)
       }
     }
   }

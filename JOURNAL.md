@@ -70,3 +70,19 @@ The user requested implementation of the second and third items from `docs/ROADM
 - Created `src/app/api/repositories/[id]/prs/route.ts` to live-fetch open PRs via the GitHub API and merge them with locally cached DB data (processed comments, batch status, recent auto-merge logs).
 - Created `src/app/repositories/[id]/page.tsx` for the UI showing a table of all active PRs. Expanded the rows to show the specific bot comments and detailed logs fetched for each PR.
 - Updated the main `src/app/repositories/page.tsx` dashboard table to include an 'Eye' icon button linking to the respective new PR overview page.
+## Session: AI Agent Output Optimization (IDEAS Category A)
+**Date**: 2026-04-16
+
+### Context
+The user requested implementation of all 5 items from Category A in `IDEAS.md`. The goal was to optimize the aggregated GitHub PR comments so that listening AI agents can easily parse the data, understand the context, and take immediate action.
+
+### Changes Made
+1. **JSON-Injection (Idea A1 & A5)**: Added logic in `worker.ts` to collect all raw bot comments into an array, map the `author`, `body`, and `source`, and serialize them into a JSON string embedded inside a hidden `<!-- JSON_START ... JSON_END -->` block at the end of the aggregated PR comment.
+2. **AI System Prompt Header (Idea A2)**: Added an `aiSystemPrompt` field to the `Repository` model in Prisma. This allows the user to define a top-level prompt (e.g., "@ai-agent, fix this") that will be prefixed to every aggregated comment for that specific repository.
+3. **Action-Tags per Bot Error (Idea A3)**: Implemented rudimentary keyword detection inside the worker (`worker.ts`). Based on words like "error", "warn", or "security" in the bot comments, it automatically infers tags like `[ACTION: FIX_ERROR]`, `[ACTION: REVIEW]`, or `[ACTION: SEC_REVIEW]`.
+4. **Dynamic Template Builder (Idea A4)**: Added a `commentTemplate` field to the `Repository` model. Through the Web UI, users can now provide a Markdown template utilizing variables like `{{bot_name}}`, `{{body}}`, and `{{action_tag}}`. If provided, the worker applies this template instead of the default layout.
+5. **Database & UI Synchronization**: Updated the `prisma/schema.prisma`, ran the migrations, and fully implemented the new fields in `src/app/api/repositories/route.ts`, `src/app/api/repositories/[id]/route.ts`, and the frontend interface (`src/app/repositories/page.tsx`).
+
+### Notes for Future Sessions
+- The action-tag generator uses simple `toLowerCase().includes()` keyword matching. For more precision in the future, we could explore regex or specific target-bot mapping configurations.
+- The `.env` generation was slightly flaky during the `prisma migrate dev` command due to missing `DATABASE_URL` during runtime in CLI versus `next.config`. Temporarily injected `file:./dev.db` to accomplish the schema synchronization.
