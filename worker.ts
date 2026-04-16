@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { processFailsafeForwarding } from "./patch_failsafe";
+import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { Octokit } from 'octokit'
@@ -486,47 +487,7 @@ async function processRepositories() {
           })
 
           if (commentsToBatch.length > 0) {
-            let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`
-
-            if (aiSystemPrompt) {
-              aggregatedBody += `${aiSystemPrompt}\n\n---\n\n`
-            }
-
-            const rawJsonData = [];
-
-            for (const comment of commentsToBatch) {
-              rawJsonData.push({
-                author: comment.author,
-                body: comment.body,
-                source: comment.source
-              });
-
-              // Simple tag generation based on keywords
-              const lowerBody = comment.body.toLowerCase();
-              let actionTag = '';
-              if (lowerBody.includes('error') || lowerBody.includes('failed') || lowerBody.includes('critical')) {
-                actionTag = '[ACTION: FIX_ERROR] ';
-              } else if (lowerBody.includes('warn') || lowerBody.includes('suggestion') || lowerBody.includes('review')) {
-                actionTag = '[ACTION: REVIEW] ';
-              } else if (lowerBody.includes('security') || lowerBody.includes('vulnerability')) {
-                actionTag = '[ACTION: SEC_REVIEW] ';
-              }
-
-              if (commentTemplate) {
-                let formattedComment = commentTemplate
-                  .replace(/\{\{bot_name\}\}/g, comment.author)
-                  .replace(/\{\{body\}\}/g, comment.body)
-                  .replace(/\{\{action_tag\}\}/g, actionTag);
-                aggregatedBody += `${formattedComment}\n\n---\n\n`;
-              } else {
-                aggregatedBody += `#### From **@${comment.author}** ${actionTag ? `\n${actionTag}` : ''}\n`
-                aggregatedBody += `${comment.body}\n\n---\n\n`
-              }
-            }
-
-            // Inject JSON data block as an HTML comment
-            const jsonString = JSON.stringify(rawJsonData, null, 2);
-            aggregatedBody += `\n<!-- JSON_START\n${jsonString}\nJSON_END -->\n`;
+            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
             await octokit.rest.issues.createComment({
               owner: session.repoOwner,
@@ -536,7 +497,7 @@ async function processRepositories() {
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
 
-
+            await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
           }
 
           // Mark as fully processed
@@ -575,6 +536,14 @@ async function start() {
     })
   } catch (err) {
     console.error('Failed to clean up stuck sessions:', err)
+  }
+
+  // Run failsafe forwarding on boot
+  console.log('Running failsafe forwarding for Jules on boot...')
+  try {
+    await processFailsafeForwarding()
+  } catch (err) {
+    console.error('Failsafe forwarding boot task failed:', err)
   }
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })

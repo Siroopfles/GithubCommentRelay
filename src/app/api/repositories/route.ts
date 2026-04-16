@@ -43,8 +43,8 @@ export async function POST(request: Request) {
         julesPromptTemplate: julesPromptTemplate || null,
         julesChatForwardMode: validJulesChatForwardMode,
         julesChatForwardDelay: parsedDelay,
-        aiSystemPrompt: aiSystemPrompt || null,
-        commentTemplate: commentTemplate || null
+        aiSystemPrompt: (typeof aiSystemPrompt === "string" && aiSystemPrompt !== "") ? aiSystemPrompt : null,
+        commentTemplate: (typeof commentTemplate === "string" && commentTemplate !== "") ? commentTemplate : null
       }
     })
     return NextResponse.json(repo)

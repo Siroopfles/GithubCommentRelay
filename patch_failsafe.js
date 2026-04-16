@@ -37,109 +37,98 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processFailsafeForwarding = processFailsafeForwarding;
+var client_1 = require("@prisma/client");
+var octokit_1 = require("octokit");
 var julesApi_1 = require("./src/lib/julesApi");
-function processFailsafeForwarding(prisma, octokit, settings) {
+var format_helper_1 = require("./src/lib/format_helper");
+var prisma = new client_1.PrismaClient();
+function processFailsafeForwarding() {
     return __awaiter(this, void 0, void 0, function () {
-        var repositories, now, _i, repositories_1, repo, batchDelayMs, forwardDelayMs, effectiveDelayMs, cutoffTime, pendingComments, prGroups, _a, _b, prNumberStr, prNumber, comments, pullRequest, sessionIdMatch, sessionId, aggregatedBody, _c, comments_1, c, e_1;
+        var settings, octokit, repos, _i, repos_1, repo, cutoffTime, pendingComments, prGroups, _a, _b, _c, prNumberStr, comments, prNumber, pullRequest, sessionIdMatch, sessionId, aggregatedBody, e_1;
         var _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
-                case 0:
+                case 0: return [4 /*yield*/, prisma.settings.findUnique({ where: { id: 1 } })];
+                case 1:
+                    settings = _e.sent();
                     if (!(settings === null || settings === void 0 ? void 0 : settings.julesApiKey))
                         return [2 /*return*/];
+                    octokit = new octokit_1.Octokit({ auth: settings.githubToken });
                     return [4 /*yield*/, prisma.repository.findMany({
                             where: { isActive: true, julesChatForwardMode: 'failsafe' }
                         })];
-                case 1:
-                    repositories = _e.sent();
-                    now = new Date();
-                    _i = 0, repositories_1 = repositories;
-                    _e.label = 2;
                 case 2:
-                    if (!(_i < repositories_1.length)) return [3 /*break*/, 15];
-                    repo = repositories_1[_i];
-                    batchDelayMs = ((settings === null || settings === void 0 ? void 0 : settings.batchDelay) || 5) * 60 * 1000;
-                    forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000;
-                    effectiveDelayMs = Math.max(forwardDelayMs, batchDelayMs);
-                    cutoffTime = new Date(now.getTime() - effectiveDelayMs);
+                    repos = _e.sent();
+                    _i = 0, repos_1 = repos;
+                    _e.label = 3;
+                case 3:
+                    if (!(_i < repos_1.length)) return [3 /*break*/, 14];
+                    repo = repos_1[_i];
+                    if (!repo.julesChatForwardDelay)
+                        return [3 /*break*/, 13];
+                    cutoffTime = new Date(Date.now() - repo.julesChatForwardDelay * 60 * 1000);
                     return [4 /*yield*/, prisma.processedComment.findMany({
                             where: {
                                 repoOwner: repo.owner,
                                 repoName: repo.name,
-                                forwardedToJules: false,
-                                processedAt: { lte: cutoffTime }
-                            }
+                                postedAt: { lte: cutoffTime },
+                                forwardedToJules: false
+                            },
+                            orderBy: { postedAt: 'asc' }
                         })];
-                case 3:
+                case 4:
                     pendingComments = _e.sent();
                     if (pendingComments.length === 0)
-                        return [3 /*break*/, 14];
+                        return [3 /*break*/, 13];
                     prGroups = pendingComments.reduce(function (acc, comment) {
                         if (!acc[comment.prNumber])
                             acc[comment.prNumber] = [];
                         acc[comment.prNumber].push(comment);
                         return acc;
                     }, {});
-                    _a = 0, _b = Object.keys(prGroups);
-                    _e.label = 4;
-                case 4:
-                    if (!(_a < _b.length)) return [3 /*break*/, 14];
-                    prNumberStr = _b[_a];
-                    prNumber = parseInt(prNumberStr, 10);
-                    comments = prGroups[prNumber];
+                    _a = 0, _b = Object.entries(prGroups);
                     _e.label = 5;
                 case 5:
-                    _e.trys.push([5, 12, , 13]);
+                    if (!(_a < _b.length)) return [3 /*break*/, 13];
+                    _c = _b[_a], prNumberStr = _c[0], comments = _c[1];
+                    prNumber = parseInt(prNumberStr, 10);
+                    _e.label = 6;
+                case 6:
+                    _e.trys.push([6, 11, , 12]);
                     return [4 /*yield*/, octokit.rest.pulls.get({
                             owner: repo.owner,
                             repo: repo.name,
                             pull_number: prNumber
                         })];
-                case 6:
+                case 7:
                     pullRequest = (_e.sent()).data;
                     sessionIdMatch = (_d = pullRequest.body) === null || _d === void 0 ? void 0 : _d.match(/jules\.google\.com\/task\/(\d+)/);
-                    if (!sessionIdMatch) return [3 /*break*/, 9];
+                    if (!sessionIdMatch) return [3 /*break*/, 10];
                     sessionId = sessionIdMatch[1];
-                    aggregatedBody = "### \uD83E\uDD16 Auto-Forwarded Failsafe Comments\n\n";
-                    for (_c = 0, comments_1 = comments; _c < comments_1.length; _c++) {
-                        c = comments_1[_c];
-                        aggregatedBody += "#### From **@".concat(c.author, "**:\n").concat(c.body, "\n\n---\n\n");
-                    }
-                    console.log("Failsafe forwarding ".concat(comments.length, " comments to Jules PR #").concat(prNumber));
+                    aggregatedBody = (0, format_helper_1.formatAggregatedBody)(comments, repo.aiSystemPrompt, repo.commentTemplate);
                     return [4 /*yield*/, (0, julesApi_1.sendMessage)(settings.julesApiKey, sessionId, aggregatedBody)];
-                case 7:
+                case 8:
                     _e.sent();
-                    // Mark as forwarded
                     return [4 /*yield*/, prisma.processedComment.updateMany({
                             where: { id: { in: comments.map(function (c) { return c.id; }) } },
                             data: { forwardedToJules: true }
                         })];
-                case 8:
-                    // Mark as forwarded
-                    _e.sent();
-                    return [3 /*break*/, 11];
                 case 9:
-                // If there is no session ID, mark them as forwarded to prevent infinite retry
-                return [4 /*yield*/, prisma.processedComment.updateMany({
-                        where: { id: { in: comments.map(function (c) { return c.id; }) } },
-                        data: { forwardedToJules: true }
-                    })];
-                case 10:
-                    // If there is no session ID, mark them as forwarded to prevent infinite retry
                     _e.sent();
-                    _e.label = 11;
-                case 11: return [3 /*break*/, 13];
-                case 12:
+                    console.log("[Failsafe] Forwarded ".concat(comments.length, " delayed comments to Jules session ").concat(sessionId, " for PR #").concat(prNumber));
+                    _e.label = 10;
+                case 10: return [3 /*break*/, 12];
+                case 11:
                     e_1 = _e.sent();
-                    console.error("Failsafe forwarding failed for PR #".concat(prNumber, ":"), e_1);
-                    return [3 /*break*/, 13];
-                case 13:
+                    console.error("[Failsafe] Failed to forward comments for PR #".concat(prNumber, ":"), e_1);
+                    return [3 /*break*/, 12];
+                case 12:
                     _a++;
-                    return [3 /*break*/, 4];
-                case 14:
+                    return [3 /*break*/, 5];
+                case 13:
                     _i++;
-                    return [3 /*break*/, 2];
-                case 15: return [2 /*return*/];
+                    return [3 /*break*/, 3];
+                case 14: return [2 /*return*/];
             }
         });
     });
