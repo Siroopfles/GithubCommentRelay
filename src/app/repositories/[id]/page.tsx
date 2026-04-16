@@ -49,6 +49,7 @@ export default function RepositoryPRsPage() {
   const [repoName, setRepoName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [expandedPr, setExpandedPr] = useState<number | null>(null)
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function RepositoryPRsPage() {
         }
       } finally {
         setLoading(false)
+        setIsInitialLoad(false)
       }
     }
 
@@ -90,7 +92,7 @@ export default function RepositoryPRsPage() {
     }
   }, [params.id])
 
-  if (loading && prs.length === 0) {
+  if (isInitialLoad && loading) {
     return <div className="text-gray-500">Loading Pull Requests...</div>
   }
 
