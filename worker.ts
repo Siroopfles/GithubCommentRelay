@@ -199,7 +199,9 @@ async function processRepositories() {
                       // Filter out PRs (GitHub API returns PRs as issues)
                       const actualIssues = issues.filter((issue: any) => !issue.pull_request);
 
-                      for (const actualIssue of actualIssues) {
+                      let actualIssue: any = null;
+                      for (const issue of actualIssues) {
+                        actualIssue = issue;
                         // Deduplication: check if issue is already scheduled via label
                         const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
                           owner: repo.owner,
