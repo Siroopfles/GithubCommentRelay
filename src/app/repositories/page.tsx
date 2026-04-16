@@ -1,7 +1,8 @@
 "use client"
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useForm } from 'react-hook-form'
-import { Trash2, Edit2, X, Save } from 'lucide-react'
+import { Trash2, Edit2, X, Save, Eye } from 'lucide-react'
 
 type RepoForm = Omit<Repo, "id" | "isActive" | "createdAt">;
 type Repo = {
@@ -340,6 +341,9 @@ export default function RepositoriesPage() {
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Link href={`/repositories/${repo.id}`} aria-label={`View PRs for ${repo.name}`} className="text-gray-600 hover:text-gray-900 mr-4 inline-block align-middle">
+                        <Eye size={18} />
+                      </Link>
                       <button onClick={() => startEdit(repo)} aria-label={`Edit ${repo.name}`} className="text-blue-600 hover:text-blue-900 mr-4">
                         <Edit2 size={18} />
                       </button>

@@ -65,6 +65,11 @@ The user requested implementation of the second and third items from `docs/ROADM
 - The regex correctly targets `jules.google.com/task/(\d+)` to find the active session.
 - `julesApiKey` must be configured in settings to trigger the new functionality.
 
+## 2026-04-16: Added Repository Pull Request Tracking Page
+- Discussed requirements for adding a dedicated PR page per repository to provide better visibility.
+- Created `src/app/api/repositories/[id]/prs/route.ts` to live-fetch open PRs via the GitHub API and merge them with locally cached DB data (processed comments, batch status, recent auto-merge logs).
+- Created `src/app/repositories/[id]/page.tsx` for the UI showing a table of all active PRs. Expanded the rows to show the specific bot comments and detailed logs fetched for each PR.
+- Updated the main `src/app/repositories/page.tsx` dashboard table to include an 'Eye' icon button linking to the respective new PR overview page.
 ## Session: AI Agent Output Optimization (IDEAS Category A)
 **Date**: 2026-04-16
 
