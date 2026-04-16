@@ -10,3 +10,4 @@ dev.db-shm
 worker.js
 server.pid
 server.log
+worker.js
