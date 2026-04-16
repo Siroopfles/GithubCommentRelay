@@ -71,12 +71,30 @@ export async function GET(
     ])
 
     // Combine data
-    const combinedData = prs.map(pr => {
-      const prComments = processedComments.filter(c => c.prNumber === pr.number)
-      const prSessions = batchSessions.filter(s => s.prNumber === pr.number)
-      const prLogs = logs.filter(l => l.prNumber === pr.number)
+    const commentsMap = new Map();
+    processedComments.forEach(c => {
+      if (!commentsMap.has(c.prNumber)) commentsMap.set(c.prNumber, []);
+      commentsMap.get(c.prNumber).push(c);
+    });
 
-      const activeSession = prSessions.find(s => !s.isProcessed)
+    const sessionsMap = new Map();
+    batchSessions.forEach(s => {
+      if (!sessionsMap.has(s.prNumber)) sessionsMap.set(s.prNumber, []);
+      sessionsMap.get(s.prNumber).push(s);
+    });
+
+    const logsMap = new Map();
+    logs.forEach(l => {
+      if (!logsMap.has(l.prNumber)) logsMap.set(l.prNumber, []);
+      logsMap.get(l.prNumber).push(l);
+    });
+
+    const combinedData = prs.map(pr => {
+      const prComments = commentsMap.get(pr.number) || []
+      const prSessions = sessionsMap.get(pr.number) || []
+      const prLogs = logsMap.get(pr.number) || []
+
+      const activeSession = prSessions.find((s: any) => !s.isProcessed)
 
       return {
         number: pr.number,
@@ -89,7 +107,7 @@ export async function GET(
         comments_count: prComments.length,
         is_batching: !!activeSession,
         batch_session: activeSession,
-        processed_comments: prComments.map(c => ({
+        processed_comments: prComments.map((c: any) => ({
           ...c,
           commentId: c.commentId.toString()
         })),

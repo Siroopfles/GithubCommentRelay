@@ -4,6 +4,30 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle } from 'lucide-react'
 
+interface BatchSession {
+  id: string
+  prNumber: number
+  repoOwner: string
+  repoName: string
+  firstSeenAt: string
+  isProcessed: boolean
+  isProcessing: boolean
+}
+
+interface ProcessedComment {
+  id: string
+  author: string
+  postedAt: string
+  body: string
+}
+
+interface RecentLog {
+  id: string
+  status: string
+  message: string
+  createdAt: string
+}
+
 type PRData = {
   number: number
   title: string
@@ -14,9 +38,9 @@ type PRData = {
   updated_at: string
   comments_count: number
   is_batching: boolean
-  batch_session: any
-  processed_comments: any[]
-  recent_logs: any[]
+  batch_session: BatchSession | null
+  processed_comments: ProcessedComment[]
+  recent_logs: RecentLog[]
 }
 
 export default function RepositoryPRsPage() {
@@ -33,15 +57,26 @@ export default function RepositoryPRsPage() {
         setLoading(true)
         const res = await fetch(`/api/repositories/${params.id}/prs`)
         if (!res.ok) {
-          const errData = await res.json()
-          throw new Error(errData.error || 'Failed to fetch PRs')
+          let errMsg = 'Failed to fetch PRs'
+          try {
+            const errData = await res.json()
+            errMsg = errData.error || errMsg
+          } catch {
+            const errText = await res.text()
+            errMsg = errText || errMsg
+          }
+          throw new Error(errMsg)
         }
         const data = await res.json()
         setRepoName(`${data.repository.owner}/${data.repository.name}`)
         setPrs(data.prs)
         setError(null)
-      } catch (err: any) {
-        setError(err.message)
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message)
+        } else {
+          setError('An unknown error occurred')
+        }
       } finally {
         setLoading(false)
       }
@@ -141,7 +176,7 @@ export default function RepositoryPRsPage() {
                           <h4 className="text-sm font-bold text-gray-700 mb-3 border-b pb-2">Locally Processed Bot Comments</h4>
                           {pr.processed_comments.length > 0 ? (
                             <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                              {pr.processed_comments.map((comment: any) => (
+                              {pr.processed_comments.map((comment: ProcessedComment) => (
                                 <div key={comment.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm text-sm">
                                   <div className="flex justify-between items-center mb-1">
                                     <span className="font-semibold text-gray-900">@{comment.author}</span>
@@ -161,7 +196,7 @@ export default function RepositoryPRsPage() {
                           <h4 className="text-sm font-bold text-gray-700 mb-3 border-b pb-2">Recent Logs</h4>
                           {pr.recent_logs.length > 0 ? (
                             <div className="space-y-2">
-                              {pr.recent_logs.map((log: any) => (
+                              {pr.recent_logs.map((log: RecentLog) => (
                                 <div key={log.id} className="flex gap-2 items-start text-sm">
                                   <div className="mt-0.5">
                                     {log.status === 'SUCCESS' ? <CheckCircle size={14} className="text-green-600" /> : log.status === 'FAILED' ? <XCircle size={14} className="text-red-600" /> : <Clock size={14} className="text-yellow-600" />}
