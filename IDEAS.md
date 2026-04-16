@@ -5,11 +5,11 @@ Dit project is een lichtgewicht, lokaal gehoste (Proxmox LXC) tool. Het primaire
 
 ---
 
-## 2. 25 Ideeën tot Uitbreiding
+## 2. 25 Ideeën tot Uitbreiding 
 
 Hieronder volgt de lijst met 25 concrete opties om de output en werking van de aggregator naar het volgende niveau te tillen.
 
-### Categorie A: Optimalisatie van Comments voor AI-Agents (Data Structuur)
+### Categorie A: Optimalisatie van Comments voor AI-Agents (Data Structuur) [/]
 *Ideeën om de geaggregeerde posts perfect leesbaar en bruikbaar te maken voor AI's in de GitHub chat.*
 
 **1. JSON-Injectie in Markdown Comments**
