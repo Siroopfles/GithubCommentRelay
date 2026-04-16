@@ -106,7 +106,7 @@ export async function GET(
         updated_at: pr.updated_at,
         comments_count: prComments.length,
         is_batching: !!activeSession,
-        batch_session: activeSession,
+        batch_session: activeSession ?? null,
         processed_comments: prComments.map((c: any) => ({
           ...c,
           commentId: c.commentId.toString()
