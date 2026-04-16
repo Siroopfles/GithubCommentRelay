@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client'
 import { Octokit } from 'octokit'
 import { sendMessage } from './src/lib/julesApi'
 import { formatAggregatedBody } from './src/lib/format_helper'
-
-const prisma = new PrismaClient()
+import { prisma } from './src/lib/prisma'
 
 export async function processFailsafeForwarding() {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
@@ -60,6 +58,13 @@ export async function processFailsafeForwarding() {
             data: { forwardedToJules: true }
           })
           console.log(`[Failsafe] Forwarded ${comments.length} delayed comments to Jules session ${sessionId} for PR #${prNumber}`)
+        } else {
+          // If no session ID found, mark them as forwarded anyway to avoid infinite retries
+          await prisma.processedComment.updateMany({
+            where: { id: { in: comments.map(c => c.id) } },
+            data: { forwardedToJules: true }
+          })
+          console.log(`[Failsafe] Marked ${comments.length} comments as forwarded (No Jules Session in PR #${prNumber})`)
         }
       } catch (e) {
         console.error(`[Failsafe] Failed to forward comments for PR #${prNumber}:`, e)

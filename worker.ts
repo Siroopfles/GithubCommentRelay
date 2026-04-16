@@ -497,7 +497,11 @@ async function processRepositories() {
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
 
-            await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
+            try {
+              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
+            } catch (e) {
+              console.error(`Failed to forward comments to Jules for PR #${session.prNumber}, but comment was posted:`, e)
+            }
           }
 
           // Mark as fully processed

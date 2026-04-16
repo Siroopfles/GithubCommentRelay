@@ -37,24 +37,23 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processFailsafeForwarding = processFailsafeForwarding;
-var client_1 = require("@prisma/client");
 var octokit_1 = require("octokit");
 var julesApi_1 = require("./src/lib/julesApi");
 var format_helper_1 = require("./src/lib/format_helper");
-var prisma = new client_1.PrismaClient();
+var prisma_1 = require("./src/lib/prisma");
 function processFailsafeForwarding() {
     return __awaiter(this, void 0, void 0, function () {
         var settings, octokit, repos, _i, repos_1, repo, cutoffTime, pendingComments, prGroups, _a, _b, _c, prNumberStr, comments, prNumber, pullRequest, sessionIdMatch, sessionId, aggregatedBody, e_1;
         var _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
-                case 0: return [4 /*yield*/, prisma.settings.findUnique({ where: { id: 1 } })];
+                case 0: return [4 /*yield*/, prisma_1.prisma.settings.findUnique({ where: { id: 1 } })];
                 case 1:
                     settings = _e.sent();
                     if (!(settings === null || settings === void 0 ? void 0 : settings.julesApiKey))
                         return [2 /*return*/];
                     octokit = new octokit_1.Octokit({ auth: settings.githubToken });
-                    return [4 /*yield*/, prisma.repository.findMany({
+                    return [4 /*yield*/, prisma_1.prisma.repository.findMany({
                             where: { isActive: true, julesChatForwardMode: 'failsafe' }
                         })];
                 case 2:
@@ -62,12 +61,12 @@ function processFailsafeForwarding() {
                     _i = 0, repos_1 = repos;
                     _e.label = 3;
                 case 3:
-                    if (!(_i < repos_1.length)) return [3 /*break*/, 14];
+                    if (!(_i < repos_1.length)) return [3 /*break*/, 16];
                     repo = repos_1[_i];
                     if (!repo.julesChatForwardDelay)
-                        return [3 /*break*/, 13];
+                        return [3 /*break*/, 15];
                     cutoffTime = new Date(Date.now() - repo.julesChatForwardDelay * 60 * 1000);
-                    return [4 /*yield*/, prisma.processedComment.findMany({
+                    return [4 /*yield*/, prisma_1.prisma.processedComment.findMany({
                             where: {
                                 repoOwner: repo.owner,
                                 repoName: repo.name,
@@ -79,7 +78,7 @@ function processFailsafeForwarding() {
                 case 4:
                     pendingComments = _e.sent();
                     if (pendingComments.length === 0)
-                        return [3 /*break*/, 13];
+                        return [3 /*break*/, 15];
                     prGroups = pendingComments.reduce(function (acc, comment) {
                         if (!acc[comment.prNumber])
                             acc[comment.prNumber] = [];
@@ -89,12 +88,12 @@ function processFailsafeForwarding() {
                     _a = 0, _b = Object.entries(prGroups);
                     _e.label = 5;
                 case 5:
-                    if (!(_a < _b.length)) return [3 /*break*/, 13];
+                    if (!(_a < _b.length)) return [3 /*break*/, 15];
                     _c = _b[_a], prNumberStr = _c[0], comments = _c[1];
                     prNumber = parseInt(prNumberStr, 10);
                     _e.label = 6;
                 case 6:
-                    _e.trys.push([6, 11, , 12]);
+                    _e.trys.push([6, 13, , 14]);
                     return [4 /*yield*/, octokit.rest.pulls.get({
                             owner: repo.owner,
                             repo: repo.name,
@@ -109,26 +108,37 @@ function processFailsafeForwarding() {
                     return [4 /*yield*/, (0, julesApi_1.sendMessage)(settings.julesApiKey, sessionId, aggregatedBody)];
                 case 8:
                     _e.sent();
-                    return [4 /*yield*/, prisma.processedComment.updateMany({
+                    return [4 /*yield*/, prisma_1.prisma.processedComment.updateMany({
                             where: { id: { in: comments.map(function (c) { return c.id; }) } },
                             data: { forwardedToJules: true }
                         })];
                 case 9:
                     _e.sent();
                     console.log("[Failsafe] Forwarded ".concat(comments.length, " delayed comments to Jules session ").concat(sessionId, " for PR #").concat(prNumber));
-                    _e.label = 10;
-                case 10: return [3 /*break*/, 12];
+                    return [3 /*break*/, 12];
+                case 10:
+                // If no session ID found, mark them as forwarded anyway to avoid infinite retries
+                return [4 /*yield*/, prisma_1.prisma.processedComment.updateMany({
+                        where: { id: { in: comments.map(function (c) { return c.id; }) } },
+                        data: { forwardedToJules: true }
+                    })];
                 case 11:
+                    // If no session ID found, mark them as forwarded anyway to avoid infinite retries
+                    _e.sent();
+                    console.log("[Failsafe] Marked ".concat(comments.length, " comments as forwarded (No Jules Session in PR #").concat(prNumber, ")"));
+                    _e.label = 12;
+                case 12: return [3 /*break*/, 14];
+                case 13:
                     e_1 = _e.sent();
                     console.error("[Failsafe] Failed to forward comments for PR #".concat(prNumber, ":"), e_1);
-                    return [3 /*break*/, 12];
-                case 12:
+                    return [3 /*break*/, 14];
+                case 14:
                     _a++;
                     return [3 /*break*/, 5];
-                case 13:
+                case 15:
                     _i++;
                     return [3 /*break*/, 3];
-                case 14: return [2 /*return*/];
+                case 16: return [2 /*return*/];
             }
         });
     });
