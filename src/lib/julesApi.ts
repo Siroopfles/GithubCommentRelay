@@ -10,14 +10,28 @@ export async function createSession(apiKey: string, prompt: string, source: stri
     }
   }
 
-  const res = await fetch(`${JULES_API_BASE}/sessions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  let res;
+  try {
+    res = await fetch(`${JULES_API_BASE}/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Jules API Error creating session: Request timed out');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     throw new Error(`Jules API Error creating session: ${await res.text()}`);
@@ -31,14 +45,28 @@ export async function sendMessage(apiKey: string, sessionId: string, message: st
     throw new Error('sessionId must be a numeric string');
   }
 
-  const res = await fetch(`${JULES_API_BASE}/sessions/${sessionId}:sendMessage`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({ prompt: message })
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  let res;
+  try {
+    res = await fetch(`${JULES_API_BASE}/sessions/${sessionId}:sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({ prompt: message }),
+      signal: controller.signal
+    });
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Jules API Error sending message: Request timed out');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     throw new Error(`Jules API Error sending message: ${await res.text()}`);

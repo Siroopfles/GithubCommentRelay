@@ -12,8 +12,11 @@ export async function processFailsafeForwarding(prisma: PrismaClient, octokit: O
   const now = new Date();
 
   for (const repo of repositories) {
-    const delayMs = repo.julesChatForwardDelay * 60 * 1000;
-    const cutoffTime = new Date(now.getTime() - delayMs);
+    const batchDelayMs = (settings?.batchDelay || 5) * 60 * 1000;
+    const forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000;
+    // Failsafe should never fire before the batch delay
+    const effectiveDelayMs = Math.max(forwardDelayMs, batchDelayMs);
+    const cutoffTime = new Date(now.getTime() - effectiveDelayMs);
 
     // Find comments that haven't been forwarded, but have been processed (batched) and are older than the delay
     const pendingComments = await prisma.processedComment.findMany({

@@ -198,10 +198,33 @@ async function processRepositories() {
                       // Filter out PRs (GitHub API returns PRs as issues)
                       const actualIssues = issues.filter((issue: any) => !issue.pull_request);
 
-                      if (actualIssues.length > 0) {
-                        taskTitle = actualIssues[0].title;
-                        taskBody = actualIssues[0].body || '';
-                        sourceRevision = `refs/heads/${actualIssues[0].number}-fix`;
+                      for (const actualIssue of actualIssues) {
+                        // Deduplication: check if issue is already scheduled via label
+                        const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
+                          owner: repo.owner,
+                          repo: repo.name,
+                          issue_number: actualIssue.number
+                        });
+
+                        const isScheduled = labels.some((l: any) => l.name === 'jules-scheduled');
+                        if (!isScheduled) {
+                          taskTitle = actualIssue.title;
+                          taskBody = actualIssue.body || '';
+                          sourceRevision = `refs/heads/${actualIssue.number}-fix`;
+
+                          // Mark as scheduled immediately
+                          try {
+                            await octokit.rest.issues.addLabels({
+                              owner: repo.owner,
+                              repo: repo.name,
+                              issue_number: actualIssue.number,
+                              labels: ['jules-scheduled']
+                            });
+                          } catch (labelErr) {
+                            console.warn(`Failed to label issue ${actualIssue.number} as scheduled`, labelErr);
+                          }
+                          break; // Found one unscheduled issue
+                        }
                       }
                     } else if (repo.taskSourceType === 'local_folder') {
                        taskTitle = 'Next task from ' + (repo.taskSourcePath || 'local folder');
@@ -382,8 +405,6 @@ async function processRepositories() {
 
     const batchDelayMs = (settings.batchDelay || 5) * 60 * 1000
     const now = new Date().getTime()
-
-    await processFailsafeForwarding(prisma, octokit, settings)
 
     const pendingSessions = await prisma.batchSession.findMany({
       where: { isProcessed: false, isProcessing: false }
