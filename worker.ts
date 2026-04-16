@@ -1,3 +1,4 @@
+import { PrismaClient } from '@prisma/client'
 import { processFailsafeForwarding } from "./patch_failsafe";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
@@ -213,6 +214,7 @@ async function processRepositories() {
                           sourceRevision = `refs/heads/${actualIssue.number}-fix`;
 
                           // Mark as scheduled immediately
+                          let labelSuccess = false;
                           try {
                             await octokit.rest.issues.addLabels({
                               owner: repo.owner,
@@ -220,10 +222,20 @@ async function processRepositories() {
                               issue_number: actualIssue.number,
                               labels: ['jules-scheduled']
                             });
+                            labelSuccess = true;
                           } catch (labelErr) {
-                            console.warn(`Failed to label issue ${actualIssue.number} as scheduled`, labelErr);
+                            console.warn(`Failed to label issue ${actualIssue.number} as scheduled. Skipping to prevent duplicates.`, labelErr);
                           }
-                          break; // Found one unscheduled issue
+
+                          if (!labelSuccess) {
+                            // Reset so we don't proceed with this issue
+                            taskTitle = '';
+                            taskBody = '';
+                            sourceRevision = '';
+                            continue;
+                          }
+
+                          break; // Found one unscheduled issue and labeled it successfully
                         }
                       }
                     } else if (repo.taskSourceType === 'local_folder') {
@@ -237,13 +249,36 @@ async function processRepositories() {
                          .replace(/\{\{task_title\}\}/g, taskTitle)
                          .replace(/\{\{task_body\}\}/g, taskBody);
 
-                       await createSession(
+                       const sessionResponse = await createSession(
                          settings.julesApiKey,
                          prompt,
                          `github.com/${repo.owner}/${repo.name}`,
                          sourceRevision || 'refs/heads/main'
                        );
                        console.log(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
+
+                       // Extract task ID and post a comment on the original issue so forwardCommentsToJules can find it
+                       if (sessionResponse && sessionResponse.name) {
+                         const taskIdMatch = sessionResponse.name.match(/sessions\/(\d+)/);
+                         const taskId = taskIdMatch ? taskIdMatch[1] : sessionResponse.id;
+
+                         // We saved the issue number in sourceRevision e.g. "refs/heads/123-fix"
+                         const issueNumMatch = sourceRevision.match(/refs\/heads\/(\d+)-fix/);
+                         if (taskId && issueNumMatch) {
+                           const issueNumber = parseInt(issueNumMatch[1], 10);
+                           const julesLink = `https://jules.google.com/task/${taskId}`;
+                           try {
+                             await octokit.rest.issues.createComment({
+                               owner: repo.owner,
+                               repo: repo.name,
+                               issue_number: issueNumber,
+                               body: `*Task started in Jules: [${julesLink}](${julesLink})*`
+                             });
+                           } catch (commentErr) {
+                             console.warn(`Failed to post Jules session link to issue ${issueNumber}`, commentErr);
+                           }
+                         }
+                       }
                     } else {
                        console.log(`No pending tasks found for ${repo.owner}/${repo.name} (${repo.taskSourceType})`);
                     }
@@ -529,7 +564,7 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: any, aggregatedBody: string, settings: any, prisma: any, octokit: any) {
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit) {
   const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
   if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
     try {
@@ -557,6 +592,7 @@ async function forwardCommentsToJules(session: any, aggregatedBody: string, sett
       }
     } catch (e) {
       console.error(`Failed to forward comment to Jules:`, e)
+      throw e; // Rethrow to let the outer batch processor handle the failure (revert claim for retry)
     }
   }
 }
