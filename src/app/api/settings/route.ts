@@ -20,14 +20,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       hasGithubToken: false,
       pollingInterval: 60,
-      batchDelay: 5
+      batchDelay: 5,
+      hasJulesApiKey: false
     })
   }
 
   return NextResponse.json({
     hasGithubToken: !!settings.githubToken,
     pollingInterval: settings.pollingInterval,
-    batchDelay: settings.batchDelay
+    batchDelay: settings.batchDelay,
+      hasJulesApiKey: !!settings.julesApiKey
   })
 }
 
@@ -50,9 +52,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'batchDelay must be a positive integer' }, { status: 400 })
     }
 
+    if (data.julesApiKey !== undefined && typeof data.julesApiKey !== "string") {
+      return NextResponse.json({ error: "julesApiKey must be a string" }, { status: 400 })
+    }
+
     const updateData: any = {
       pollingInterval: data.pollingInterval,
-      batchDelay: data.batchDelay
+      batchDelay: data.batchDelay,
+    }
+
+    if (data.julesApiKey !== undefined) {
+      updateData.julesApiKey = data.julesApiKey === "" ? null : data.julesApiKey;
     }
 
     if (data.githubToken !== undefined) {
@@ -66,14 +76,16 @@ export async function POST(request: NextRequest) {
         id: 1,
         githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
         pollingInterval: data.pollingInterval,
-        batchDelay: data.batchDelay
+        batchDelay: data.batchDelay,
+        julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey
       }
     })
 
     return NextResponse.json({
       hasGithubToken: !!settings.githubToken,
       pollingInterval: settings.pollingInterval,
-      batchDelay: settings.batchDelay
+      batchDelay: settings.batchDelay,
+      hasJulesApiKey: !!settings.julesApiKey
     })
   } catch (error) {
     console.error('Settings update error:', error)

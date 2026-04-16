@@ -1,3 +1,6 @@
+import { PrismaClient } from '@prisma/client'
+import { processFailsafeForwarding } from "./patch_failsafe";
+import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { Octokit } from 'octokit'
 // @ts-ignore
@@ -175,6 +178,117 @@ async function processRepositories() {
                 } catch (logError) {
                   console.error('Failed to log auto-merge success:', logError);
                 }
+
+                // Jules Task Scheduling
+                if (settings?.julesApiKey && repo.taskSourceType !== 'none') {
+                  try {
+                    let taskTitle = '';
+                    let taskBody = '';
+                    let sourceRevision = '';
+
+                    if (repo.taskSourceType === 'github_issues') {
+                      const { data: issues } = await octokit.rest.issues.listForRepo({
+                        owner: repo.owner,
+                        repo: repo.name,
+                        state: 'open',
+                        sort: 'created',
+                        direction: 'asc',
+                        per_page: 20
+                      });
+
+                      // Filter out PRs (GitHub API returns PRs as issues)
+                      const actualIssues = issues.filter((issue: any) => !issue.pull_request);
+
+                      let actualIssue: any = null;
+                      for (const issue of actualIssues) {
+                        actualIssue = issue;
+                        // Deduplication: check if issue is already scheduled via label
+                        const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
+                          owner: repo.owner,
+                          repo: repo.name,
+                          issue_number: actualIssue.number
+                        });
+
+                        const isScheduled = labels.some((l: any) => l.name === 'jules-scheduled');
+                        if (!isScheduled) {
+                          taskTitle = actualIssue.title;
+                          taskBody = actualIssue.body || '';
+                          sourceRevision = `refs/heads/${actualIssue.number}-fix`;
+
+                          // Mark as scheduled immediately
+                          let labelSuccess = false;
+                          try {
+                            await octokit.rest.issues.addLabels({
+                              owner: repo.owner,
+                              repo: repo.name,
+                              issue_number: actualIssue.number,
+                              labels: ['jules-scheduled']
+                            });
+                            labelSuccess = true;
+                          } catch (labelErr) {
+                            console.warn(`Failed to label issue ${actualIssue.number} as scheduled. Skipping to prevent duplicates.`, labelErr);
+                          }
+
+                          if (!labelSuccess) {
+                            // Reset so we don't proceed with this issue
+                            taskTitle = '';
+                            taskBody = '';
+                            sourceRevision = '';
+                            continue;
+                          }
+
+                          break; // Found one unscheduled issue and labeled it successfully
+                        }
+                      }
+                    } else if (repo.taskSourceType === 'local_folder') {
+                       taskTitle = 'Next task from ' + (repo.taskSourcePath || 'local folder');
+                       taskBody = 'Read the next task from the configured local folder.';
+                    }
+
+                    if (taskTitle) {
+                       const promptTemplate = repo.julesPromptTemplate || "Start with the next task: {{task_title}}. Details: {{task_body}}.";
+                       const prompt = promptTemplate
+                         .replace(/\{\{task_title\}\}/g, taskTitle)
+                         .replace(/\{\{task_body\}\}/g, taskBody);
+
+                       const sessionResponse = await createSession(
+                         settings.julesApiKey,
+                         prompt,
+                         `github.com/${repo.owner}/${repo.name}`,
+                         sourceRevision || 'refs/heads/main'
+                       );
+                       console.log(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
+
+                       // Extract task ID and post a comment on the original issue so forwardCommentsToJules can find it
+                       if (sessionResponse && sessionResponse.name) {
+                         const taskIdMatch = sessionResponse.name.match(/sessions\/(\d+)/);
+                         const taskId = taskIdMatch ? taskIdMatch[1] : sessionResponse.id;
+
+                         // We saved the issue number in sourceRevision e.g. "refs/heads/123-fix"
+                         const issueNumMatch = sourceRevision.match(/refs\/heads\/(\d+)-fix/);
+                         if (taskId && issueNumMatch) {
+                           const issueNumber = parseInt(issueNumMatch[1], 10);
+                           const julesLink = `https://jules.google.com/task/${taskId}`;
+                           try {
+                             await octokit.rest.issues.createComment({
+                               owner: repo.owner,
+                               repo: repo.name,
+                               issue_number: issueNumber,
+                               body: `*Task started in Jules: [${julesLink}](${julesLink})*`
+                             });
+                           } catch (commentErr) {
+                             console.warn(`Failed to post Jules session link to issue ${issueNumber}`, commentErr);
+                           }
+                         }
+                       }
+                    } else {
+                       console.log(`No pending tasks found for ${repo.owner}/${repo.name} (${repo.taskSourceType})`);
+                    }
+                  } catch (e) {
+                    console.error(`Failed to schedule next Jules task:`, e);
+                  }
+                }
+
 
                 // Skip the comment gathering if we just merged it.
                 continue;
@@ -379,9 +493,13 @@ async function processRepositories() {
               body: aggregatedBody
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+
+
           }
 
           // Mark as fully processed
+
+
           await prisma.batchSession.update({
             where: { id: session.id },
             data: { isProcessed: true, isProcessing: false }
@@ -389,6 +507,8 @@ async function processRepositories() {
         } catch (error) {
           console.error(`Failed to process batch for PR #${session.prNumber}:`, error)
           // Revert claim on failure so it can be retried
+
+
           await prisma.batchSession.update({
             where: { id: session.id },
             data: { isProcessing: false }
@@ -444,3 +564,37 @@ async function start() {
 }
 
 void start()
+
+
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit) {
+  const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
+  if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
+    try {
+      const { data: pullRequest } = await octokit.rest.pulls.get({
+        owner: session.repoOwner,
+        repo: session.repoName,
+        pull_number: session.prNumber
+      })
+      const sessionIdMatch = pullRequest.body?.match(/jules\.google\.com\/task\/(\d+)/)
+      if (sessionIdMatch) {
+        const sessionId = sessionIdMatch[1]
+        if (repoConfig.julesChatForwardMode === "always") {
+          await sendMessage(settings.julesApiKey, sessionId, aggregatedBody)
+          await prisma.processedComment.updateMany({
+            where: {
+              prNumber: session.prNumber,
+              repoOwner: session.repoOwner,
+              repoName: session.repoName,
+              postedAt: { gte: session.firstSeenAt }
+            },
+            data: { forwardedToJules: true }
+          })
+          console.log(`Forwarded aggregated comment to Jules session ${sessionId}`)
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to forward comment to Jules:`, e)
+      throw e; // Rethrow to let the outer batch processor handle the failure (revert claim for retry)
+    }
+  }
+}

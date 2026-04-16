@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -18,6 +18,17 @@ export async function POST(request: Request) {
     }
   }
 
+  let parsedDelay = 5;
+  if (julesChatForwardDelay !== undefined) {
+    const d = parseInt(julesChatForwardDelay, 10);
+    if (!isNaN(d) && d >= 0) {
+      parsedDelay = d;
+    }
+  }
+
+  const validTaskSourceType = ['none', 'local_folder', 'github_issues'].includes(taskSourceType) ? taskSourceType : 'none';
+  const validJulesChatForwardMode = ['off', 'always', 'failsafe'].includes(julesChatForwardMode) ? julesChatForwardMode : 'off';
+
   try {
     const repo = await prisma.repository.create({
       data: {
@@ -26,7 +37,12 @@ export async function POST(request: Request) {
         autoMergeEnabled: autoMergeEnabled || false,
         requiredApprovals: parsedApprovals,
         requireCI: requireCI !== undefined ? requireCI : true,
-        mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge'
+        mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge',
+        taskSourceType: validTaskSourceType,
+        taskSourcePath: taskSourcePath || null,
+        julesPromptTemplate: julesPromptTemplate || null,
+        julesChatForwardMode: validJulesChatForwardMode,
+        julesChatForwardDelay: parsedDelay
       }
     })
     return NextResponse.json(repo)

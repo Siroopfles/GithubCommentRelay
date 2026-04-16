@@ -11,23 +11,30 @@ datasource db {
 }
 
 model Settings {
-  id             Int      @id @default(1)
-  githubToken    String?
+  id              Int      @id @default(1)
+  githubToken     String?
   pollingInterval Int      @default(60) // In seconds
-  batchDelay     Int      @default(5)  // In minutes
-  updatedAt      DateTime @updatedAt
+  batchDelay      Int      @default(5) // In minutes
+  julesApiKey     String?
+  updatedAt       DateTime @updatedAt
 }
 
 model Repository {
-  id               String   @id @default(cuid())
-  owner            String
-  name             String
-  isActive         Boolean  @default(true)
-  autoMergeEnabled Boolean  @default(false)
-  requiredApprovals Int     @default(1)
-  requireCI        Boolean  @default(true)
-  mergeStrategy    String   @default("merge") // 'merge', 'squash', 'rebase'
-  createdAt        DateTime @default(now())
+  id                    String   @id @default(cuid())
+  owner                 String
+  name                  String
+  isActive              Boolean  @default(true)
+  autoMergeEnabled      Boolean  @default(false)
+  requiredApprovals     Int      @default(1)
+  requireCI             Boolean  @default(true)
+  mergeStrategy         String   @default("merge") // 'merge', 'squash', 'rebase'
+  taskSourceType        String   @default("none") // 'none', 'local_folder', 'github_issues'
+  taskSourcePath        String? // Path to folder if taskSourceType is 'local_folder'
+  julesPromptTemplate   String? // Template for the prompt
+  julesChatForwardMode  String   @default("off") // 'off', 'always', 'failsafe'
+  julesChatForwardDelay Int      @default(5) // In minutes
+  createdAt             DateTime @default(now())
+
   @@unique([owner, name])
 }
 
@@ -39,16 +46,17 @@ model TargetReviewer {
 }
 
 model ProcessedComment {
-  id         String   @id @default(cuid())
-  commentId  BigInt
-  source     String
-  prNumber   Int
-  repoOwner  String
-  repoName   String
-  author     String
-  body       String
-  postedAt   DateTime
-  processedAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  commentId        BigInt
+  source           String
+  prNumber         Int
+  repoOwner        String
+  repoName         String
+  author           String
+  body             String
+  postedAt         DateTime
+  processedAt      DateTime @default(now())
+  forwardedToJules Boolean  @default(false)
 
   @@unique([commentId, source])
   @@index([repoOwner, repoName, prNumber, postedAt])
@@ -71,7 +79,7 @@ model AutoMergeLog {
   repoOwner String
   repoName  String
   prNumber  Int
-  status    String   // 'SUCCESS', 'FAILED'
+  status    String // 'SUCCESS', 'FAILED'
   message   String?
   createdAt DateTime @default(now())
 

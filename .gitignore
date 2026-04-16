@@ -8,3 +8,5 @@ dev.db
 dev.db-wal
 dev.db-shm
 worker.js
+server.pid
+server.log
