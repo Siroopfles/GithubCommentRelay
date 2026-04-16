@@ -201,7 +201,7 @@ export default function RepositoriesPage() {
           </div>
           <div>
             <label htmlFor="julesChatForwardDelay" className="block text-sm font-medium text-gray-700 mb-2">Failsafe Delay (min)</label>
-            <input id="julesChatForwardDelay" type="number" min="0" {...register("julesChatForwardDelay")} className="w-full px-4 py-2 border border-gray-300 rounded-md" />
+            <input id="julesChatForwardDelay" type="number" min="0" {...register("julesChatForwardDelay", { valueAsNumber: true })} className="w-full px-4 py-2 border border-gray-300 rounded-md" />
           </div>
         </div>
 
@@ -286,7 +286,7 @@ export default function RepositoriesPage() {
                         </div>
                         <div>
                           <label htmlFor="editJulesChatForwardDelay" className="block text-xs text-gray-500 mb-1">Failsafe Delay (min)</label>
-                          <input id="editJulesChatForwardDelay" type="number" min="0" {...registerEdit("julesChatForwardDelay")} className="w-full px-2 py-1 border rounded" />
+                          <input id="editJulesChatForwardDelay" type="number" min="0" {...registerEdit("julesChatForwardDelay", { valueAsNumber: true })} className="w-full px-2 py-1 border rounded" />
                         </div>
                         <div>
                           <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 mb-1">Auto Merge</label>

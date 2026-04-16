@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     hasGithubToken: !!settings.githubToken,
     pollingInterval: settings.pollingInterval,
     batchDelay: settings.batchDelay,
-    hasJulesApiKey: !!settings.julesApiKey
+      hasJulesApiKey: !!settings.julesApiKey
   })
 }
 
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       hasGithubToken: !!settings.githubToken,
       pollingInterval: settings.pollingInterval,
       batchDelay: settings.batchDelay,
-    hasJulesApiKey: !!settings.julesApiKey
+      hasJulesApiKey: !!settings.julesApiKey
     })
   } catch (error) {
     console.error('Settings update error:', error)
