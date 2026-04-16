@@ -58,11 +58,12 @@ export default function RepositoryPRsPage() {
         const res = await fetch(`/api/repositories/${params.id}/prs`)
         if (!res.ok) {
           let errMsg = 'Failed to fetch PRs'
+          const resClone = res.clone()
           try {
             const errData = await res.json()
             errMsg = errData.error || errMsg
           } catch {
-            const errText = await res.text()
+            const errText = await resClone.text()
             errMsg = errText || errMsg
           }
           throw new Error(errMsg)
