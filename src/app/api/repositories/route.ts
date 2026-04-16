@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
         taskSourcePath: taskSourcePath || null,
         julesPromptTemplate: julesPromptTemplate || null,
         julesChatForwardMode: validJulesChatForwardMode,
-        julesChatForwardDelay: parsedDelay
+        julesChatForwardDelay: parsedDelay,
+        aiSystemPrompt: aiSystemPrompt || null,
+        commentTemplate: commentTemplate || null
       }
     })
     return NextResponse.json(repo)

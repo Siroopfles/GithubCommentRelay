@@ -63,6 +63,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.julesChatForwardDelay = delay
     }
 
+    if (json.aiSystemPrompt !== undefined) {
+      updateData.aiSystemPrompt = json.aiSystemPrompt === "" ? null : json.aiSystemPrompt
+    }
+
+    if (json.commentTemplate !== undefined) {
+      updateData.commentTemplate = json.commentTemplate === "" ? null : json.commentTemplate
+    }
+
     if (json.mergeStrategy !== undefined) {
       if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) {
         return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 })
