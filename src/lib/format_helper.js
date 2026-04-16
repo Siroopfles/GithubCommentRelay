@@ -18,8 +18,7 @@ function formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) 
         aggregatedBody += "".concat(aiSystemPrompt, "\n\n---\n\n");
     }
     var rawJsonData = [];
-    for (var _i = 0, commentsToBatch_1 = commentsToBatch; _i < commentsToBatch_1.length; _i++) {
-        var comment = commentsToBatch_1[_i];
+    var _loop_1 = function (comment) {
         rawJsonData.push({
             author: comment.author,
             body: comment.body,
@@ -41,21 +40,24 @@ function formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) 
             // Split and construct to avoid injecting variables within body content replacing themselves
             var parts = commentTemplate.split('{{body}}');
             if (parts.length > 1) {
-                var pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-                var post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-                aggregatedBody += "".concat(pre).concat(comment.body).concat(post, "\n\n---\n\n");
+                var replacedParts = parts.map(function (part) { return part.replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag); });
+                aggregatedBody += "".concat(replacedParts.join(comment.body), "\n\n---\n\n");
             }
             else {
                 var formattedComment = commentTemplate
                     .replace(/\{\{bot_name\}\}/g, comment.author)
                     .replace(/\{\{action_tag\}\}/g, actionTag);
-                aggregatedBody += "".concat(formattedComment, "\n\n---\n\n");
+                aggregatedBody += "".concat(formattedComment, "\n\n").concat(comment.body, "\n\n---\n\n");
             }
         }
         else {
             aggregatedBody += "#### From **@".concat(comment.author, "** ").concat(actionTag ? "\n".concat(actionTag) : '', "\n");
             aggregatedBody += "".concat(comment.body, "\n\n---\n\n");
         }
+    };
+    for (var _i = 0, commentsToBatch_1 = commentsToBatch; _i < commentsToBatch_1.length; _i++) {
+        var comment = commentsToBatch_1[_i];
+        _loop_1(comment);
     }
     // Sanitize comment.body before serialization inside rawJsonData
     var sanitizedJsonData = rawJsonData.map(function (item) { return (__assign(__assign({}, item), { body: item.body.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE') })); });

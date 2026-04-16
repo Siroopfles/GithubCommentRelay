@@ -5,7 +5,7 @@ import { prisma } from './src/lib/prisma'
 
 export async function processFailsafeForwarding() {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
-  if (!settings?.julesApiKey) return
+  if (!settings?.julesApiKey || !settings?.githubToken) return
 
   const octokit = new Octokit({ auth: settings.githubToken })
   const repos = await prisma.repository.findMany({
@@ -13,7 +13,7 @@ export async function processFailsafeForwarding() {
   })
 
   for (const repo of repos) {
-    if (!repo.julesChatForwardDelay) continue
+    if (repo.julesChatForwardDelay == null || typeof repo.julesChatForwardDelay === 'undefined') continue
     const forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000
     const batchDelayMs = (settings.batchDelay || 5) * 60 * 1000
     // Failsafe should never fire before the batch delay

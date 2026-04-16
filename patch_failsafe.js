@@ -50,7 +50,7 @@ function processFailsafeForwarding() {
                 case 0: return [4 /*yield*/, prisma_1.prisma.settings.findUnique({ where: { id: 1 } })];
                 case 1:
                     settings = _e.sent();
-                    if (!(settings === null || settings === void 0 ? void 0 : settings.julesApiKey))
+                    if (!(settings === null || settings === void 0 ? void 0 : settings.julesApiKey) || !(settings === null || settings === void 0 ? void 0 : settings.githubToken))
                         return [2 /*return*/];
                     octokit = new octokit_1.Octokit({ auth: settings.githubToken });
                     return [4 /*yield*/, prisma_1.prisma.repository.findMany({
@@ -63,7 +63,7 @@ function processFailsafeForwarding() {
                 case 3:
                     if (!(_i < repos_1.length)) return [3 /*break*/, 16];
                     repo = repos_1[_i];
-                    if (!repo.julesChatForwardDelay)
+                    if (repo.julesChatForwardDelay == null || typeof repo.julesChatForwardDelay === 'undefined')
                         return [3 /*break*/, 15];
                     forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000;
                     batchDelayMs = (settings.batchDelay || 5) * 60 * 1000;

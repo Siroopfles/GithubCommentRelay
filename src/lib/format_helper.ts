@@ -1,4 +1,10 @@
-export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null): string {
+export interface BatchComment {
+  author: string;
+  body: string;
+  source: string;
+}
+
+export function formatAggregatedBody(commentsToBatch: BatchComment[], aiSystemPrompt?: string | null, commentTemplate?: string | null): string {
   let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`;
 
   if (aiSystemPrompt) {
@@ -30,14 +36,13 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       // Split and construct to avoid injecting variables within body content replacing themselves
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
-          let pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-          let post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-          aggregatedBody += `${pre}${comment.body}${post}\n\n---\n\n`;
+          const replacedParts = parts.map(part => part.replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag));
+          aggregatedBody += `${replacedParts.join(comment.body)}\n\n---\n\n`;
       } else {
           let formattedComment = commentTemplate
             .replace(/\{\{bot_name\}\}/g, comment.author)
             .replace(/\{\{action_tag\}\}/g, actionTag);
-          aggregatedBody += `${formattedComment}\n\n---\n\n`;
+          aggregatedBody += `${formattedComment}\n\n${comment.body}\n\n---\n\n`;
       }
 
     } else {
