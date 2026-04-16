@@ -49,7 +49,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
   // Sanitize comment.body before serialization inside rawJsonData
   const sanitizedJsonData = rawJsonData.map(item => ({
     ...item,
-    body: item.body.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE')
+    body: item.body.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE')
   }));
 
   const jsonString = JSON.stringify(sanitizedJsonData, null, 2);

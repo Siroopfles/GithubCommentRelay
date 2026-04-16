@@ -542,6 +542,16 @@ async function start() {
     console.error('Failed to clean up stuck sessions:', err)
   }
 
+  // Setup interval for failsafe forwarding
+  setInterval(async () => {
+    console.log('Running failsafe forwarding for Jules...')
+    try {
+      await processFailsafeForwarding()
+    } catch (err) {
+      console.error('Failsafe forwarding task failed:', err)
+    }
+  }, 5 * 60 * 1000) // run every 5 minutes
+
   // Run failsafe forwarding on boot
   console.log('Running failsafe forwarding for Jules on boot...')
   try {

@@ -43,7 +43,7 @@ var format_helper_1 = require("./src/lib/format_helper");
 var prisma_1 = require("./src/lib/prisma");
 function processFailsafeForwarding() {
     return __awaiter(this, void 0, void 0, function () {
-        var settings, octokit, repos, _i, repos_1, repo, cutoffTime, pendingComments, prGroups, _a, _b, _c, prNumberStr, comments, prNumber, pullRequest, sessionIdMatch, sessionId, aggregatedBody, e_1;
+        var settings, octokit, repos, _i, repos_1, repo, forwardDelayMs, batchDelayMs, effectiveDelayMs, cutoffTime, pendingComments, prGroups, _a, _b, _c, prNumberStr, comments, prNumber, pullRequest, sessionIdMatch, sessionId, aggregatedBody, e_1;
         var _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
@@ -65,7 +65,10 @@ function processFailsafeForwarding() {
                     repo = repos_1[_i];
                     if (!repo.julesChatForwardDelay)
                         return [3 /*break*/, 15];
-                    cutoffTime = new Date(Date.now() - repo.julesChatForwardDelay * 60 * 1000);
+                    forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000;
+                    batchDelayMs = (settings.batchDelay || 5) * 60 * 1000;
+                    effectiveDelayMs = Math.max(forwardDelayMs, batchDelayMs);
+                    cutoffTime = new Date(Date.now() - effectiveDelayMs);
                     return [4 /*yield*/, prisma_1.prisma.processedComment.findMany({
                             where: {
                                 repoOwner: repo.owner,

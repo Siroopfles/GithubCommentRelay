@@ -58,7 +58,7 @@ function formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) 
         }
     }
     // Sanitize comment.body before serialization inside rawJsonData
-    var sanitizedJsonData = rawJsonData.map(function (item) { return (__assign(__assign({}, item), { body: item.body.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE') })); });
+    var sanitizedJsonData = rawJsonData.map(function (item) { return (__assign(__assign({}, item), { body: item.body.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE') })); });
     var jsonString = JSON.stringify(sanitizedJsonData, null, 2);
     aggregatedBody += "\n<!-- JSON_START\n".concat(jsonString, "\nJSON_END -->\n");
     return aggregatedBody;

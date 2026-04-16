@@ -14,7 +14,12 @@ export async function processFailsafeForwarding() {
 
   for (const repo of repos) {
     if (!repo.julesChatForwardDelay) continue
-    const cutoffTime = new Date(Date.now() - repo.julesChatForwardDelay * 60 * 1000)
+    const forwardDelayMs = repo.julesChatForwardDelay * 60 * 1000
+    const batchDelayMs = (settings.batchDelay || 5) * 60 * 1000
+    // Failsafe should never fire before the batch delay
+    const effectiveDelayMs = Math.max(forwardDelayMs, batchDelayMs)
+
+    const cutoffTime = new Date(Date.now() - effectiveDelayMs)
 
     const pendingComments = await prisma.processedComment.findMany({
       where: {
