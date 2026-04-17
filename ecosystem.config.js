@@ -12,8 +12,8 @@ module.exports = {
     },
     {
       name: 'github-bot-worker',
-      script: 'node',
-      args: 'worker.js',
+      script: 'npx',
+      args: 'tsx worker.ts',
       env: {
         NODE_ENV: 'production',
         DATABASE_URL: 'file:./data.db'

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && tsc -p tsconfig.worker.json",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -31,6 +31,7 @@
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
