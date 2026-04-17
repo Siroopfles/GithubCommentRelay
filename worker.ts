@@ -406,7 +406,9 @@ async function processRepositories() {
         for (const comment of allComments) {
           if (!comment.user || !comment.body) continue;
 
-          const reviewerConfig = reviewers.find(r => r.username.toLowerCase() === comment.user!.login.toLowerCase());
+          const normalizeUser = (name: string) => name.toLowerCase().replace(/\[bot\]$/, '');
+          const commentUserLogin = normalizeUser(comment.user!.login);
+          const reviewerConfig = reviewers.find(r => normalizeUser(r.username) === commentUserLogin);
           if (reviewerConfig) {
             const exists = await prisma.processedComment.findUnique({
               where: { commentId_source: { commentId: comment.id, source: comment.source } }
