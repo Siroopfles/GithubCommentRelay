@@ -7,10 +7,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { username } = await request.json()
+  const { username, noActionRegex } = await request.json()
   try {
     const reviewer = await prisma.targetReviewer.create({
-      data: { username }
+      data: { username, noActionRegex }
     })
     return NextResponse.json(reviewer)
   } catch (error) {

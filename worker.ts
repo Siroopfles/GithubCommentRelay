@@ -392,7 +392,19 @@ async function processRepositories() {
         for (const comment of allComments) {
           if (!comment.user || !comment.body) continue;
 
-          if (reviewerUsernames.includes(comment.user.login.toLowerCase())) {
+          const reviewerConfig = reviewers.find(r => r.username.toLowerCase() === comment.user!.login.toLowerCase());
+          if (reviewerConfig) {
+            if (reviewerConfig.noActionRegex) {
+              try {
+                const regex = new RegExp(reviewerConfig.noActionRegex, 'i');
+                if (regex.test(comment.body)) {
+                  console.log(`Skipping comment from ${comment.user.login} on PR #${pr.number} due to noActionRegex match.`);
+                  continue;
+                }
+              } catch (err) {
+                console.error(`Invalid regex for reviewer ${reviewerConfig.username}: ${reviewerConfig.noActionRegex}`);
+              }
+            }
             const exists = await prisma.processedComment.findUnique({
               where: { commentId_source: { commentId: comment.id, source: comment.source } }
             })
@@ -496,6 +508,63 @@ async function processRepositories() {
               body: aggregatedBody
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+
+            try {
+              // Minimize original bot comments using GraphQL
+              for (const comment of commentsToBatch) {
+                // Determine node_id based on source if available or we might need to fetch it
+                // Since Octokit REST API doesn't expose node_id natively in all comment fetches,
+                // we might need to do a targeted fetch or handle issue vs review comments carefully.
+                // For a robust implementation, let's fetch the node_id directly via REST and then use GraphQL
+                let nodeId = null;
+                try {
+                  if (comment.source === 'issue') {
+                    const { data: issueComment } = await octokit.rest.issues.getComment({
+                      owner: session.repoOwner,
+                      repo: session.repoName,
+                      comment_id: Number(comment.commentId)
+                    });
+                    nodeId = issueComment.node_id;
+                  } else if (comment.source === 'review_comment') {
+                    const { data: pullComment } = await octokit.rest.pulls.getReviewComment({
+                      owner: session.repoOwner,
+                      repo: session.repoName,
+                      comment_id: Number(comment.commentId)
+                    });
+                    nodeId = pullComment.node_id;
+                  } else if (comment.source === 'review') {
+                    const { data: review } = await octokit.rest.pulls.getReview({
+                      owner: session.repoOwner,
+                      repo: session.repoName,
+                      pull_number: session.prNumber,
+                      review_id: Number(comment.commentId)
+                    });
+                    nodeId = review.node_id;
+                  }
+
+                  if (nodeId) {
+                    await octokit.graphql(
+                      `mutation($subjectId: ID!) {
+                        minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
+                          minimizedComment {
+                            isMinimized
+                          }
+                        }
+                      }`,
+                      {
+                        subjectId: nodeId
+                      }
+                    );
+                    console.log(`Minimized original comment ${comment.commentId} from ${comment.author}`);
+                  }
+                } catch (minErr: any) {
+                  console.error(`Failed to minimize comment ${comment.commentId}:`, minErr.message);
+                }
+              }
+            } catch (e) {
+              console.error(`Failed to minimize comments for PR #${session.prNumber}:`, e);
+            }
+
 
             try {
               await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)

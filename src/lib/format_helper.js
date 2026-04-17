@@ -18,43 +18,85 @@ function formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) 
         aggregatedBody += "".concat(aiSystemPrompt, "\n\n---\n\n");
     }
     var rawJsonData = [];
+    // Deduplication
+    var deduplicatedComments = [];
+    var _loop_1 = function (comment) {
+        // Simple deduplication based on exact body match or highly similar body
+        var existing = deduplicatedComments.find(function (c) {
+            return c.author === comment.author &&
+                (c.body === comment.body || c.body.includes(comment.body) || comment.body.includes(c.body));
+        });
+        if (existing) {
+            existing.count = (existing.count || 1) + 1;
+            // If the new comment has more context (is longer), use it instead
+            if (comment.body.length > existing.body.length) {
+                existing.body = comment.body;
+            }
+        }
+        else {
+            deduplicatedComments.push(__assign(__assign({}, comment), { count: 1 }));
+        }
+    };
     for (var _i = 0, commentsToBatch_1 = commentsToBatch; _i < commentsToBatch_1.length; _i++) {
         var comment = commentsToBatch_1[_i];
+        _loop_1(comment);
+    }
+    // Assign action tags and sort priority
+    var commentsWithTags = deduplicatedComments.map(function (comment) {
+        var lowerBody = comment.body.toLowerCase();
+        var actionTag = '';
+        var priority = 3;
+        // Ordered priority: Security > Fix Error > Review
+        if (lowerBody.includes('security') || lowerBody.includes('vulnerability')) {
+            actionTag = '[ACTION: SEC_REVIEW]';
+            priority = 1;
+        }
+        else if (lowerBody.includes('error') || lowerBody.includes('failed') || lowerBody.includes('critical')) {
+            actionTag = '[ACTION: FIX_ERROR]';
+            priority = 2;
+        }
+        else if (lowerBody.includes('warn') || lowerBody.includes('suggestion') || lowerBody.includes('review')) {
+            actionTag = '[ACTION: REVIEW]';
+            priority = 3;
+        }
+        return __assign(__assign({}, comment), { actionTag: actionTag, priority: priority });
+    });
+    // Sort by priority (ascending: 1 is highest)
+    commentsWithTags.sort(function (a, b) { return a.priority - b.priority; });
+    // Process sorted and deduplicated comments
+    for (var _a = 0, commentsWithTags_1 = commentsWithTags; _a < commentsWithTags_1.length; _a++) {
+        var comment = commentsWithTags_1[_a];
         rawJsonData.push({
             author: comment.author,
             body: comment.body,
-            source: comment.source
+            source: comment.source,
+            count: comment.count
         });
-        var lowerBody = comment.body.toLowerCase();
-        var actionTag = '';
-        // Ordered priority: Security > Fix Error > Review
-        if (lowerBody.includes('security') || lowerBody.includes('vulnerability')) {
-            actionTag = '[ACTION: SEC_REVIEW] ';
+        var displayBody = comment.body;
+        // Diff extraction and highlighting
+        if (displayBody.includes('```diff') || displayBody.includes('```')) {
+            // Find codeblocks and wrap them or add a note
+            displayBody = displayBody.replace(/(```[\s\S]*?```)/g, '\n**⚠️ Suggested Code Changes:**\n$1\n');
         }
-        else if (lowerBody.includes('error') || lowerBody.includes('failed') || lowerBody.includes('critical')) {
-            actionTag = '[ACTION: FIX_ERROR] ';
-        }
-        else if (lowerBody.includes('warn') || lowerBody.includes('suggestion') || lowerBody.includes('review')) {
-            actionTag = '[ACTION: REVIEW] ';
-        }
+        var countLabel = comment.count > 1 ? " **[Reported ".concat(comment.count, "x]** ") : '';
         if (commentTemplate) {
             // Split and construct to avoid injecting variables within body content replacing themselves
             var parts = commentTemplate.split('{{body}}');
             if (parts.length > 1) {
-                var pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-                var post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-                aggregatedBody += "".concat(pre).concat(comment.body).concat(post, "\n\n---\n\n");
+                var pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+                var post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+                aggregatedBody += "".concat(pre).concat(displayBody).concat(post, "\n\n---\n\n");
             }
             else {
                 var formattedComment = commentTemplate
                     .replace(/\{\{bot_name\}\}/g, comment.author)
-                    .replace(/\{\{action_tag\}\}/g, actionTag);
+                    .replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
                 aggregatedBody += "".concat(formattedComment, "\n\n---\n\n");
             }
         }
         else {
-            aggregatedBody += "#### From **@".concat(comment.author, "** ").concat(actionTag ? "\n".concat(actionTag) : '', "\n");
-            aggregatedBody += "".concat(comment.body, "\n\n---\n\n");
+            aggregatedBody += "#### From **@".concat(comment.author, "** ").concat(comment.actionTag ? "\n".concat(comment.actionTag) : '').concat(countLabel, "\n");
+            aggregatedBody += "".concat(displayBody, "\n\n---\n\n");
         }
     }
     // Sanitize comment.body before serialization inside rawJsonData

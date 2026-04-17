@@ -6,12 +6,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const json = await request.json()
-    if (typeof json.isActive !== 'boolean') {
-      return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
-    }
+
+    const updateData: any = {};
+    if (typeof json.isActive === 'boolean') updateData.isActive = json.isActive;
+    if (json.noActionRegex !== undefined) updateData.noActionRegex = json.noActionRegex;
     const reviewer = await prisma.targetReviewer.update({
       where: { id },
-      data: { isActive: json.isActive }
+      data: updateData
     })
     return NextResponse.json(reviewer)
   } catch (error: any) {
