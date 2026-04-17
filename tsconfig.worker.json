@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "target": "ES2022"
+  },
+  "include": [
+    "worker.ts",
+    "patch_failsafe.ts",
+    "src/lib/**/*.ts"
+  ]
+}
