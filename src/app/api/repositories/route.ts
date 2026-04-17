@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
         julesChatForwardMode: validJulesChatForwardMode,
         julesChatForwardDelay: parsedDelay,
         aiSystemPrompt: (typeof aiSystemPrompt === "string" && aiSystemPrompt !== "") ? aiSystemPrompt : null,
-        commentTemplate: (typeof commentTemplate === "string" && commentTemplate !== "") ? commentTemplate : null
+        commentTemplate: (typeof commentTemplate === "string" && commentTemplate !== "") ? commentTemplate : null,
+        postAggregatedComments: postAggregatedComments !== undefined ? postAggregatedComments : true
       }
     })
     return NextResponse.json(repo)

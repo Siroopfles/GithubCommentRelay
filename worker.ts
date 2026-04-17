@@ -535,13 +535,17 @@ async function processRepositories() {
           if (commentsToBatch.length > 0) {
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
-            await octokit.rest.issues.createComment({
-              owner: session.repoOwner,
-              repo: session.repoName,
-              issue_number: session.prNumber,
-              body: aggregatedBody
-            })
-            console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+            if (repoConfig?.postAggregatedComments !== false) {
+              await octokit.rest.issues.createComment({
+                owner: session.repoOwner,
+                repo: session.repoName,
+                issue_number: session.prNumber,
+                body: aggregatedBody
+              })
+              console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+            } else {
+              console.log(`Skipped posting aggregated comment to PR #${session.prNumber} because postAggregatedComments is disabled`)
+            }
 
             try {
               // Minimize original bot comments using GraphQL

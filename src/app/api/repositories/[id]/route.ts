@@ -77,6 +77,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.commentTemplate = json.commentTemplate === "" ? null : json.commentTemplate
     }
 
+    if (json.postAggregatedComments !== undefined) {
+      if (typeof json.postAggregatedComments !== 'boolean') {
+        return NextResponse.json({ error: 'postAggregatedComments must be a boolean' }, { status: 400 })
+      }
+      updateData.postAggregatedComments = json.postAggregatedComments
+    }
+
     if (json.mergeStrategy !== undefined) {
       if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) {
         return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 })

@@ -19,6 +19,7 @@ type Repo = {
     julesPromptTemplate?: string
     julesChatForwardMode: string
     julesChatForwardDelay: number
+    postAggregatedComments: boolean
 }
 
 export default function RepositoriesPage() {
@@ -37,12 +38,14 @@ export default function RepositoriesPage() {
     julesPromptTemplate?: string
     julesChatForwardMode: string
     julesChatForwardDelay: number
+    postAggregatedComments: boolean
   }>({
     defaultValues: {
       autoMergeEnabled: false,
       requiredApprovals: 1,
       requireCI: true,
-      mergeStrategy: 'merge'
+      mergeStrategy: 'merge',
+      postAggregatedComments: true
     }
   })
 
@@ -288,6 +291,10 @@ export default function RepositoriesPage() {
                         <div>
                           <label htmlFor="editJulesChatForwardDelay" className="block text-xs text-gray-500 mb-1">Failsafe Delay (min)</label>
                           <input id="editJulesChatForwardDelay" type="number" min="0" {...registerEdit("julesChatForwardDelay", { valueAsNumber: true })} className="w-full px-2 py-1 border rounded" />
+                        </div>
+                        <div>
+                          <label htmlFor="editPostAggregatedComments" className="block text-xs text-gray-500 mb-1">Post PR Comment</label>
+                          <input id="editPostAggregatedComments" type="checkbox" {...registerEdit('postAggregatedComments')} className="h-5 w-5" />
                         </div>
                         <div>
                           <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 mb-1">Auto Merge</label>
