@@ -1,0 +1,23 @@
+=== Huidige Functionaliteit ===
+De applicatie is een GitHub PR Comment Aggregator gebouwd met Next.js en Tailwind CSS.
+Doel: Het aggregeert reacties/comments van bots op GitHub Pull Requests en bundelt deze tot één comment om "ruis" in PR-discussies te verminderen.
+Belangrijkste Pagina's:
+- Dashboard: Toont statistieken (aantal verwerkte comments, actieve batch sessies) en recent verwerkte acties.
+- Repositories: Beheer van de GitHub repository instellingen (waaronder auto-merge, CI-vereisten, en AI-agent integratie instellingen via Jules API).
+- Reviewers: Beheer van bot/usernames waarvan comments opgepikt en verzameld moeten worden (inclusief Regex filtering om onbelangrijke berichten te negeren).
+- Settings: Configuratie van GitHub Token, polling intervals en API keys.
+
+=== Brainstorming Nieuwe Functionaliteiten ===
+Om meer waarde te bieden in een modern, minimalistisch jasje, stel ik de volgende 3 innovatieve functionaliteiten voor:
+
+1. **Analytics & Agent Performance Dashboard**
+   - **Beschrijving:** Een visuele overzichtspagina met statistieken over de AI/bot interacties op de code. Toont metrics zoals "Time saved by aggregation", "Most frequent errors reported by CI", en "Agent resolution rate" (bijv. hoe vaak de AI-agent via Jules een bug fixte nadat de aggregator de comment plaatste).
+   - **Waarom handig:** Biedt direct inzicht in de ROI en effectiviteit van de CI bots en de gekoppelde AI-agents.
+
+2. **Visual Template Builder (Comment & Prompts)**
+   - **Beschrijving:** Een drag-and-drop of visuele editor in het dashboard waarmee de gebruiker de uiteindelijke Markdown Output (de geaggregeerde comment) kan vormgeven. Hierin kunnen "blocks" geplaatst worden zoals "AI System Prompt", "JSON Context Block", en "Bot Messages List".
+   - **Waarom handig:** De focus van deze tool is data sturen naar AI-agents. Dit vereist vaak specifieke formatteringen per agent. Een visuele bouwer voorkomt dat men YAML/JSON handmatig in velden moet typen.
+
+3. **Dry-Run / Preview Simulator**
+   - **Beschrijving:** Een interactieve tool in de UI waar je een hypothetisch PR-nummer of mock-comments invoert. De simulator laat direct in een "GitHub-achtige" preview zien hoe de geaggregeerde post eruit zal zien en welke regex-regels wel/niet triggeren.
+   - **Waarom handig:** Voorkomt vervuiling in echte GitHub repo's bij het testen van de configuraties of regex patterns.
