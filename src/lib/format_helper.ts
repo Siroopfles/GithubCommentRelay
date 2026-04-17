@@ -38,8 +38,12 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
     let priority = 3;
 
     // Ordered priority: Security > Fix Error > Review
-    if (/\[ACTION:.*?\]/i.test(lowerBody)) {
-      // Already has a tag, ignore
+    const tagMatch = lowerBody.match(/\[ACTION:(.*?)\]/i);
+    if (tagMatch) {
+      actionTag = `[ACTION:${tagMatch[1].toUpperCase()}]`;
+      if (actionTag.includes('SEC_REVIEW')) priority = 1;
+      else if (actionTag.includes('FIX_ERROR')) priority = 2;
+      else priority = 3;
     } else if (/\b(security|vulnerability)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: SEC_REVIEW]';
       priority = 1;
