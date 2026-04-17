@@ -548,8 +548,10 @@ async function processRepositories() {
             }
 
             try {
-              // Minimize original bot comments using GraphQL
-              const minimizableComments = commentsToBatch.filter((c: any) => c.source !== 'review' && c.nodeId);
+              // Minimize original bot comments using GraphQL ONLY if we posted an aggregated comment
+              const minimizableComments = repoConfig?.postAggregatedComments !== false
+                ? commentsToBatch.filter((c: any) => c.source !== 'review' && c.nodeId)
+                : [];
               if (minimizableComments.length > 0) {
                   const chunkSize = 20;
                   for (let i = 0; i < minimizableComments.length; i += chunkSize) {
