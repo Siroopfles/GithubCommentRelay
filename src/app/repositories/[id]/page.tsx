@@ -100,9 +100,9 @@ export default function RepositoryPRsPage() {
 
   return (
     <div className="max-w-5xl text-black dark:text-gray-100">
-      {error && <div className="text-red-500 bg-red-50 p-4 rounded-md mb-4 flex justify-between items-center">
+      {error && <div className="text-red-500 bg-red-50 dark:bg-red-900/20 dark:text-red-400 p-4 rounded-md mb-4 flex justify-between items-center">
         <span>Error fetching updates: {error}</span>
-        <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900 font-medium">Dismiss</button>
+        <button onClick={() => setError(null)} className="text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 font-medium">Dismiss</button>
       </div>}
       <div className="flex items-center gap-4 mb-6">
         <Link href="/repositories" className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
@@ -128,7 +128,7 @@ export default function RepositoryPRsPage() {
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {prs.map(pr => (
               <React.Fragment key={pr.number}>
-                <tr className={expandedPr === pr.number ? "bg-gray-50 dark:bg-gray-800" : "hover:bg-gray-50 dark:bg-gray-800"}>
+                <tr className={expandedPr === pr.number ? "bg-gray-50 dark:bg-gray-700" : "hover:bg-gray-50 dark:hover:bg-gray-700"}>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">#{pr.number} {pr.title}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
@@ -142,11 +142,11 @@ export default function RepositoryPRsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {pr.is_batching ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                         <Clock size={14} /> Batching...
                       </span>
                     ) : pr.recent_logs.length > 0 && pr.recent_logs[0].status === 'FAILED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
                         <XCircle size={14} /> Merge Failed
                       </span>
                     ) : (

@@ -173,12 +173,12 @@ export default function ReviewersPage() {
                   <>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                       {rev.username}
-                      {rev.noActionRegex && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Regex: <code className="bg-gray-100 px-1 rounded">{rev.noActionRegex}</code></p>}
+                      {rev.noActionRegex && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Regex: <code className="bg-gray-100 dark:bg-gray-700 dark:text-gray-100 px-1 rounded">{rev.noActionRegex}</code></p>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
                         onClick={() => toggleActive(rev.id, rev.isActive)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${rev.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${rev.isActive ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}
                       >
                         {rev.isActive ? 'Active' : 'Paused'}
                       </button>
