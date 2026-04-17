@@ -4,7 +4,8 @@
     "noEmit": false,
     "module": "CommonJS",
     "moduleResolution": "node",
-    "target": "ES2022"
+    "target": "ES2022",
+    "noImplicitAny": false
   },
   "include": [
     "worker.ts",

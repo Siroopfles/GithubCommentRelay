@@ -12,9 +12,8 @@ module.exports = {
     },
     {
       name: 'github-bot-worker',
-      script: 'worker.ts',
-      interpreter: 'node',
-      interpreter_args: '--require ts-node/register',
+      script: 'node',
+      args: 'worker.js',
       env: {
         NODE_ENV: 'production',
         DATABASE_URL: 'file:./data.db'
