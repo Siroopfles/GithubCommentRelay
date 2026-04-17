@@ -605,10 +605,10 @@ async function processRepositories() {
 
 
             try {
-              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
+              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit, repoConfig)
             } catch (e) {
-              const actionStr = repoConfig?.postAggregatedComments !== false ? "but comment was posted" : "comment posting was disabled";
-              console.error(`Failed to forward comments to Jules for PR #${session.prNumber}, ${actionStr}:`, e)
+              const actionStr = repoConfig?.postAggregatedComments !== false ? "(aggregated comment posted)" : "(aggregated comment posting disabled)";
+              console.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
             }
           }
 
@@ -699,8 +699,7 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit) {
-  const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
   if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
     try {
       const { data: pullRequest } = await octokit.rest.pulls.get({

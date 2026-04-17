@@ -235,6 +235,12 @@ export default function RepositoriesPage() {
               <option value="rebase">Rebase</option>
             </select>
           </div>
+          <div>
+            <label htmlFor="postAggregatedComments" className="block text-sm font-medium text-gray-700 mb-2">Post PR Comment</label>
+            <div className="flex items-center h-10">
+              <input id="postAggregatedComments" type="checkbox" {...register('postAggregatedComments')} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end">

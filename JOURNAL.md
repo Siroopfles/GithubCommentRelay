@@ -103,5 +103,5 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
   - Added `postAggregatedComments` boolean field to the Prisma `Repository` schema.
   - Updated API routes (`src/app/api/repositories/route.ts` and `src/app/api/repositories/[id]/route.ts`) to handle the new field.
   - Updated the frontend UI (`src/app/repositories/page.tsx`) to show a checkbox "Post PR Comment" in the create and edit modal.
-  - Adjusted the background worker (`worker.ts`) to skip `octokit.rest.issues.createComment` if `postAggregatedComments` is false, but still minimize comments and forward to Jules.
+  - Adjusted the background worker (`worker.ts`) to skip `octokit.rest.issues.createComment` and skip minimizing comments (by setting `minimizableComments = []`) if `postAggregatedComments` is false, but still forward to Jules.
 - **Status:** Completed.

@@ -26,6 +26,9 @@ export async function POST(request: Request) {
     }
   }
 
+  if (postAggregatedComments !== undefined && typeof postAggregatedComments !== 'boolean') {
+    return NextResponse.json({ error: 'postAggregatedComments must be a boolean' }, { status: 400 })
+  }
   const validTaskSourceType = ['none', 'local_folder', 'github_issues'].includes(taskSourceType) ? taskSourceType : 'none';
   const validJulesChatForwardMode = ['off', 'always', 'failsafe'].includes(julesChatForwardMode) ? julesChatForwardMode : 'off';
 
