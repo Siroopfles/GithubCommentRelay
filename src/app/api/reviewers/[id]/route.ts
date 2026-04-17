@@ -17,11 +17,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (json.noActionRegex !== undefined) {
       let noActionRegex = json.noActionRegex;
       if (noActionRegex === '') noActionRegex = null;
-      if (noActionRegex !== null) {
+
+      if (noActionRegex !== null && typeof noActionRegex !== 'string') {
+        return NextResponse.json({ error: 'Invalid noActionRegex type' }, { status: 400 });
+      }
+
+      if (typeof noActionRegex === 'string') {
         try {
           new RegExp(noActionRegex, 'i');
         } catch (e) {
-          return NextResponse.json({ error: 'Invalid noActionRegex' }, { status: 400 });
+          return NextResponse.json({ error: 'Invalid noActionRegex pattern' }, { status: 400 });
         }
       }
       updateData.noActionRegex = noActionRegex;

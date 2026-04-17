@@ -38,12 +38,18 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
     let priority = 3;
 
     // Ordered priority: Security > Fix Error > Review
+    let cleanBody = comment.body;
     const tagMatch = lowerBody.match(/\[ACTION:(.*?)\]/i);
     if (tagMatch) {
       actionTag = `[ACTION:${tagMatch[1].toUpperCase()}]`;
       if (actionTag.includes('SEC_REVIEW')) priority = 1;
       else if (actionTag.includes('FIX_ERROR')) priority = 2;
       else priority = 3;
+
+      const originalCaseMatch = comment.body.match(new RegExp('\\[ACTION:(.*?)\\]', 'i'));
+      if (originalCaseMatch) {
+        cleanBody = comment.body.replace(originalCaseMatch[0], '').trim();
+      }
     } else if (/\b(security|vulnerability)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: SEC_REVIEW]';
       priority = 1;
@@ -55,7 +61,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       priority = 3;
     }
 
-    return { ...comment, actionTag, priority };
+    return { ...comment, body: cleanBody, actionTag, priority };
   });
 
   // Sort by priority (ascending: 1 is highest)

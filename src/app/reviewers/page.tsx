@@ -7,8 +7,8 @@ type Reviewer = { id: string, username: string, isActive: boolean, noActionRegex
 
 export default function ReviewersPage() {
   const [reviewers, setReviewers] = useState<Reviewer[]>([])
-  const { register, handleSubmit, reset } = useForm<{username: string, noActionRegex: string}>()
-  const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit } = useForm<Reviewer>()
+  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<{username: string, noActionRegex: string}>()
+  const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setError: setEditError, formState: { errors: editErrors } } = useForm<Reviewer>()
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const fetchReviewers = async () => {
@@ -26,7 +26,7 @@ export default function ReviewersPage() {
       try {
         new RegExp(data.noActionRegex, 'i');
       } catch (e) {
-        alert('Invalid No Action Regex');
+        setError('noActionRegex', { type: 'pattern', message: 'Invalid regex' });
         return;
       }
     }
@@ -68,7 +68,7 @@ export default function ReviewersPage() {
       try {
         new RegExp(data.noActionRegex, 'i');
       } catch (e) {
-        alert('Invalid No Action Regex');
+        setEditError('noActionRegex', { type: 'pattern', message: 'Invalid regex' });
         return;
       }
     }
@@ -95,6 +95,7 @@ export default function ReviewersPage() {
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-2">No Action Regex (Optional)</label>
             <input {...register('noActionRegex')} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ^Coverage did not change|^0 vulnerabilities" />
+            {errors.noActionRegex && <span className="text-xs text-red-500 mt-1 block">{errors.noActionRegex.message}</span>}
           </div>
           <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 h-[42px]">
             Add
@@ -126,6 +127,7 @@ export default function ReviewersPage() {
                         <div>
                           <label htmlFor="editNoActionRegex" className="block text-xs text-gray-500 mb-1">No Action Regex</label>
                           <input id="editNoActionRegex" {...registerEdit("noActionRegex")} className="w-full px-2 py-1 border rounded" placeholder="e.g. ^Coverage did not change" />
+                          {editErrors.noActionRegex && <span className="text-xs text-red-500 mt-1 block">{editErrors.noActionRegex.message}</span>}
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">

@@ -692,7 +692,8 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
               prNumber: session.prNumber,
               repoOwner: session.repoOwner,
               repoName: session.repoName,
-              postedAt: { gte: session.firstSeenAt }
+              postedAt: { gte: session.firstSeenAt },
+              isSkipped: false
             },
             data: { forwardedToJules: true }
           })

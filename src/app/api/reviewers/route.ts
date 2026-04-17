@@ -9,15 +9,23 @@ export async function GET() {
 export async function POST(request: Request) {
   let { username, noActionRegex } = await request.json()
 
+  if (!username || typeof username !== 'string' || username.trim() === '') {
+    return NextResponse.json({ error: 'Missing or invalid username' }, { status: 400 });
+  }
+
   if (noActionRegex === '') {
     noActionRegex = null;
   }
 
-  if (noActionRegex) {
+  if (noActionRegex !== null && typeof noActionRegex !== 'string') {
+    return NextResponse.json({ error: 'noActionRegex must be a string or null' }, { status: 400 });
+  }
+
+  if (typeof noActionRegex === 'string') {
     try {
       new RegExp(noActionRegex, 'i');
     } catch (e) {
-      return NextResponse.json({ error: 'Invalid noActionRegex' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid noActionRegex pattern' }, { status: 400 });
     }
   }
   try {
