@@ -99,7 +99,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
           let formattedComment = commentTemplate
             .replace(/\{\{bot_name\}\}/g, comment.author)
             .replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
-          aggregatedBody += `${formattedComment}\n\n---\n\n`;
+          aggregatedBody += `${formattedComment}\n\n${displayBody}\n\n---\n\n`;
       }
 
     } else {
