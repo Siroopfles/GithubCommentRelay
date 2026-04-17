@@ -96,3 +96,10 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
 * **Diff Extractie:** Formatter specifically identifies ` ```diff ` (or ` ``` `) blocks and visually enhances them with a "Suggested Code Changes:" warning header.
 * **Minimize Original Comments:** After the worker posts the aggregated comment, it loops over all source comments, fetches their `node_id`, and utilizes the GitHub GraphQL API to minimize the original comments using the `RESOLVED` classifier, maintaining a clean PR chat timeline.
 * The Next.js production build and TypeScript compilation completed successfully.
+
+## 2026-04-17: Implement Category C - Gebruikerservaring & Workflow (UI / UX)
+* **API & UI Updates:** Added `/api/trigger-aggregation` to allow users to skip the batch delay and immediately trigger the worker for pending batch sessions via the UI. Added an "Aggregate Now" button to `DashboardClient.tsx`.
+* **Dry Run / Preview Modus:** Added a `PreviewModal` component to the Repositories page and an `/api/preview-aggregation` endpoint to mock comment aggregation using current repository templates.
+* **Historisch Archief:** Created a new `/archive` page to display a paginated list of all historically processed comments. Updated layout navigation to include the archive page.
+* **Visuele Status Indicators:** Implemented a `/api/repositories/[id]/status` endpoint to test GitHub connection per repo and created `RepoStatusDot` component to display status visually (green, red) next to the repository names on the repositories page.
+* **Volledige Dark Mode:** Configured layout, Dashboard, Settings, Reviewers, Repositories, Logs and Archive pages to fully support Tailwind `dark:` mode classes for an optimal visual experience in dark environments.

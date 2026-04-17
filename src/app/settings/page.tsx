@@ -99,7 +99,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white dark:bg-gray-800 dark:text-gray-100 p-8 rounded-xl shadow-sm border border-gray-100">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">GitHub Personal Access Token (PAT)</label>
           <input
