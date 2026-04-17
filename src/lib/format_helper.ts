@@ -74,7 +74,8 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       author: comment.author,
       body: comment.body,
       source: comment.source,
-      count: comment.count
+      count: comment.count,
+      actionTag: comment.actionTag
     });
 
     let displayBody = comment.body;
