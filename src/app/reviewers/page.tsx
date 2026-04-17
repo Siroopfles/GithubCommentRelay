@@ -30,11 +30,28 @@ export default function ReviewersPage() {
         return;
       }
     }
-    await fetch('/api/reviewers', {
+    const res = await fetch('/api/reviewers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     })
+
+    if (!res.ok) {
+        try {
+            const errData = await res.json();
+            if (errData.error?.includes('exists')) {
+                 setError('username', { type: 'manual', message: 'Reviewer already exists' });
+            } else if (errData.error?.includes('regex') || errData.error?.includes('Regex')) {
+                 setError('noActionRegex', { type: 'manual', message: errData.error });
+            } else {
+                 setError('username', { type: 'manual', message: errData.error || 'Failed to add reviewer' });
+            }
+        } catch(e) {
+            setError('username', { type: 'manual', message: 'An unknown error occurred' });
+        }
+        return;
+    }
+
     reset()
     fetchReviewers()
   }
@@ -55,7 +72,7 @@ export default function ReviewersPage() {
 
   const startEdit = (rev: Reviewer) => {
     setEditingId(rev.id)
-    resetEdit({ ...rev, noActionRegex: rev.noActionRegex || '' })
+    resetEdit({ noActionRegex: rev.noActionRegex || '' })
   }
 
   const cancelEdit = () => {
@@ -72,11 +89,22 @@ export default function ReviewersPage() {
         return;
       }
     }
-    await fetch(`/api/reviewers/${data.id}`, {
+    const res = await fetch(`/api/reviewers/${editingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ noActionRegex: data.noActionRegex || null })
     })
+
+    if (!res.ok) {
+        try {
+            const errData = await res.json();
+            setEditError('noActionRegex', { type: 'manual', message: errData.error || 'Failed to save changes' });
+        } catch(e) {
+            setEditError('noActionRegex', { type: 'manual', message: 'An unknown error occurred' });
+        }
+        return;
+    }
+
     setEditingId(null)
     fetchReviewers()
   }
@@ -91,6 +119,7 @@ export default function ReviewersPage() {
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-2">GitHub Username</label>
             <input {...register('username', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. dependabot[bot]" />
+            {errors.username && <span className="text-xs text-red-500 mt-1 block">{errors.username.message}</span>}
           </div>
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-2">No Action Regex (Optional)</label>

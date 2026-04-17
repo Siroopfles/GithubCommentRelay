@@ -415,7 +415,9 @@ async function processRepositories() {
             if (!exists) {
               let isSkipped = false;
               if (reviewerConfig.compiledRegex) {
-                  if (reviewerConfig.compiledRegex.test(comment.body)) {
+                  // Prevent ReDoS by truncating extremely long bodies
+                  const safeBody = comment.body.slice(0, 10000);
+                  if (reviewerConfig.compiledRegex.test(safeBody)) {
                     console.log(`Skipping comment from ${comment.user.login} on PR #${pr.number} due to noActionRegex match.`);
                     isSkipped = true;
                   }
@@ -570,7 +572,22 @@ async function processRepositories() {
                               }
                           });
                       } catch (minErr: any) {
-                          console.error(`Failed to minimize chunk of comments:`, minErr.message);
+                          console.error(`Failed to minimize chunk of comments, falling back to sequential minimization:`, minErr.message);
+                          for (const comment of chunk) {
+                              try {
+                                  await octokit.graphql(
+                                      `mutation($subjectId: ID!) {
+                                          minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
+                                              minimizedComment { isMinimized }
+                                          }
+                                      }`,
+                                      { subjectId: comment.nodeId }
+                                  );
+                                  console.log(`Fallback: Minimized original comment ${comment.commentId} from ${comment.author}`);
+                              } catch (fallbackErr: any) {
+                                  console.error(`Fallback failed to minimize comment ${comment.commentId}:`, fallbackErr.message);
+                              }
+                          }
                       }
                   }
               }

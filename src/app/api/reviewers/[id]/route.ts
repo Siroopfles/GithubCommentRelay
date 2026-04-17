@@ -7,7 +7,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const json = await request.json()
 
-    const updateData: any = {};
+    const updateData: { isActive?: boolean; noActionRegex?: string | null } = {};
     if (json.isActive !== undefined) {
       if (typeof json.isActive !== 'boolean') {
         return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 });
@@ -30,6 +30,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
       }
       updateData.noActionRegex = noActionRegex;
+    }
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
     const reviewer = await prisma.targetReviewer.update({
       where: { id },

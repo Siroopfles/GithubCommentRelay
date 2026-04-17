@@ -9,15 +9,16 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
   // Deduplication
   const deduplicatedComments: any[] = [];
+  const normalize = (str: string) => str.trim().replace(/\s+/g, ' ').toLowerCase();
 
   for (const comment of commentsToBatch) {
     // Simple deduplication based on exact body match or highly similar body
     if (!comment.body || comment.body.trim() === '') continue;
 
-    const normalize = (str: string) => str.trim().replace(/\s+/g, ' ').toLowerCase();
+    const normalizedBody = normalize(comment.body);
     const existing = deduplicatedComments.find(c =>
       c.author === comment.author &&
-      normalize(c.body) === normalize(comment.body)
+      c.normalizedBody === normalizedBody
     );
 
     if (existing) {
@@ -27,7 +28,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
         existing.body = comment.body;
       }
     } else {
-      deduplicatedComments.push({ ...comment, count: 1 });
+      deduplicatedComments.push({ ...comment, count: 1, normalizedBody });
     }
   }
 
@@ -50,13 +51,13 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       if (originalCaseMatch) {
         cleanBody = comment.body.replace(originalCaseMatch[0], '').trim();
       }
-    } else if (/\b(security|vulnerability)\b/i.test(lowerBody)) {
+    } else if (/\b(security|vulnerabilit(y|ies))\b/i.test(lowerBody)) {
       actionTag = '[ACTION: SEC_REVIEW]';
       priority = 1;
-    } else if (/\b(error|failed|critical)\b/i.test(lowerBody)) {
+    } else if (/\b(error(s)?|fail(ed|s|ing|ure(s)?)?|critical(ly)?)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: FIX_ERROR]';
       priority = 2;
-    } else if (/\b(warn|suggestion|review)\b/i.test(lowerBody)) {
+    } else if (/\b(warn(ing(s)?)?|suggestion(s)?|review(s|ed|ing)?)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: REVIEW]';
       priority = 3;
     }

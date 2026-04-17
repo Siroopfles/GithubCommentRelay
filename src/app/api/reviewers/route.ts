@@ -33,7 +33,10 @@ export async function POST(request: Request) {
       data: { username, noActionRegex }
     })
     return NextResponse.json(reviewer)
-  } catch (error) {
-    return NextResponse.json({ error: 'Reviewer already exists' }, { status: 400 })
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Reviewer already exists' }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
