@@ -12,3 +12,4 @@ server.pid
 server.log
 worker.js
 src/lib/*.js
+patch_failsafe.js
