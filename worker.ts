@@ -605,7 +605,8 @@ async function processRepositories() {
             try {
               await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
             } catch (e) {
-              console.error(`Failed to forward comments to Jules for PR #${session.prNumber}, but comment was posted:`, e)
+              const actionStr = repoConfig?.postAggregatedComments !== false ? "but comment was posted" : "comment posting was disabled";
+              console.error(`Failed to forward comments to Jules for PR #${session.prNumber}, ${actionStr}:`, e)
             }
           }
 
