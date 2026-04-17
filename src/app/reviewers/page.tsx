@@ -110,20 +110,20 @@ export default function ReviewersPage() {
   }
 
   return (
-    <div className="max-w-4xl text-black">
+    <div className="max-w-4xl text-black dark:text-gray-100">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Target Reviewers</h1>
-      <p className="text-gray-600 mb-6">Add the GitHub usernames of the bots/reviewers you want to aggregate comments from.</p>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">Add the GitHub usernames of the bots/reviewers you want to aggregate comments from.</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-4 mb-8">
         <div className="flex gap-4 items-end">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">GitHub Username</label>
-            <input {...register('username', {required: true})} className="w-full px-4 py-2 border dark:border-gray-600 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. dependabot[bot]" />
+            <input {...register('username', {required: true})} className="w-full px-4 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. dependabot[bot]" />
             {errors.username && <span className="text-xs text-red-500 mt-1 block">{errors.username.message}</span>}
           </div>
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">No Action Regex (Optional)</label>
-            <input {...register('noActionRegex')} className="w-full px-4 py-2 border dark:border-gray-600 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ^Coverage did not change|^0 vulnerabilities" />
+            <input {...register('noActionRegex')} className="w-full px-4 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ^Coverage did not change|^0 vulnerabilities" />
             {errors.noActionRegex && <span className="text-xs text-red-500 mt-1 block">{errors.noActionRegex.message}</span>}
           </div>
           <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 h-[42px]">

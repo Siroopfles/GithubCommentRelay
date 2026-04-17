@@ -105,7 +105,7 @@ export default function SettingsPage() {
           <input
             type="password"
             {...register('githubToken')}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
             placeholder={hasToken ? "Token is securely stored. Enter a new one to update." : "ghp_xxxxxxxxxxxxxxxxxxxx"}
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">This token will be used to post the aggregated comments under your name. Ensure it has fine-grained read/write permissions for issues and pull requests.</p>
@@ -116,7 +116,7 @@ export default function SettingsPage() {
           <input
             type="number"
             {...register('pollingInterval')}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">How often the bot should check GitHub for new PR comments.</p>
         </div>
@@ -126,7 +126,7 @@ export default function SettingsPage() {
           <input
             type="number"
             {...register('batchDelay')}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">How long to wait after the first bot comment before aggregating and posting. This gives other bots time to comment.</p>
         </div>
@@ -136,7 +136,7 @@ export default function SettingsPage() {
           <input
             type="password"
             {...register("julesApiKey")}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
             placeholder={hasJulesKey ? "API Key is securely stored. Enter a new one to update." : "jules_api_key..."}
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">API Key used for integration with the Jules API.</p>
