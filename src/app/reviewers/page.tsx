@@ -114,7 +114,7 @@ export default function ReviewersPage() {
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Target Reviewers</h1>
       <p className="text-gray-600 mb-6">Add the GitHub usernames of the bots/reviewers you want to aggregate comments from.</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 dark:text-gray-100 p-6 rounded-xl shadow-sm border dark:border-gray-600 dark:bg-gray-700 border-gray-100 dark:border-gray-700 flex flex-col gap-4 mb-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-4 mb-8">
         <div className="flex gap-4 items-end">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">GitHub Username</label>
@@ -133,16 +133,16 @@ export default function ReviewersPage() {
         <p className="text-xs text-gray-500 dark:text-gray-400">If a comment matches the 'No Action Regex', it will be completely ignored and not added to the aggregation.</p>
       </form>
 
-      <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-xl shadow-sm border dark:border-gray-600 dark:bg-gray-700 border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 dark:text-gray-100 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {reviewers.map(rev => (
               <tr key={rev.id}>
                 {editingId === rev.id ? (
