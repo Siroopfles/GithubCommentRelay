@@ -146,7 +146,7 @@ export default function ReviewersPage() {
             {reviewers.map(rev => (
               <tr key={rev.id}>
                 {editingId === rev.id ? (
-                  <td colSpan={3} className="px-6 py-4 bg-yellow-50">
+                  <td colSpan={3} className="px-6 py-4 bg-yellow-50 dark:bg-yellow-900/20">
                     <form onSubmit={handleSubmitEdit(onSaveEdit)} className="space-y-4">
 
                       <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-gray-100">
