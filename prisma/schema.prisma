@@ -51,6 +51,7 @@ model TargetReviewer {
 model ProcessedComment {
   id               String   @id @default(cuid())
   commentId        BigInt
+  nodeId           String?
   source           String
   prNumber         Int
   repoOwner        String

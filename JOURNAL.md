@@ -87,7 +87,7 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
 - The action-tag generator uses simple `toLowerCase().includes()` keyword matching. For more precision in the future, we could explore regex or specific target-bot mapping configurations.
 - The `.env` generation was slightly flaky during the `prisma migrate dev` command due to missing `DATABASE_URL` during runtime in CLI versus `next.config`. Temporarily injected `file:./dev.db` to accomplish the schema synchronization.
 
-## 2026-04-13: Implement Category B - Advanced Filtering & Deduplication
+## 2026-04-17: Implement Category B - Advanced Filtering & Deduplication
 * **Schema Updates:** Added `noActionRegex` field to the `TargetReviewer` database model.
 * **UI & API:** Updated the Reviewers settings page and API endpoints to allow setting and editing the `noActionRegex`.
 * **No Action Needed Filtering:** Implemented filtering in the background worker. If a comment body matches the author's configured regex, the comment is fully ignored and not persisted.

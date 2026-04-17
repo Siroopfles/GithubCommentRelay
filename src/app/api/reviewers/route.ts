@@ -7,7 +7,19 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { username, noActionRegex } = await request.json()
+  let { username, noActionRegex } = await request.json()
+
+  if (noActionRegex === '') {
+    noActionRegex = null;
+  }
+
+  if (noActionRegex) {
+    try {
+      new RegExp(noActionRegex);
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid noActionRegex' }, { status: 400 });
+    }
+  }
   try {
     const reviewer = await prisma.targetReviewer.create({
       data: { username, noActionRegex }

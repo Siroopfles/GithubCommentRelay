@@ -11,3 +11,4 @@ worker.js
 server.pid
 server.log
 worker.js
+src/lib/*.js

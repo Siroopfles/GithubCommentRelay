@@ -12,9 +12,12 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
   for (const comment of commentsToBatch) {
     // Simple deduplication based on exact body match or highly similar body
+    if (!comment.body || comment.body.trim() === '') continue;
+
+    const normalize = (str: string) => str.trim().replace(/\s+/g, ' ').toLowerCase();
     const existing = deduplicatedComments.find(c =>
       c.author === comment.author &&
-      (c.body === comment.body || c.body.includes(comment.body) || comment.body.includes(c.body))
+      normalize(c.body) === normalize(comment.body)
     );
 
     if (existing) {
@@ -35,13 +38,15 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
     let priority = 3;
 
     // Ordered priority: Security > Fix Error > Review
-    if (lowerBody.includes('security') || lowerBody.includes('vulnerability')) {
+    if (/\[ACTION:.*?\]/i.test(lowerBody)) {
+      // Already has a tag, ignore
+    } else if (/\b(security|vulnerability)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: SEC_REVIEW]';
       priority = 1;
-    } else if (lowerBody.includes('error') || lowerBody.includes('failed') || lowerBody.includes('critical')) {
+    } else if (/\b(error|failed|critical)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: FIX_ERROR]';
       priority = 2;
-    } else if (lowerBody.includes('warn') || lowerBody.includes('suggestion') || lowerBody.includes('review')) {
+    } else if (/\b(warn|suggestion|review)\b/i.test(lowerBody)) {
       actionTag = '[ACTION: REVIEW]';
       priority = 3;
     }
@@ -64,12 +69,12 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
     let displayBody = comment.body;
 
     // Diff extraction and highlighting
-    if (displayBody.includes('```diff') || displayBody.includes('```')) {
+    if (displayBody.includes('```diff')) {
         // Find codeblocks and wrap them or add a note
-        displayBody = displayBody.replace(/(```[\s\S]*?```)/g, '\n**⚠️ Suggested Code Changes:**\n$1\n');
+        displayBody = displayBody.replace(/(```diff[\s\S]*?```)/g, '\n**⚠️ Suggested Code Changes:**\n$1\n');
     }
 
-    const countLabel = comment.count > 1 ? ` **[Reported ${comment.count}x]** ` : '';
+    const countLabel = comment.count > 1 ? `\n**[Reported ${comment.count}x]**` : '';
 
     if (commentTemplate) {
       // Split and construct to avoid injecting variables within body content replacing themselves
@@ -86,7 +91,10 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       }
 
     } else {
-      aggregatedBody += `#### From **@${comment.author}** ${comment.actionTag ? `\n${comment.actionTag}` : ''}${countLabel}\n`;
+      aggregatedBody += `#### From **@${comment.author}**`;
+      if (comment.actionTag) aggregatedBody += `\n${comment.actionTag}`;
+      if (countLabel) aggregatedBody += `${countLabel}`;
+      aggregatedBody += `\n`;
       aggregatedBody += `${displayBody}\n\n---\n\n`;
     }
   }

@@ -22,6 +22,14 @@ export default function ReviewersPage() {
   }, [])
 
   const onSubmit = async (data: {username: string, noActionRegex: string}) => {
+    if (data.noActionRegex) {
+      try {
+        new RegExp(data.noActionRegex);
+      } catch (e) {
+        alert('Invalid No Action Regex');
+        return;
+      }
+    }
     await fetch('/api/reviewers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -56,6 +64,14 @@ export default function ReviewersPage() {
   }
 
   const onSaveEdit = async (data: Reviewer) => {
+    if (data.noActionRegex) {
+      try {
+        new RegExp(data.noActionRegex);
+      } catch (e) {
+        alert('Invalid No Action Regex');
+        return;
+      }
+    }
     await fetch(`/api/reviewers/${data.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

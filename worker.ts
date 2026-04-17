@@ -35,7 +35,18 @@ async function processRepositories() {
     }
 
     const repos = await prisma.repository.findMany({ where: { isActive: true } })
-    const reviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } })
+    const rawReviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } });
+      const reviewers = rawReviewers.map(r => {
+        let compiledRegex = null;
+        if (r.noActionRegex) {
+          try {
+            compiledRegex = new RegExp(r.noActionRegex, 'i');
+          } catch (e) {
+            console.error(`CRITICAL: Failed to compile noActionRegex for ${r.username}: ${r.noActionRegex}`);
+          }
+        }
+        return { ...r, compiledRegex };
+      });
 
     if (repos.length === 0) {
       console.log('Skipping cycle: No active repositories configured.')
@@ -43,7 +54,7 @@ async function processRepositories() {
       return
     }
 
-    const reviewerUsernames = reviewers.map(r => r.username.toLowerCase())
+
     const octokit = await getOctokit()
     const { data: currentUser } = await octokit.rest.users.getAuthenticated()
 
@@ -368,6 +379,7 @@ async function processRepositories() {
         const allComments = [
           ...issueComments.map(c => ({
             id: BigInt(c.id),
+            nodeId: c.node_id,
             source: 'issue',
             user: c.user,
             body: c.body,
@@ -375,6 +387,7 @@ async function processRepositories() {
           })),
           ...reviewComments.map(c => ({
             id: BigInt(c.id),
+            nodeId: c.node_id,
             source: 'review_comment',
             user: c.user,
             body: c.body,
@@ -382,6 +395,7 @@ async function processRepositories() {
           })),
           ...reviews.filter(r => r.body).map(c => ({
             id: BigInt(c.id),
+            nodeId: c.node_id,
             source: 'review',
             user: c.user,
             body: c.body as string, // filtered above
@@ -394,16 +408,11 @@ async function processRepositories() {
 
           const reviewerConfig = reviewers.find(r => r.username.toLowerCase() === comment.user!.login.toLowerCase());
           if (reviewerConfig) {
-            if (reviewerConfig.noActionRegex) {
-              try {
-                const regex = new RegExp(reviewerConfig.noActionRegex, 'i');
-                if (regex.test(comment.body)) {
+            if (reviewerConfig.compiledRegex) {
+                if (reviewerConfig.compiledRegex.test(comment.body)) {
                   console.log(`Skipping comment from ${comment.user.login} on PR #${pr.number} due to noActionRegex match.`);
                   continue;
                 }
-              } catch (err) {
-                console.error(`Invalid regex for reviewer ${reviewerConfig.username}: ${reviewerConfig.noActionRegex}`);
-              }
             }
             const exists = await prisma.processedComment.findUnique({
               where: { commentId_source: { commentId: comment.id, source: comment.source } }
@@ -417,6 +426,7 @@ async function processRepositories() {
               await prisma.processedComment.create({
                 data: {
                   commentId: comment.id,
+                  nodeId: comment.nodeId,
                   source: comment.source,
                   prNumber: pr.number,
                   repoOwner: repo.owner,
@@ -511,55 +521,29 @@ async function processRepositories() {
 
             try {
               // Minimize original bot comments using GraphQL
-              for (const comment of commentsToBatch) {
-                // Determine node_id based on source if available or we might need to fetch it
-                // Since Octokit REST API doesn't expose node_id natively in all comment fetches,
-                // we might need to do a targeted fetch or handle issue vs review comments carefully.
-                // For a robust implementation, let's fetch the node_id directly via REST and then use GraphQL
-                let nodeId = null;
-                try {
-                  if (comment.source === 'issue') {
-                    const { data: issueComment } = await octokit.rest.issues.getComment({
-                      owner: session.repoOwner,
-                      repo: session.repoName,
-                      comment_id: Number(comment.commentId)
-                    });
-                    nodeId = issueComment.node_id;
-                  } else if (comment.source === 'review_comment') {
-                    const { data: pullComment } = await octokit.rest.pulls.getReviewComment({
-                      owner: session.repoOwner,
-                      repo: session.repoName,
-                      comment_id: Number(comment.commentId)
-                    });
-                    nodeId = pullComment.node_id;
-                  } else if (comment.source === 'review') {
-                    const { data: review } = await octokit.rest.pulls.getReview({
-                      owner: session.repoOwner,
-                      repo: session.repoName,
-                      pull_number: session.prNumber,
-                      review_id: Number(comment.commentId)
-                    });
-                    nodeId = review.node_id;
-                  }
+              const minimizableComments = commentsToBatch.filter((c: any) => c.source !== 'review' && c.nodeId);
+              if (minimizableComments.length > 0) {
+                  let queryFields = '';
+                  const variables: Record<string, string> = {};
 
-                  if (nodeId) {
-                    await octokit.graphql(
-                      `mutation($subjectId: ID!) {
-                        minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
-                          minimizedComment {
-                            isMinimized
-                          }
-                        }
-                      }`,
-                      {
-                        subjectId: nodeId
+                  minimizableComments.forEach((comment: any, index: number) => {
+                      queryFields += `m${index}: minimizeComment(input: { subjectId: $id${index}, classifier: RESOLVED }) {
+                        minimizedComment { isMinimized }
+                      }\n`;
+                      variables[`id${index}`] = comment.nodeId;
+                  });
+
+                  const queryArgs = minimizableComments.map((_: any, i: number) => `$id${i}: ID!`).join(', ');
+                  const mutation = `mutation(${queryArgs}) { ${queryFields} }`;
+
+                  try {
+                      await octokit.graphql(mutation, variables);
+                      for (const comment of minimizableComments) {
+                          console.log(`Minimized original comment ${comment.commentId} from ${comment.author}`);
                       }
-                    );
-                    console.log(`Minimized original comment ${comment.commentId} from ${comment.author}`);
+                  } catch (minErr: any) {
+                      console.error(`Failed to minimize batch comments:`, minErr.message);
                   }
-                } catch (minErr: any) {
-                  console.error(`Failed to minimize comment ${comment.commentId}:`, minErr.message);
-                }
               }
             } catch (e) {
               console.error(`Failed to minimize comments for PR #${session.prNumber}:`, e);
