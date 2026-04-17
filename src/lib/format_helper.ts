@@ -3,6 +3,8 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
   if (aiSystemPrompt) {
     aggregatedBody += `${aiSystemPrompt}\n\n---\n\n`;
+  } else {
+    aggregatedBody += `Below are the most recent pull request comments and code reviews. Please use these exact comments as the context to fix the PR. Do not ask me for the text of the PR comments; they are provided right below this message.\n\n---\n\n`;
   }
 
   const rawJsonData: any[] = [];
