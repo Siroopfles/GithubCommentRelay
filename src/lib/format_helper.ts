@@ -5,7 +5,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
     aggregatedBody += `${aiSystemPrompt}\n\n---\n\n`;
   }
 
-  const rawJsonData = [];
+  const rawJsonData: any[] = [];
 
   // Deduplication
   const deduplicatedComments: any[] = [];

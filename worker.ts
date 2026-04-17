@@ -37,7 +37,7 @@ async function processRepositories() {
     const repos = await prisma.repository.findMany({ where: { isActive: true } })
     const rawReviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } });
       const reviewers = rawReviewers.map(r => {
-        let compiledRegex = null;
+        let compiledRegex: RegExp | null = null;
         if (r.noActionRegex) {
           try {
             compiledRegex = new RegExp(r.noActionRegex, 'i');
@@ -110,7 +110,7 @@ async function processRepositories() {
                   canMerge = false;
                 }
                 const allChecksSuccessful = checkRuns.check_runs.every(
-                  run => run.status === 'completed' && (run.conclusion === 'success' || run.conclusion === 'skipped' || run.conclusion === 'neutral')
+                  (run: any) => run.status === 'completed' && (run.conclusion === 'success' || run.conclusion === 'skipped' || run.conclusion === 'neutral')
                 );
 
                 const classicStatusSuccess = combinedStatus.state === 'success';
@@ -377,7 +377,7 @@ async function processRepositories() {
         })
 
         const allComments = [
-          ...issueComments.map(c => ({
+          ...issueComments.map((c: any) => ({
             id: BigInt(c.id),
             nodeId: c.node_id,
             source: 'issue',
@@ -385,7 +385,7 @@ async function processRepositories() {
             body: c.body,
             created_at: c.created_at
           })),
-          ...reviewComments.map(c => ({
+          ...reviewComments.map((c: any) => ({
             id: BigInt(c.id),
             nodeId: c.node_id,
             source: 'review_comment',
@@ -393,7 +393,7 @@ async function processRepositories() {
             body: c.body,
             created_at: c.created_at
           })),
-          ...reviews.filter(r => r.body).map(c => ({
+          ...reviews.filter((r: any) => r.body).map((c: any) => ({
             id: BigInt(c.id),
             nodeId: c.node_id,
             source: 'review',
