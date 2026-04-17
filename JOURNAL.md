@@ -97,7 +97,7 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
 * **Minimize Original Comments:** After the worker posts the aggregated comment, it loops over all source comments, fetches their `node_id`, and utilizes the GitHub GraphQL API to minimize the original comments using the `RESOLVED` classifier, maintaining a clean PR chat timeline.
 * The Next.js production build and TypeScript compilation completed successfully.
 
-## $(date "+%Y-%m-%d %H:%M") - Adding option to disable aggregated comments
+## 2024-04-17 19:46 - Adding option to disable aggregated comments
 - **Task:** Allow disabling of PR commenting while ensuring Jules forwarding still works.
 - **Changes:**
   - Added `postAggregatedComments` boolean field to the Prisma `Repository` schema.

@@ -148,7 +148,8 @@ export default function RepositoriesPage() {
           taskSourcePath: data.taskSourcePath,
           julesPromptTemplate: data.julesPromptTemplate,
           julesChatForwardMode: data.julesChatForwardMode,
-          julesChatForwardDelay: data.julesChatForwardDelay
+          julesChatForwardDelay: data.julesChatForwardDelay,
+          postAggregatedComments: data.postAggregatedComments
         })
       })
       if (res.ok) {
