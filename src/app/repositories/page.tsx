@@ -19,6 +19,7 @@ type Repo = {
     julesPromptTemplate?: string
     julesChatForwardMode: string
     julesChatForwardDelay: number
+    postAggregatedComments: boolean
 }
 
 export default function RepositoriesPage() {
@@ -37,12 +38,14 @@ export default function RepositoriesPage() {
     julesPromptTemplate?: string
     julesChatForwardMode: string
     julesChatForwardDelay: number
+    postAggregatedComments: boolean
   }>({
     defaultValues: {
       autoMergeEnabled: false,
       requiredApprovals: 1,
       requireCI: true,
-      mergeStrategy: 'merge'
+      mergeStrategy: 'merge',
+      postAggregatedComments: true
     }
   })
 
@@ -145,7 +148,8 @@ export default function RepositoriesPage() {
           taskSourcePath: data.taskSourcePath,
           julesPromptTemplate: data.julesPromptTemplate,
           julesChatForwardMode: data.julesChatForwardMode,
-          julesChatForwardDelay: data.julesChatForwardDelay
+          julesChatForwardDelay: data.julesChatForwardDelay,
+          postAggregatedComments: data.postAggregatedComments
         })
       })
       if (res.ok) {
@@ -231,6 +235,12 @@ export default function RepositoriesPage() {
               <option value="rebase">Rebase</option>
             </select>
           </div>
+          <div>
+            <label htmlFor="postAggregatedComments" className="block text-sm font-medium text-gray-700 mb-2">Post PR Comment</label>
+            <div className="flex items-center h-10">
+              <input id="postAggregatedComments" type="checkbox" {...register('postAggregatedComments')} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end">
@@ -288,6 +298,10 @@ export default function RepositoriesPage() {
                         <div>
                           <label htmlFor="editJulesChatForwardDelay" className="block text-xs text-gray-500 mb-1">Failsafe Delay (min)</label>
                           <input id="editJulesChatForwardDelay" type="number" min="0" {...registerEdit("julesChatForwardDelay", { valueAsNumber: true })} className="w-full px-2 py-1 border rounded" />
+                        </div>
+                        <div>
+                          <label htmlFor="editPostAggregatedComments" className="block text-xs text-gray-500 mb-1">Post PR Comment</label>
+                          <input id="editPostAggregatedComments" type="checkbox" {...registerEdit('postAggregatedComments')} className="h-5 w-5" />
                         </div>
                         <div>
                           <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 mb-1">Auto Merge</label>

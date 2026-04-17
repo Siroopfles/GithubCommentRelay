@@ -35,6 +35,7 @@ model Repository {
   julesChatForwardDelay Int      @default(5) // In minutes
   aiSystemPrompt        String? // Top-level prompt for AI bots
   commentTemplate       String? // Markdown template for individual bot comments
+  postAggregatedComments Boolean  @default(true)
   createdAt             DateTime @default(now())
 
   @@unique([owner, name])
