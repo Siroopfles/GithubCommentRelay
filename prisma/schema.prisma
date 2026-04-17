@@ -44,12 +44,15 @@ model TargetReviewer {
   id        String   @id @default(cuid())
   username  String   @unique
   isActive  Boolean  @default(true)
+  noActionRegex String?
   createdAt DateTime @default(now())
 }
 
 model ProcessedComment {
   id               String   @id @default(cuid())
   commentId        BigInt
+  nodeId           String?
+  isSkipped        Boolean  @default(false)
   source           String
   prNumber         Int
   repoOwner        String

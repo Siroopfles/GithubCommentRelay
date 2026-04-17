@@ -35,7 +35,18 @@ async function processRepositories() {
     }
 
     const repos = await prisma.repository.findMany({ where: { isActive: true } })
-    const reviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } })
+    const rawReviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } });
+      const reviewers = rawReviewers.map(r => {
+        let compiledRegex = null;
+        if (r.noActionRegex) {
+          try {
+            compiledRegex = new RegExp(r.noActionRegex, 'i');
+          } catch (e) {
+            console.error(`CRITICAL: Failed to compile noActionRegex for ${r.username}: ${r.noActionRegex}`);
+          }
+        }
+        return { ...r, compiledRegex };
+      });
 
     if (repos.length === 0) {
       console.log('Skipping cycle: No active repositories configured.')
@@ -43,7 +54,7 @@ async function processRepositories() {
       return
     }
 
-    const reviewerUsernames = reviewers.map(r => r.username.toLowerCase())
+
     const octokit = await getOctokit()
     const { data: currentUser } = await octokit.rest.users.getAuthenticated()
 
@@ -368,6 +379,7 @@ async function processRepositories() {
         const allComments = [
           ...issueComments.map(c => ({
             id: BigInt(c.id),
+            nodeId: c.node_id,
             source: 'issue',
             user: c.user,
             body: c.body,
@@ -375,6 +387,7 @@ async function processRepositories() {
           })),
           ...reviewComments.map(c => ({
             id: BigInt(c.id),
+            nodeId: c.node_id,
             source: 'review_comment',
             user: c.user,
             body: c.body,
@@ -382,6 +395,7 @@ async function processRepositories() {
           })),
           ...reviews.filter(r => r.body).map(c => ({
             id: BigInt(c.id),
+            nodeId: c.node_id,
             source: 'review',
             user: c.user,
             body: c.body as string, // filtered above
@@ -392,12 +406,40 @@ async function processRepositories() {
         for (const comment of allComments) {
           if (!comment.user || !comment.body) continue;
 
-          if (reviewerUsernames.includes(comment.user.login.toLowerCase())) {
+          const reviewerConfig = reviewers.find(r => r.username.toLowerCase() === comment.user!.login.toLowerCase());
+          if (reviewerConfig) {
             const exists = await prisma.processedComment.findUnique({
               where: { commentId_source: { commentId: comment.id, source: comment.source } }
-            })
+            });
 
             if (!exists) {
+              let isSkipped = false;
+              if (reviewerConfig.compiledRegex) {
+                  // Prevent ReDoS by truncating extremely long bodies
+                  const safeBody = comment.body.slice(0, 10000);
+                  if (reviewerConfig.compiledRegex.test(safeBody)) {
+                    console.log(`Skipping comment from ${comment.user.login} on PR #${pr.number} due to noActionRegex match.`);
+                    isSkipped = true;
+                  }
+              }
+
+              if (isSkipped) {
+                await prisma.processedComment.create({
+                  data: {
+                    commentId: comment.id,
+                    nodeId: comment.nodeId,
+                    source: comment.source,
+                    prNumber: pr.number,
+                    repoOwner: repo.owner,
+                    repoName: repo.name,
+                    author: comment.user.login,
+                    body: comment.body,
+                    postedAt: new Date(comment.created_at),
+                    isSkipped: true
+                  }
+                });
+                continue;
+              }
               console.log(`Found new comment from ${comment.user.login} on PR #${pr.number}`)
 
               const postedAt = new Date(comment.created_at)
@@ -405,6 +447,7 @@ async function processRepositories() {
               await prisma.processedComment.create({
                 data: {
                   commentId: comment.id,
+                  nodeId: comment.nodeId,
                   source: comment.source,
                   prNumber: pr.number,
                   repoOwner: repo.owner,
@@ -481,7 +524,8 @@ async function processRepositories() {
               prNumber: session.prNumber,
               repoOwner: session.repoOwner,
               repoName: session.repoName,
-              postedAt: { gte: session.firstSeenAt }
+              postedAt: { gte: session.firstSeenAt },
+              isSkipped: false
             },
             orderBy: { postedAt: 'asc' }
           })
@@ -496,6 +540,61 @@ async function processRepositories() {
               body: aggregatedBody
             })
             console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+
+            try {
+              // Minimize original bot comments using GraphQL
+              const minimizableComments = commentsToBatch.filter((c: any) => c.source !== 'review' && c.nodeId);
+              if (minimizableComments.length > 0) {
+                  const chunkSize = 20;
+                  for (let i = 0; i < minimizableComments.length; i += chunkSize) {
+                      const chunk = minimizableComments.slice(i, i + chunkSize);
+                      let queryFields = '';
+                      const variables: Record<string, string> = {};
+
+                      chunk.forEach((comment: any, index: number) => {
+                          queryFields += `m${index}: minimizeComment(input: { subjectId: $id${index}, classifier: RESOLVED }) {
+                            minimizedComment { isMinimized }
+                          }\n`;
+                          variables[`id${index}`] = comment.nodeId;
+                      });
+
+                      const queryArgs = chunk.map((_: any, j: number) => `$id${j}: ID!`).join(', ');
+                      const mutation = `mutation(${queryArgs}) { ${queryFields} }`;
+
+                      try {
+                          const response: any = await octokit.graphql(mutation, variables);
+                          chunk.forEach((comment: any, index: number) => {
+                              const alias = `m${index}`;
+                              if (response[alias] && response[alias].minimizedComment && response[alias].minimizedComment.isMinimized) {
+                                  console.log(`Minimized original comment ${comment.commentId} from ${comment.author}`);
+                              } else {
+                                  console.warn(`Failed to verify minimization for comment ${comment.commentId} from ${comment.author}`);
+                              }
+                          });
+                      } catch (minErr: any) {
+                          console.error(`Failed to minimize chunk of comments, falling back to sequential minimization:`, minErr.message);
+                          for (const comment of chunk) {
+                              try {
+                                  await octokit.graphql(
+                                      `mutation($subjectId: ID!) {
+                                          minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
+                                              minimizedComment { isMinimized }
+                                          }
+                                      }`,
+                                      { subjectId: comment.nodeId }
+                                  );
+                                  console.log(`Fallback: Minimized original comment ${comment.commentId} from ${comment.author}`);
+                              } catch (fallbackErr: any) {
+                                  console.error(`Fallback failed to minimize comment ${comment.commentId}:`, fallbackErr.message);
+                              }
+                          }
+                      }
+                  }
+              }
+            } catch (e) {
+              console.error(`Failed to minimize comments for PR #${session.prNumber}:`, e);
+            }
+
 
             try {
               await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
@@ -610,7 +709,8 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
               prNumber: session.prNumber,
               repoOwner: session.repoOwner,
               repoName: session.repoName,
-              postedAt: { gte: session.firstSeenAt }
+              postedAt: { gte: session.firstSeenAt },
+              isSkipped: false
             },
             data: { forwardedToJules: true }
           })

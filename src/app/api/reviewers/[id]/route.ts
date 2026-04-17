@@ -6,12 +6,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const json = await request.json()
-    if (typeof json.isActive !== 'boolean') {
-      return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
+
+    const updateData: { isActive?: boolean; noActionRegex?: string | null } = {};
+    if (json.isActive !== undefined) {
+      if (typeof json.isActive !== 'boolean') {
+        return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 });
+      }
+      updateData.isActive = json.isActive;
+    }
+    if (json.noActionRegex !== undefined) {
+      let noActionRegex = json.noActionRegex;
+      if (noActionRegex === '') noActionRegex = null;
+
+      if (noActionRegex !== null && typeof noActionRegex !== 'string') {
+        return NextResponse.json({ error: 'Invalid noActionRegex type' }, { status: 400 });
+      }
+
+      if (typeof noActionRegex === 'string') {
+        try {
+          new RegExp(noActionRegex, 'i');
+        } catch (e) {
+          return NextResponse.json({ error: 'Invalid noActionRegex pattern' }, { status: 400 });
+        }
+      }
+      updateData.noActionRegex = noActionRegex;
+    }
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
     const reviewer = await prisma.targetReviewer.update({
       where: { id },
-      data: { isActive: json.isActive }
+      data: updateData
     })
     return NextResponse.json(reviewer)
   } catch (error: any) {

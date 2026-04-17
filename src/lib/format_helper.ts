@@ -7,42 +7,107 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
   const rawJsonData = [];
 
+  // Deduplication
+  const deduplicatedComments: any[] = [];
+  const normalize = (str: string) => str.trim().replace(/\s+/g, ' ').toLowerCase();
+
   for (const comment of commentsToBatch) {
+    // Simple deduplication based on exact body match or highly similar body
+    if (!comment.body || comment.body.trim() === '') continue;
+
+    const normalizedBody = normalize(comment.body);
+    const existing = deduplicatedComments.find(c =>
+      c.author === comment.author &&
+      c.normalizedBody === normalizedBody
+    );
+
+    if (existing) {
+      existing.count = (existing.count || 1) + 1;
+      // If the new comment has more context (is longer), use it instead
+      if (comment.body.length > existing.body.length) {
+        existing.body = comment.body;
+      }
+    } else {
+      deduplicatedComments.push({ ...comment, count: 1, normalizedBody });
+    }
+  }
+
+  // Assign action tags and sort priority
+  const commentsWithTags = deduplicatedComments.map(comment => {
+    const lowerBody = comment.body.toLowerCase();
+    let actionTag = '';
+    let priority = 3;
+
+    // Ordered priority: Security > Fix Error > Review
+    let cleanBody = comment.body;
+    const tagMatch = lowerBody.match(/\[ACTION:(.*?)\]/i);
+    if (tagMatch) {
+      actionTag = `[ACTION:${tagMatch[1].toUpperCase()}]`;
+      if (actionTag.includes('SEC_REVIEW')) priority = 1;
+      else if (actionTag.includes('FIX_ERROR')) priority = 2;
+      else priority = 3;
+
+      const originalCaseMatch = comment.body.match(new RegExp('\\[ACTION:(.*?)\\]', 'i'));
+      if (originalCaseMatch) {
+        cleanBody = comment.body.replace(originalCaseMatch[0], '').trim();
+      }
+    } else if (/\b(security|vulnerabilit(y|ies))\b/i.test(lowerBody)) {
+      actionTag = '[ACTION: SEC_REVIEW]';
+      priority = 1;
+    } else if (/\b(error(s)?|fail(ed|s|ing|ure(s)?)?|critical(ly)?)\b/i.test(lowerBody)) {
+      actionTag = '[ACTION: FIX_ERROR]';
+      priority = 2;
+    } else if (/\b(warn(ing(s)?)?|suggestion(s)?|review(s|ed|ing)?)\b/i.test(lowerBody)) {
+      actionTag = '[ACTION: REVIEW]';
+      priority = 3;
+    }
+
+    return { ...comment, body: cleanBody, actionTag, priority };
+  });
+
+  // Sort by priority (ascending: 1 is highest)
+  commentsWithTags.sort((a, b) => a.priority - b.priority);
+
+  // Process sorted and deduplicated comments
+  for (const comment of commentsWithTags) {
     rawJsonData.push({
       author: comment.author,
       body: comment.body,
-      source: comment.source
+      source: comment.source,
+      count: comment.count,
+      actionTag: comment.actionTag
     });
 
-    const lowerBody = comment.body.toLowerCase();
-    let actionTag = '';
+    let displayBody = comment.body;
 
-    // Ordered priority: Security > Fix Error > Review
-    if (lowerBody.includes('security') || lowerBody.includes('vulnerability')) {
-      actionTag = '[ACTION: SEC_REVIEW] ';
-    } else if (lowerBody.includes('error') || lowerBody.includes('failed') || lowerBody.includes('critical')) {
-      actionTag = '[ACTION: FIX_ERROR] ';
-    } else if (lowerBody.includes('warn') || lowerBody.includes('suggestion') || lowerBody.includes('review')) {
-      actionTag = '[ACTION: REVIEW] ';
+    // Diff extraction and highlighting
+    if (displayBody.includes('```diff')) {
+        // Find codeblocks and wrap them or add a note
+        displayBody = displayBody.replace(/(```diff[\s\S]*?```)/g, '\n**⚠️ Suggested Code Changes:**\n$1\n');
     }
+
+    const countLabel = comment.count > 1 ? `\n**[Reported ${comment.count}x]**` : '';
 
     if (commentTemplate) {
       // Split and construct to avoid injecting variables within body content replacing themselves
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
-          let pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-          let post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, actionTag);
-          aggregatedBody += `${pre}${comment.body}${post}\n\n---\n\n`;
+          let pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+          let post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+          aggregatedBody += `${pre}${displayBody}${post}\n\n---\n\n`;
       } else {
           let formattedComment = commentTemplate
             .replace(/\{\{bot_name\}\}/g, comment.author)
-            .replace(/\{\{action_tag\}\}/g, actionTag);
-          aggregatedBody += `${formattedComment}\n\n---\n\n`;
+            .replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+          aggregatedBody += `${formattedComment}\n\n${displayBody}\n\n---\n\n`;
       }
 
     } else {
-      aggregatedBody += `#### From **@${comment.author}** ${actionTag ? `\n${actionTag}` : ''}\n`;
-      aggregatedBody += `${comment.body}\n\n---\n\n`;
+      aggregatedBody += `#### From **@${comment.author}**`;
+      if (comment.actionTag) aggregatedBody += `\n${comment.actionTag}`;
+      if (countLabel) aggregatedBody += `${countLabel}`;
+      aggregatedBody += `\n`;
+      aggregatedBody += `${displayBody}\n\n---\n\n`;
     }
   }
 

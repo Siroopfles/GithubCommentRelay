@@ -86,3 +86,13 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
 ### Notes for Future Sessions
 - The action-tag generator uses simple `toLowerCase().includes()` keyword matching. For more precision in the future, we could explore regex or specific target-bot mapping configurations.
 - The `.env` generation was slightly flaky during the `prisma migrate dev` command due to missing `DATABASE_URL` during runtime in CLI versus `next.config`. Temporarily injected `file:./dev.db` to accomplish the schema synchronization.
+
+## 2026-04-17: Implement Category B - Advanced Filtering & Deduplication
+* **Schema Updates:** Added `noActionRegex` field to the `TargetReviewer` database model.
+* **UI & API:** Updated the Reviewers settings page and API endpoints to allow setting and editing the `noActionRegex`.
+* **No Action Needed Filtering:** Implemented filtering in the background worker. If a comment body matches the author's configured regex, the comment is fully ignored and not persisted.
+* **Strikte Inhoudelijke Deduplicatie:** Added deduplication logic in `formatAggregatedBody` that detects duplicate comments from the same author, combining them into one point marked with `[Reported X times]`.
+* **Prioritering en Sortering van Feedback:** Formatter now sorts feedback items based on severity tags (`[ACTION: SEC_REVIEW]` > `[ACTION: FIX_ERROR]` > `[ACTION: REVIEW]`).
+* **Diff Extractie:** Formatter specifically identifies ` ```diff ` (or ` ``` `) blocks and visually enhances them with a "Suggested Code Changes:" warning header.
+* **Minimize Original Comments:** After the worker posts the aggregated comment, it loops over all source comments, fetches their `node_id`, and utilizes the GitHub GraphQL API to minimize the original comments using the `RESOLVED` classifier, maintaining a clean PR chat timeline.
+* The Next.js production build and TypeScript compilation completed successfully.
