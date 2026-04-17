@@ -98,7 +98,7 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
 * The Next.js production build and TypeScript compilation completed successfully.
 
 ## 2026-04-17 Session Log
-- Gevraagd door gebruiker om een upgrade proposal te maken voor de "via de stitch MCP" met betrekking tot de Github PR Comment Aggregator.
+- Gevraagd door gebruiker om een upgrade proposal te maken voor de "via de stitch MCP" met betrekking tot de GitHub PR Comment Aggregator.
 - Codebase geanalyseerd.
 - 3 nieuwe features bedacht: Agent Analytics Dashboard, Visual Template Builder, en Simulator / Preview.
 - Een Stitch project aangemaakt en 3 schermen ontworpen ("Dashboard", "Simulator", "Visual Template Builder") gebaseerd op het "Mono Prism" design system (minimalistisch, strak, developer-vriendelijk).
