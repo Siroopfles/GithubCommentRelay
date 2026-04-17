@@ -52,6 +52,7 @@ model ProcessedComment {
   id               String   @id @default(cuid())
   commentId        BigInt
   nodeId           String?
+  isSkipped        Boolean  @default(false)
   source           String
   prNumber         Int
   repoOwner        String

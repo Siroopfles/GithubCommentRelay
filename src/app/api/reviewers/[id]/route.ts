@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (noActionRegex === '') noActionRegex = null;
       if (noActionRegex !== null) {
         try {
-          new RegExp(noActionRegex);
+          new RegExp(noActionRegex, 'i');
         } catch (e) {
           return NextResponse.json({ error: 'Invalid noActionRegex' }, { status: 400 });
         }

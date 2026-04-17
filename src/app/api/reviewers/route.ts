@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   if (noActionRegex) {
     try {
-      new RegExp(noActionRegex);
+      new RegExp(noActionRegex, 'i');
     } catch (e) {
       return NextResponse.json({ error: 'Invalid noActionRegex' }, { status: 400 });
     }

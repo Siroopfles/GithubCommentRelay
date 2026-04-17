@@ -24,7 +24,7 @@ export default function ReviewersPage() {
   const onSubmit = async (data: {username: string, noActionRegex: string}) => {
     if (data.noActionRegex) {
       try {
-        new RegExp(data.noActionRegex);
+        new RegExp(data.noActionRegex, 'i');
       } catch (e) {
         alert('Invalid No Action Regex');
         return;
@@ -66,7 +66,7 @@ export default function ReviewersPage() {
   const onSaveEdit = async (data: Reviewer) => {
     if (data.noActionRegex) {
       try {
-        new RegExp(data.noActionRegex);
+        new RegExp(data.noActionRegex, 'i');
       } catch (e) {
         alert('Invalid No Action Regex');
         return;
