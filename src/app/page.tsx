@@ -23,7 +23,7 @@ export default async function Dashboard() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
+          <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
             <CheckCircle2 size={24} />
           </div>
           <div>
@@ -33,7 +33,7 @@ export default async function Dashboard() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-          <div className="p-3 bg-amber-100 text-amber-600 rounded-lg">
+          <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg">
             <Clock size={24} />
           </div>
           <div>
@@ -66,7 +66,7 @@ export default async function Dashboard() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">Started: {new Date(session.firstSeenAt).toLocaleString()}</p>
                       </div>
                     </div>
-                    <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">Waiting</span>
+                    <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium rounded-full">Waiting</span>
                   </li>
                 ))}
               </ul>
