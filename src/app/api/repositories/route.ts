@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge',
         taskSourceType: validTaskSourceType,
         taskSourcePath: taskSourcePath || null,
-        maxConcurrentTasks: typeof maxConcurrentTasks === 'number' ? maxConcurrentTasks : 3,
+        maxConcurrentTasks: (typeof maxConcurrentTasks === 'number' && maxConcurrentTasks >= 0) ? maxConcurrentTasks : 3,
         julesPromptTemplate: julesPromptTemplate || null,
         julesChatForwardMode: validJulesChatForwardMode,
         julesChatForwardDelay: parsedDelay,
