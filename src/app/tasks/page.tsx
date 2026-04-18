@@ -62,8 +62,14 @@ export default function TasksPage() {
   const fetchTasks = async () => {
     if (!selectedRepo) return;
     const res = await fetch(`/api/tasks?repositoryId=${selectedRepo}`);
-    const data = await res.json();
-    setTasks(data);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setTasks(data);
+      }
+    } else {
+      console.error('Failed to fetch tasks');
+    }
   };
 
   const onDragEnd = async (result: DropResult) => {
