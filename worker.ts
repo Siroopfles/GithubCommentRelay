@@ -496,7 +496,7 @@ async function processRepositories() {
     for (const session of pendingSessions) {
       const timeSinceFirstSeen = now - new Date(session.firstSeenAt).getTime()
 
-      if (timeSinceFirstSeen >= batchDelayMs) {
+      if (timeSinceFirstSeen >= batchDelayMs || session.forceProcess) {
         console.log(`Processing batch for PR #${session.prNumber} in ${session.repoOwner}/${session.repoName}...`)
 
         // Atomically claim this session
@@ -617,7 +617,7 @@ async function processRepositories() {
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessed: true, isProcessing: false }
+            data: { isProcessed: true, isProcessing: false, forceProcess: false }
           })
         } catch (error) {
           console.error(`Failed to process batch for PR #${session.prNumber}:`, error)
@@ -626,7 +626,7 @@ async function processRepositories() {
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessing: false }
+            data: { isProcessing: false, forceProcess: false }
           })
         }
       }
@@ -644,7 +644,7 @@ async function start() {
   try {
     await prisma.batchSession.updateMany({
       where: { isProcessing: true },
-      data: { isProcessing: false }
+      data: { isProcessing: false, forceProcess: false }
     })
   } catch (err) {
     console.error('Failed to clean up stuck sessions:', err)

@@ -105,3 +105,4 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
   - Updated the frontend UI (`src/app/repositories/page.tsx`) to show a checkbox "Post PR Comment" in the create and edit modal.
   - Adjusted the background worker (`worker.ts`) to skip `octokit.rest.issues.createComment` and skip minimizing comments (by setting `minimizableComments = []`) if `postAggregatedComments` is false, but still forward to Jules.
 - **Status:** Completed.
+

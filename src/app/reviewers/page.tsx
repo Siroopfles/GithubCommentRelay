@@ -110,57 +110,57 @@ export default function ReviewersPage() {
   }
 
   return (
-    <div className="max-w-4xl text-black">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Target Reviewers</h1>
-      <p className="text-gray-600 mb-6">Add the GitHub usernames of the bots/reviewers you want to aggregate comments from.</p>
+    <div className="max-w-4xl text-black dark:text-gray-100">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Target Reviewers</h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">Add the GitHub usernames of the bots/reviewers you want to aggregate comments from.</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-4 mb-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-4 mb-8">
         <div className="flex gap-4 items-end">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">GitHub Username</label>
-            <input {...register('username', {required: true})} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. dependabot[bot]" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">GitHub Username</label>
+            <input {...register('username', {required: true})} className="w-full px-4 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. dependabot[bot]" />
             {errors.username && <span className="text-xs text-red-500 mt-1 block">{errors.username.message}</span>}
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">No Action Regex (Optional)</label>
-            <input {...register('noActionRegex')} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ^Coverage did not change|^0 vulnerabilities" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">No Action Regex (Optional)</label>
+            <input {...register('noActionRegex')} className="w-full px-4 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. ^Coverage did not change|^0 vulnerabilities" />
             {errors.noActionRegex && <span className="text-xs text-red-500 mt-1 block">{errors.noActionRegex.message}</span>}
           </div>
           <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 h-[42px]">
             Add
           </button>
         </div>
-        <p className="text-xs text-gray-500">If a comment matches the 'No Action Regex', it will be completely ignored and not added to the aggregation.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">If a comment matches the 'No Action Regex', it will be completely ignored and not added to the aggregation.</p>
       </form>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Username</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {reviewers.map(rev => (
               <tr key={rev.id}>
                 {editingId === rev.id ? (
-                  <td colSpan={3} className="px-6 py-4 bg-yellow-50">
+                  <td colSpan={3} className="px-6 py-4 bg-yellow-50 dark:bg-yellow-900/20">
                     <form onSubmit={handleSubmitEdit(onSaveEdit)} className="space-y-4">
 
-                      <div className="flex items-center gap-2 font-medium text-gray-900">
+                      <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-gray-100">
                         Editing Settings for: {rev.username}
                       </div>
                       <div className="grid grid-cols-1 gap-4">
                         <div>
-                          <label htmlFor="editNoActionRegex" className="block text-xs text-gray-500 mb-1">No Action Regex</label>
-                          <input id="editNoActionRegex" {...registerEdit("noActionRegex")} className="w-full px-2 py-1 border rounded" placeholder="e.g. ^Coverage did not change" />
+                          <label htmlFor="editNoActionRegex" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">No Action Regex</label>
+                          <input id="editNoActionRegex" {...registerEdit("noActionRegex")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 rounded" placeholder="e.g. ^Coverage did not change" />
                           {editErrors.noActionRegex && <span className="text-xs text-red-500 mt-1 block">{editErrors.noActionRegex.message}</span>}
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">
-                        <button type="button" onClick={cancelEdit} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded flex items-center gap-1">
+                        <button type="button" onClick={cancelEdit} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded flex items-center gap-1">
                           <X size={14} /> Cancel
                         </button>
                         <button type="submit" className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded flex items-center gap-1">
@@ -171,14 +171,14 @@ export default function ReviewersPage() {
                   </td>
                 ) : (
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                       {rev.username}
-                      {rev.noActionRegex && <p className="text-xs text-gray-500 mt-1">Regex: <code className="bg-gray-100 px-1 rounded">{rev.noActionRegex}</code></p>}
+                      {rev.noActionRegex && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Regex: <code className="bg-gray-100 dark:bg-gray-700 dark:text-gray-100 px-1 rounded">{rev.noActionRegex}</code></p>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
                         onClick={() => toggleActive(rev.id, rev.isActive)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${rev.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${rev.isActive ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}
                       >
                         {rev.isActive ? 'Active' : 'Paused'}
                       </button>
@@ -197,7 +197,7 @@ export default function ReviewersPage() {
             ))}
             {reviewers.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-gray-500 text-sm">No reviewers tracked yet.</td>
+                <td colSpan={3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">No reviewers tracked yet.</td>
               </tr>
             )}
           </tbody>

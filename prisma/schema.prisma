@@ -76,6 +76,7 @@ model BatchSession {
   firstSeenAt  DateTime @default(now())
   isProcessed  Boolean  @default(false)
   isProcessing Boolean  @default(false)
+  forceProcess Boolean  @default(false)
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }
