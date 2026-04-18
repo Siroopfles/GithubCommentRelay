@@ -187,7 +187,7 @@ export default function SettingsPage() {
       <div className="mt-12 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-red-100 dark:border-red-900">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">System Update</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-          Haal de laatste versie van GitHub op en herstart de applicatie. Let op: dit voert een `git reset --hard` uit en overschrijft lokale wijzigingen in de code.
+          Fetch the latest version from GitHub and restart the application. Warning: this performs a `git reset --hard` and overwrites local changes.
         </p>
         <button
           onClick={handleUpdate}
