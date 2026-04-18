@@ -35,7 +35,7 @@ model Repository {
   taskSourceType        String   @default("none") // 'none', 'local_folder', 'github_issues'
   taskSourcePath        String? // Path to folder if taskSourceType is 'local_folder'
   julesPromptTemplate   String? // Template for the prompt
-  julesChatForwardMode  String   @default("off") // 'off', 'always', 'failsafe'
+  julesChatForwardMode  String   @default("off") // 'off', 'always'
   julesChatForwardDelay Int      @default(5) // In minutes
   aiSystemPrompt        String? // Top-level prompt for AI bots
   commentTemplate       String? // Markdown template for individual bot comments

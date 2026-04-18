@@ -913,7 +913,8 @@ async function processWebhookSignals() {
     // Trigger the main processor immediately
     if (!isRunning) {
         logger.info('Triggering immediate processing cycle due to webhooks...');
-        await processRepositories();
+        // Do not await processRepositories here so we don't block the interval
+        void processRepositories();
     }
     await prisma.webhookSignal.updateMany({
       where: {
