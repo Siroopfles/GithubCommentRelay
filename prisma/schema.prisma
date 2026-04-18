@@ -16,7 +16,11 @@ model Settings {
   pollingInterval Int      @default(60) // In seconds
   batchDelay      Int      @default(5) // In minutes
   julesApiKey     String?
-  updatedAt       DateTime @updatedAt
+  updatedAt          DateTime @updatedAt
+  webhookSecret      String?
+  retentionDays      Int      @default(60)
+  rateLimitRemaining Int?
+  rateLimitReset     DateTime?
 }
 
 model Repository {
@@ -96,4 +100,16 @@ model AutoMergeLog {
   createdAt DateTime @default(now())
 
   @@index([repoOwner, repoName, prNumber])
+}
+
+
+model WebhookSignal {
+  id        String   @id @default(cuid())
+  repoOwner String
+  repoName  String
+  prNumber  Int
+  createdAt DateTime @default(now())
+  processed Boolean  @default(false)
+
+  @@index([repoOwner, repoName, prNumber, processed])
 }

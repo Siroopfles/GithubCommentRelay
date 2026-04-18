@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse, NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Octokit } from 'octokit'
@@ -37,7 +38,7 @@ export async function GET(
         per_page: 100
       })
     } catch (githubError: any) {
-      console.error('GitHub API Error:', githubError)
+      logger.error('GitHub API Error:', githubError)
       return NextResponse.json({ error: 'Failed to fetch PRs from GitHub' }, { status: 500 })
     }
 
@@ -137,7 +138,7 @@ export async function GET(
     })
 
   } catch (error: any) {
-    console.error('Error fetching PR details:', error)
+    logger.error('Error fetching PR details:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

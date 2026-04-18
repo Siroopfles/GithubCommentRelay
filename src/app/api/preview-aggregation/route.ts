@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, preview: aggregatedBody })
   } catch (error) {
-    console.error('Failed to generate preview:', error)
+    logger.error('Failed to generate preview:', error)
     return NextResponse.json({ error: 'Failed to generate preview' }, { status: 500 })
   }
 }

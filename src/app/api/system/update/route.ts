@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import * as fs from 'fs'
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const UPDATE_TIMEOUT_MS = 30 * 60 * 1000
     const timeout = setTimeout(() => {
-      console.error('Update process timed out; terminating process group.')
+      logger.error('Update process timed out; terminating process group.')
       if (!child || !child.pid) {
         updateInProgress = false
         return
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       try {
         process.kill(-child.pid, 'SIGTERM')
       } catch (error) {
-        console.error('Failed to terminate timed-out update process:', error)
+        logger.error('Failed to terminate timed-out update process:', error)
         updateInProgress = false
         return
       }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
             process.kill(-child.pid, 'SIGKILL')
           }
         } catch (error) {
-          console.error('Failed to force-kill timed-out update process:', error)
+          logger.error('Failed to force-kill timed-out update process:', error)
         } finally {
           updateInProgress = false
         }
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
         clearTimeout(timeout)
         if (forceKillTimeout) clearTimeout(forceKillTimeout)
         updateInProgress = false
-        console.error('Update execution error:', error)
+        logger.error('Update execution error:', error)
       })
 
       child.on('exit', (code) => {
@@ -99,9 +100,9 @@ export async function POST(request: NextRequest) {
         if (forceKillTimeout) clearTimeout(forceKillTimeout)
         updateInProgress = false
         if (code !== 0) {
-          console.error(`Update process exited with code ${code}`)
+          logger.error(`Update process exited with code ${code}`)
         } else {
-          console.log('Update process completed successfully.')
+          logger.info('Update process completed successfully.')
         }
       })
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     updateInProgress = false
-    console.error('Update initiation error:', error)
+    logger.error('Update initiation error:', error)
     return NextResponse.json({ error: 'Failed to initiate update' }, { status: 500 })
   }
 }

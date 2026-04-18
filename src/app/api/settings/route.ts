@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -18,18 +19,22 @@ export async function GET(request: NextRequest) {
 
   if (!settings) {
     return NextResponse.json({
-      hasGithubToken: false,
-      pollingInterval: 60,
-      batchDelay: 5,
-      hasJulesApiKey: false
-    })
+    hasGithubToken: false,
+    pollingInterval: 60,
+    batchDelay: 5,
+    hasJulesApiKey: false,
+    retentionDays: 60,
+    hasWebhookSecret: false
+  })
   }
 
   return NextResponse.json({
     hasGithubToken: !!settings.githubToken,
     pollingInterval: settings.pollingInterval,
     batchDelay: settings.batchDelay,
-      hasJulesApiKey: !!settings.julesApiKey
+    hasJulesApiKey: !!settings.julesApiKey,
+    retentionDays: settings.retentionDays,
+    hasWebhookSecret: !!settings.webhookSecret
   })
 }
 
@@ -42,6 +47,12 @@ export async function POST(request: NextRequest) {
     const data = await request.json()
 
     // Validate
+    if (data.webhookSecret !== undefined && typeof data.webhookSecret !== 'string') {
+      return NextResponse.json({ error: 'webhookSecret must be a string' }, { status: 400 })
+    }
+    if (data.retentionDays !== undefined && (typeof data.retentionDays !== 'number' || !Number.isInteger(data.retentionDays) || data.retentionDays <= 0)) {
+      return NextResponse.json({ error: 'retentionDays must be a positive integer' }, { status: 400 })
+    }
     if (data.githubToken !== undefined && typeof data.githubToken !== 'string') {
       return NextResponse.json({ error: 'githubToken must be a string' }, { status: 400 })
     }
@@ -61,6 +72,13 @@ export async function POST(request: NextRequest) {
       batchDelay: data.batchDelay,
     }
 
+    if (data.retentionDays !== undefined) {
+      updateData.retentionDays = data.retentionDays;
+    }
+    if (data.webhookSecret !== undefined) {
+      updateData.webhookSecret = data.webhookSecret === '' ? null : data.webhookSecret;
+    }
+
     if (data.julesApiKey !== undefined) {
       updateData.julesApiKey = data.julesApiKey === "" ? null : data.julesApiKey;
     }
@@ -77,18 +95,22 @@ export async function POST(request: NextRequest) {
         githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
         pollingInterval: data.pollingInterval,
         batchDelay: data.batchDelay,
-        julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey
+        julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey,
+        retentionDays: data.retentionDays || 60,
+        webhookSecret: data.webhookSecret === '' || data.webhookSecret === undefined ? null : data.webhookSecret
       }
     })
 
     return NextResponse.json({
-      hasGithubToken: !!settings.githubToken,
-      pollingInterval: settings.pollingInterval,
-      batchDelay: settings.batchDelay,
-      hasJulesApiKey: !!settings.julesApiKey
-    })
+    hasGithubToken: !!settings.githubToken,
+    pollingInterval: settings.pollingInterval,
+    batchDelay: settings.batchDelay,
+    hasJulesApiKey: !!settings.julesApiKey,
+    retentionDays: settings.retentionDays,
+    hasWebhookSecret: !!settings.webhookSecret
+  })
   } catch (error) {
-    console.error('Settings update error:', error)
+    logger.error('Settings update error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

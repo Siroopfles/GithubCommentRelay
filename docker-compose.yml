@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - ROLE=web
+      - DATABASE_URL=file:/app/data/dev.db
+    volumes:
+      - pr_aggregator_data:/app/data
+      - pr_aggregator_logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - worker
+
+  worker:
+    build: .
+    environment:
+      - ROLE=worker
+      - DATABASE_URL=file:/app/data/dev.db
+    volumes:
+      - pr_aggregator_data:/app/data
+      - pr_aggregator_logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  pr_aggregator_data:
+  pr_aggregator_logs:

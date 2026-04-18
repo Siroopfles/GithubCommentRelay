@@ -7,6 +7,8 @@ type SettingsForm = {
   pollingInterval: string
   batchDelay: string
   julesApiKey: string
+  retentionDays: string
+  webhookSecret: string
 }
 
 export default function SettingsPage() {
@@ -17,6 +19,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [hasToken, setHasToken] = useState(false)
   const [hasJulesKey, setHasJulesKey] = useState(false)
+  const [hasWebhookSecret, setHasWebhookSecret] = useState(false)
   const { register, handleSubmit, reset } = useForm<SettingsForm>()
 
   useEffect(() => {
@@ -26,11 +29,14 @@ export default function SettingsPage() {
         if (data && !data.error) {
           setHasToken(data.hasGithubToken)
           setHasJulesKey(data.hasJulesApiKey)
+          setHasWebhookSecret(data.hasWebhookSecret)
           reset({
             githubToken: '', // Never pre-fill
             pollingInterval: data.pollingInterval?.toString() || '60',
             batchDelay: data.batchDelay?.toString() || '5',
-            julesApiKey: ''
+            julesApiKey: '',
+            retentionDays: data.retentionDays?.toString() || '60',
+            webhookSecret: ''
           })
         }
       })
@@ -47,6 +53,7 @@ export default function SettingsPage() {
 
     const pollingInterval = Number(data.pollingInterval)
     const batchDelay = Number(data.batchDelay)
+    const retentionDays = Number(data.retentionDays)
 
     if (!Number.isFinite(pollingInterval) || pollingInterval <= 0) {
       setMessage({ type: 'error', text: 'Polling Interval must be a valid positive number.' })
@@ -54,6 +61,10 @@ export default function SettingsPage() {
     }
     if (!Number.isFinite(batchDelay) || batchDelay <= 0) {
       setMessage({ type: 'error', text: 'Batch Delay must be a valid positive number.' })
+      return
+    }
+    if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
+      setMessage({ type: 'error', text: 'Retention Days must be a valid positive number.' })
       return
     }
 
@@ -64,8 +75,10 @@ export default function SettingsPage() {
         body: JSON.stringify({
           ...(data.githubToken ? { githubToken: data.githubToken } : {}),
           ...(data.julesApiKey ? { julesApiKey: data.julesApiKey } : {}),
+          ...(data.webhookSecret ? { webhookSecret: data.webhookSecret } : {}),
           pollingInterval,
-          batchDelay
+          batchDelay,
+          retentionDays
         })
       })
 
@@ -77,11 +90,14 @@ export default function SettingsPage() {
 
       setHasToken(responseData.hasGithubToken)
       setHasJulesKey(responseData.hasJulesApiKey)
+      setHasWebhookSecret(responseData.hasWebhookSecret)
       reset({
         githubToken: '', // Clear token field after save
         pollingInterval: responseData.pollingInterval.toString(),
         batchDelay: responseData.batchDelay.toString(),
-        julesApiKey: '' // Clear token field after save
+        julesApiKey: '', // Clear token field after save
+        retentionDays: responseData.retentionDays.toString(),
+        webhookSecret: '' // Clear token field after save
       })
 
       setMessage({ type: 'success', text: 'Settings saved successfully' })
@@ -180,6 +196,29 @@ export default function SettingsPage() {
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">API Key used for integration with the Jules API.</p>
 
         </div>
+
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">GitHub Webhook Secret</label>
+          <input
+            type="password"
+            {...register("webhookSecret")}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+            placeholder={hasWebhookSecret ? "Webhook Secret is securely stored. Enter a new one to update." : "Secret used for webhook validation..."}
+          />
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Optional. Secret used to validate incoming GitHub Webhooks. Must match the secret configured in your GitHub repository webhooks.</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Data Retention (Days)</label>
+          <input
+            type="number"
+            {...register('retentionDays')}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+          />
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">How many days to keep processed comments in the local database. Older comments are automatically deleted to save space.</p>
+        </div>
+
 
         <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors">
           Save Settings
