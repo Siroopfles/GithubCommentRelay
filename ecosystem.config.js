@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   apps: [
     {
@@ -6,15 +8,15 @@ module.exports = {
       args: "start",
       env: {
         NODE_ENV: "production",
-        DATABASE_URL: "file:./data.db"
+        DATABASE_URL: `file:${path.join(__dirname, 'data.db')}`
       }
     },
     {
       name: "github-bot-worker",
-      script: "./worker.js",
+      script: path.join(__dirname, 'worker.js'),
       env: {
         NODE_ENV: "production",
-        DATABASE_URL: "file:./data.db"
+        DATABASE_URL: `file:${path.join(__dirname, 'data.db')}`
       }
     }
   ]
