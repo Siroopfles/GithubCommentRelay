@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Octokit } from 'octokit'
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
   } catch (error: any) {
-    console.error("Status check failed:", error);
+    logger.error("Status check failed:", error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

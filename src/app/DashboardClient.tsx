@@ -7,11 +7,15 @@ import { useState } from 'react'
 export function DashboardClient({
   stats,
   recentComments,
-  activeSessions
+  activeSessions,
+  rateLimitRemaining,
+  rateLimitReset
 }: {
   stats: number,
   recentComments: any[],
-  activeSessions: any[]
+  activeSessions: any[],
+  rateLimitRemaining: number | null,
+  rateLimitReset: Date | null
 }) {
   const router = useRouter()
   const [triggering, setTriggering] = useState<Record<string, boolean>>({})
@@ -40,6 +44,23 @@ export function DashboardClient({
   return (
     <div className="space-y-6 text-black dark:text-gray-100">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+
+      {rateLimitRemaining !== null && rateLimitRemaining < 50 && (
+        <div className={`p-4 mb-6 rounded-md border flex items-center gap-3 ${rateLimitRemaining < 10 ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'}`}>
+          <Clock size={20} className="flex-shrink-0" />
+          <div>
+            <p className="font-medium text-sm">
+              GitHub API Rate Limit Warning
+            </p>
+            <p className="text-xs mt-1">
+              {rateLimitRemaining} requests remaining.
+              {rateLimitRemaining < 10 ? ' The bot is currently paused.' : ''}
+              Limits will reset at {rateLimitReset ? new Date(rateLimitReset).toLocaleTimeString() : 'unknown time'}.
+            </p>
+          </div>
+        </div>
+      )}
+
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

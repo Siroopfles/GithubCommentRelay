@@ -127,3 +127,11 @@ Added a button on the settings page to perform a self-update.
 ### Decisions:
 - Due to the nature of self-updating processes on Node, the application relies on an asynchronous child process using PM2 to perform the restart. This is simpler to implement but makes it hard to guarantee a response on completion. Therefore, the UI just shows an "Update Started..." state.
 - Proceeded with a `git reset --hard` to minimize conflicts when pulling the latest changes.
+
+## 2024-04-18 - Implemented Category E Ideas (DevOps)
+* **Prisma Schema Update:** Added `webhookSecret`, `retentionDays`, `rateLimitRemaining`, and `rateLimitReset` to the Settings model, and added the new `WebhookSignal` model to handle Github webhooks event queues.
+* **Winston Centralized Logging:** Integrated Winston for standard rotating daily logging in the `logs/` directory. Substituted existing `console.log` and `console.error` calls across worker.ts and the UI API routes.
+* **Auto-Pruning of the Database:** Added a mechanism in `worker.ts` that removes `ProcessedComment` records older than the user-configured retention limit (defaulting to 60 days). Added this retention limit configuration in the `Settings` UI.
+* **GitHub Webhooks / Event-driven Support:** Created `/api/webhooks/github` that stores signals for updated pull request states securely in the local database. `worker.ts` automatically runs every 5 seconds checking for new signals, instantly executing the aggregator, circumventing long batch delays for simple webhook processing while keeping scheduled tasks as fallback mechanisms. Added secure HMAC-SHA256 signature validation.
+* **GitHub Rate-Limiting Protection:** Developed a `hook.after('request', ...)` inside `worker.ts` using Octokit to track limit caps headers directly from Github API's `x-ratelimit-remaining` and `x-ratelimit-reset`. Displays warning banners securely in the Dashboard.
+* **Docker Support:** Authored `Dockerfile` and `docker-compose.yml`, using a SQLite docker volume mapping. Included instructions via shell startup script for both Next.js UI web apps and Worker apps using a simple `ROLE=web|worker` environment variable.
