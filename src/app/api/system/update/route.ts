@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
         cwd: process.cwd()
       })
     } finally {
+      // It is safe to close these immediately after spawn(). The spawned child
+      // process inherits its own independent copies of these file descriptors.
       if (out !== undefined) fs.closeSync(out)
       if (err !== undefined) fs.closeSync(err)
     }
