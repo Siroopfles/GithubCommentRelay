@@ -80,14 +80,14 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
     // 2. Sync from GitHub Issues
     if (repoConfig.taskSourceType === 'github_issues') {
        try {
-           const issues = await octokit.rest.issues.listForRepo({
+           const issues = await octokit.paginate(octokit.rest.issues.listForRepo, {
                owner: repoConfig.owner,
                repo: repoConfig.name,
                state: 'open',
-                        per_page: 100
+               per_page: 100
            });
 
-           for (const issue of issues.data) {
+           for (const issue of issues) {
                if (issue.pull_request) continue; // Skip PRs
 
                const hasJulesLabel = issue.labels.some((l: any) => l.name === 'jules' || l.name === 'jules-scheduled');
