@@ -496,7 +496,7 @@ async function processRepositories() {
     for (const session of pendingSessions) {
       const timeSinceFirstSeen = now - new Date(session.firstSeenAt).getTime()
 
-      if (timeSinceFirstSeen >= batchDelayMs) {
+      if (timeSinceFirstSeen >= batchDelayMs || session.forceProcess) {
         console.log(`Processing batch for PR #${session.prNumber} in ${session.repoOwner}/${session.repoName}...`)
 
         // Atomically claim this session

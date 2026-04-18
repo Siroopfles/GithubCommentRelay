@@ -9,11 +9,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'sessionId is required' }, { status: 400 })
     }
 
-    // Set firstSeenAt to 0 (Jan 1, 1970) so the worker immediately picks it up
+    // Set forceProcess to true so the worker immediately picks it up
     const updatedSession = await prisma.batchSession.update({
       where: { id: sessionId },
       data: {
-        firstSeenAt: new Date(0)
+        forceProcess: true
       }
     })
 
