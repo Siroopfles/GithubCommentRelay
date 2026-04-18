@@ -535,17 +535,23 @@ async function processRepositories() {
           if (commentsToBatch.length > 0) {
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
-            await octokit.rest.issues.createComment({
-              owner: session.repoOwner,
-              repo: session.repoName,
-              issue_number: session.prNumber,
-              body: aggregatedBody
-            })
-            console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+            if (repoConfig?.postAggregatedComments !== false) {
+              await octokit.rest.issues.createComment({
+                owner: session.repoOwner,
+                repo: session.repoName,
+                issue_number: session.prNumber,
+                body: aggregatedBody
+              })
+              console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+            } else {
+              console.log(`Skipped posting aggregated comment to PR #${session.prNumber} because postAggregatedComments is disabled`)
+            }
 
             try {
-              // Minimize original bot comments using GraphQL
-              const minimizableComments = commentsToBatch.filter((c: any) => c.source !== 'review' && c.nodeId);
+              // Minimize original bot comments using GraphQL ONLY if we posted an aggregated comment
+              const minimizableComments = repoConfig?.postAggregatedComments !== false
+                ? commentsToBatch.filter((c: any) => c.source !== 'review' && c.nodeId)
+                : [];
               if (minimizableComments.length > 0) {
                   const chunkSize = 20;
                   for (let i = 0; i < minimizableComments.length; i += chunkSize) {
@@ -599,9 +605,10 @@ async function processRepositories() {
 
 
             try {
-              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit)
+              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit, repoConfig)
             } catch (e) {
-              console.error(`Failed to forward comments to Jules for PR #${session.prNumber}, but comment was posted:`, e)
+              const actionStr = repoConfig?.postAggregatedComments !== false ? "(aggregated comment posted)" : "(aggregated comment posting disabled)";
+              console.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
             }
           }
 
@@ -692,8 +699,7 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit) {
-  const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
   if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
     try {
       const { data: pullRequest } = await octokit.rest.pulls.get({
