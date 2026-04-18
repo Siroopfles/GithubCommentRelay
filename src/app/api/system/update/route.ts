@@ -31,53 +31,76 @@ export async function POST(request: NextRequest) {
     `;
 
     const logFile = path.join(process.cwd(), 'system-update.log')
-    const out = fs.openSync(logFile, 'a')
-    const err = fs.openSync(logFile, 'a')
+    let out: number | undefined
+    let err: number | undefined
+    let child
 
-    const child = spawn(updateCommand, {
-      shell: true,
-      detached: true,
-      stdio: ['ignore', out, err],
-      cwd: process.cwd()
-    })
+    try {
+      out = fs.openSync(logFile, 'a')
+      err = fs.openSync(logFile, 'a')
 
-    // Close the parent's copies of the file descriptors
-    // The spawned child process has its own copies and will keep writing to them
-    fs.closeSync(out)
-    fs.closeSync(err)
+      child = spawn(updateCommand, {
+        shell: true,
+        detached: true,
+        stdio: ['ignore', out, err],
+        cwd: process.cwd()
+      })
+    } finally {
+      if (out !== undefined) fs.closeSync(out)
+      if (err !== undefined) fs.closeSync(err)
+    }
 
     const UPDATE_TIMEOUT_MS = 30 * 60 * 1000
     const timeout = setTimeout(() => {
       console.error('Update process timed out; terminating process group.')
-      if (child.pid) {
-        try {
-          process.kill(-child.pid, 'SIGTERM')
-        } catch (error) {
-          console.error('Failed to terminate timed-out update process:', error)
-        }
+      if (!child || !child.pid) {
+        updateInProgress = false
+        return
       }
-      updateInProgress = false
+
+      try {
+        process.kill(-child.pid, 'SIGTERM')
+      } catch (error) {
+        console.error('Failed to terminate timed-out update process:', error)
+        updateInProgress = false
+        return
+      }
+
+      const forceKillTimeout = setTimeout(() => {
+        try {
+          if (child && child.pid) {
+            process.kill(-child.pid, 'SIGKILL')
+          }
+        } catch (error) {
+          console.error('Failed to force-kill timed-out update process:', error)
+        } finally {
+          updateInProgress = false
+        }
+      }, 10_000)
+      forceKillTimeout.unref()
     }, UPDATE_TIMEOUT_MS)
     timeout.unref()
 
 
-    child.on('error', (error) => {
-      clearTimeout(timeout)
-      updateInProgress = false
-      console.error('Update execution error:', error)
-    })
+    if (child) {
+      child.on('error', (error) => {
+        clearTimeout(timeout)
+        updateInProgress = false
+        console.error('Update execution error:', error)
+      })
 
-    child.on('exit', (code) => {
-      clearTimeout(timeout)
-      updateInProgress = false
-      if (code !== 0) {
-        console.error(`Update process exited with code ${code}`)
-      } else {
-        console.log('Update process completed successfully.')
-      }
-    })
+      child.on('exit', (code) => {
+        clearTimeout(timeout)
+        updateInProgress = false
+        if (code !== 0) {
+          console.error(`Update process exited with code ${code}`)
+        } else {
+          console.log('Update process completed successfully.')
+        }
+      })
 
-    child.unref()
+      child.unref()
+    }
 
     return NextResponse.json({
       message: 'Update started. The server will pull the latest changes, build, and restart shortly. This may take a few minutes.'
