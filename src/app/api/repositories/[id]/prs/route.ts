@@ -38,7 +38,12 @@ export async function GET(
         per_page: 100
       })
     } catch (githubError: any) {
-      logger.error('GitHub API Error:', githubError)
+      logger.error('GitHub API Error:', {
+        message: githubError?.message,
+        status: githubError?.status,
+        rateLimitRemaining: githubError?.response?.headers?.['x-ratelimit-remaining'],
+        rateLimitReset: githubError?.response?.headers?.['x-ratelimit-reset'],
+      })
       return NextResponse.json({ error: 'Failed to fetch PRs from GitHub' }, { status: 500 })
     }
 
@@ -138,7 +143,12 @@ export async function GET(
     })
 
   } catch (error: any) {
-    logger.error('Error fetching PR details:', error)
+    logger.error('Error fetching PR details:', {
+      message: (error as any)?.message,
+      status: (error as any)?.status,
+      rateLimitRemaining: (error as any)?.response?.headers?.['x-ratelimit-remaining'],
+      rateLimitReset: (error as any)?.response?.headers?.['x-ratelimit-reset'],
+    })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

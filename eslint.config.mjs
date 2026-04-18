@@ -11,6 +11,7 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals"),
+  ...compat.extends("next/typescript"),
   {
     ignores: ["worker.ts", "worker.js"]
   }

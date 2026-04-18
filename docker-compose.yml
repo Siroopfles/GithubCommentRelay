@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build: .
@@ -12,8 +10,15 @@ services:
       - pr_aggregator_data:/app/data
       - pr_aggregator_logs:/app/logs
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "try { require('fs').accessSync('/app/data/dev.db'); process.exit(0); } catch(e) { process.exit(1); }"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
-      - worker
+      worker:
+        condition: service_healthy
 
   worker:
     build: .

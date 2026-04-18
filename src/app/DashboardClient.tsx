@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Clock, GitPullRequest, FastForward } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function DashboardClient({
   stats,
@@ -15,10 +15,31 @@ export function DashboardClient({
   recentComments: any[],
   activeSessions: any[],
   rateLimitRemaining: number | null,
-  rateLimitReset: Date | null
+  rateLimitReset: string | null
 }) {
   const router = useRouter()
   const [triggering, setTriggering] = useState<Record<string, boolean>>({})
+  const [showRateLimitBanner, setShowRateLimitBanner] = useState(rateLimitRemaining !== null && rateLimitRemaining < 50);
+  const [isPaused, setIsPaused] = useState(rateLimitRemaining !== null && rateLimitRemaining < 10);
+
+  useEffect(() => {
+    if (rateLimitReset) {
+      const resetTime = new Date(rateLimitReset).getTime();
+      const now = Date.now();
+
+      if (now < resetTime) {
+        const timeout = setTimeout(() => {
+          setShowRateLimitBanner(false);
+          setIsPaused(false);
+          router.refresh();
+        }, resetTime - now);
+        return () => clearTimeout(timeout);
+      } else {
+        setShowRateLimitBanner(false);
+        setIsPaused(false);
+      }
+    }
+  }, [rateLimitReset, router]);
 
   const handleAggregateNow = async (sessionId: string) => {
     setTriggering(prev => ({ ...prev, [sessionId]: true }))
@@ -45,16 +66,16 @@ export function DashboardClient({
     <div className="space-y-6 text-black dark:text-gray-100">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
 
-      {rateLimitRemaining !== null && rateLimitRemaining < 50 && (
-        <div className={`p-4 mb-6 rounded-md border flex items-center gap-3 ${rateLimitRemaining < 10 ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'}`}>
+      {showRateLimitBanner && (
+        <div className={`p-4 mb-6 rounded-md border flex items-center gap-3 ${(rateLimitRemaining ?? 0) < 10 ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'}`}>
           <Clock size={20} className="flex-shrink-0" />
           <div>
             <p className="font-medium text-sm">
               GitHub API Rate Limit Warning
             </p>
             <p className="text-xs mt-1">
-              {rateLimitRemaining} requests remaining.
-              {rateLimitRemaining < 10 ? ' The bot is currently paused.' : ''}
+              {rateLimitRemaining ?? 0} requests remaining.
+              {isPaused ? ' The bot is currently paused.' : ''}
               Limits will reset at {rateLimitReset ? new Date(rateLimitReset).toLocaleTimeString() : 'unknown time'}.
             </p>
           </div>

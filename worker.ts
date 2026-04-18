@@ -11,29 +11,6 @@ let lastRateLimitUpdate: number | null = null;
 // Helper to create an Octokit instance with rate limit tracking
 function createOctokit(token: string) {
   const octokit = new Octokit({ auth: token });
-  octokit.hook.after("request", async (response: any, options: any) => {
-    const remaining = response.headers['x-ratelimit-remaining'];
-    const reset = response.headers['x-ratelimit-reset'];
-
-    if (remaining !== undefined && reset !== undefined) {
-      // Only write to DB if it's less than 50 or it drops significantly, or just write it.
-      // To prevent excessive writes, we could cache the last written value.
-      // For simplicity and safety, we write it, but since it's now shared, less writes happen.
-      // Let's implement a small throttle here.
-      const now = Date.now();
-      if (!lastRateLimitUpdate || now - lastRateLimitUpdate > 60000 || parseInt(remaining) < 50) {
-          lastRateLimitUpdate = now;
-          const resetDate = new Date(parseInt(reset) * 1000);
-          await prisma.settings.update({
-             where: { id: 1 },
-             data: {
-               rateLimitRemaining: parseInt(remaining),
-               rateLimitReset: resetDate
-             }
-          });
-      }
-    }
-  });
   return octokit;
 }
 
@@ -938,7 +915,7 @@ async function processWebhookSignals() {
     // Trigger the main processor immediately
     if (!isRunning) {
         logger.info('Triggering immediate processing cycle due to webhooks...');
-        void processRepositories();
+        await processRepositories();
     }
     await prisma.webhookSignal.updateMany({
       where: {

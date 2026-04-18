@@ -112,4 +112,5 @@ model WebhookSignal {
   processed Boolean  @default(false)
 
   @@index([repoOwner, repoName, prNumber, processed])
+  @@index([processed, createdAt])
 }

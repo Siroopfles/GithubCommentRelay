@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         pollingInterval: data.pollingInterval,
         batchDelay: data.batchDelay,
         julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey,
-        retentionDays: data.retentionDays || 60,
+        retentionDays: data.retentionDays ?? 60,
         webhookSecret: data.webhookSecret === '' || data.webhookSecret === undefined ? null : data.webhookSecret
       }
     })

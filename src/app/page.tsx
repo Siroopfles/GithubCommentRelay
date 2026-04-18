@@ -17,5 +17,5 @@ export default async function Dashboard() {
     prisma.settings.findUnique({ where: { id: 1 } }),
   ])
 
-  return <DashboardClient stats={stats} recentComments={recentComments} activeSessions={activeSessions} rateLimitRemaining={settings?.rateLimitRemaining ?? null} rateLimitReset={settings?.rateLimitReset ?? null} />
+  return <DashboardClient stats={stats} recentComments={recentComments} activeSessions={activeSessions} rateLimitRemaining={settings?.rateLimitRemaining ?? null} rateLimitReset={settings?.rateLimitReset?.toISOString() ?? null} />
 }

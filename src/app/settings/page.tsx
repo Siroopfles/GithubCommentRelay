@@ -75,7 +75,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           ...(data.githubToken ? { githubToken: data.githubToken } : {}),
           ...(data.julesApiKey ? { julesApiKey: data.julesApiKey } : {}),
-          ...(data.webhookSecret ? { webhookSecret: data.webhookSecret } : {}),
+          webhookSecret: data.webhookSecret,
           pollingInterval,
           batchDelay,
           retentionDays
@@ -204,7 +204,7 @@ export default function SettingsPage() {
             type="password"
             {...register("webhookSecret")}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
-            placeholder={hasWebhookSecret ? "Webhook Secret is securely stored. Enter a new one to update." : "Secret used for webhook validation..."}
+            placeholder={hasWebhookSecret ? "Webhook Secret is securely stored. Enter a new one to update. Clear it to remove." : "Secret used for webhook validation..."}
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Optional. Secret used to validate incoming GitHub Webhooks. Must match the secret configured in your GitHub repository webhooks.</p>
         </div>

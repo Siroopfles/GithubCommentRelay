@@ -13,6 +13,11 @@ export async function POST(request: NextRequest) {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });
     const secret = settings?.webhookSecret;
 
+    if (!secret) {
+      logger.warn('Webhook rejected: Webhook secret is not configured');
+      return NextResponse.json({ error: 'Webhook secret is not configured' }, { status: 503 });
+    }
+
     if (secret) {
       if (!signature) {
         logger.warn('Webhook rejected: Missing signature');
