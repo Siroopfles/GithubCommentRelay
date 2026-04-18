@@ -83,7 +83,8 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
            const issues = await octokit.rest.issues.listForRepo({
                owner: repoConfig.owner,
                repo: repoConfig.name,
-               state: 'open'
+               state: 'open',
+                        per_page: 100
            });
 
            for (const issue of issues.data) {
@@ -170,12 +171,12 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
             // Find PR by issue number or julesSessionId
             try {
                 if (!cachedPulls) {
-                    const pulls = await octokit.rest.pulls.list({
+                    const pulls = await octokit.paginate(octokit.rest.pulls.list, {
                         owner: repoConfig.owner,
                         repo: repoConfig.name,
                         state: 'open'
                     });
-                    cachedPulls = pulls.data;
+                    cachedPulls = pulls;
                 }
 
                 for (const pr of cachedPulls!) {
@@ -226,16 +227,16 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
             } else if (settings?.julesApiKey) {
                 // Use Jules API natively
                 try {
-                    let prompt = repoConfig.julesPromptTemplate || "Start with the next task: {{task_title}}. Details: {{task_body}}.";
-                    prompt = prompt.replace('{{task_title}}', nextTask.title);
-                    prompt = prompt.replace('{{task_body}}', nextTask.body || '');
+                    let prompt = (repoConfig.julesPromptTemplate || "Start with the next task: {{task_title}}. Details: {{task_body}}.")
+                      .replace(/\{\{task_title\}\}/g, nextTask.title)
+                      .replace(/\{\{task_body\}\}/g, nextTask.body || '');
 
                     if (nextTask.contextFiles) {
                         prompt += `\n\nPlease review these files for context: ${nextTask.contextFiles}`;
                     }
 
                     // Call imported createSession
-                    const res = await createSession(settings.julesApiKey, prompt, repoConfig.owner + "/" + repoConfig.name);
+                    const res = await createSession(settings.julesApiKey, prompt, `github.com/${repoConfig.owner}/${repoConfig.name}`, 'refs/heads/main');
 
                     if (res && res.name) {
                         const sessionIdMatch = res.name.match(/sessions\/(\d+)/);

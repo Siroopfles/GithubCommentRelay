@@ -43,7 +43,54 @@ CREATE TABLE "new_Repository" (
     "requiredBots" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO "new_Repository" ("aiSystemPrompt", "autoMergeEnabled", "commentTemplate", "createdAt", "id", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "mergeStrategy", "name", "owner", "postAggregatedComments", "requireCI", "requiredApprovals", "taskSourcePath", "taskSourceType") SELECT "aiSystemPrompt", "autoMergeEnabled", "commentTemplate", "createdAt", "id", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "mergeStrategy", "name", "owner", "postAggregatedComments", "requireCI", "requiredApprovals", "taskSourcePath", "taskSourceType" FROM "Repository";
+INSERT INTO "new_Repository" (
+    "aiSystemPrompt",
+    "autoMergeEnabled",
+    "batchDelay",
+    "branchBlacklist",
+    "branchWhitelist",
+    "commentTemplate",
+    "createdAt",
+    "githubToken",
+    "id",
+    "isActive",
+    "julesChatForwardDelay",
+    "julesChatForwardMode",
+    "julesPromptTemplate",
+    "mergeStrategy",
+    "name",
+    "owner",
+    "postAggregatedComments",
+    "requireCI",
+    "requiredApprovals",
+    "requiredBots",
+    "taskSourcePath",
+    "taskSourceType"
+)
+SELECT
+    "aiSystemPrompt",
+    "autoMergeEnabled",
+    "batchDelay",
+    "branchBlacklist",
+    "branchWhitelist",
+    "commentTemplate",
+    "createdAt",
+    "githubToken",
+    "id",
+    "isActive",
+    "julesChatForwardDelay",
+    "julesChatForwardMode",
+    "julesPromptTemplate",
+    "mergeStrategy",
+    "name",
+    "owner",
+    "postAggregatedComments",
+    "requireCI",
+    "requiredApprovals",
+    "requiredBots",
+    "taskSourcePath",
+    "taskSourceType"
+FROM "Repository";
 DROP TABLE "Repository";
 ALTER TABLE "new_Repository" RENAME TO "Repository";
 CREATE UNIQUE INDEX "Repository_owner_name_key" ON "Repository"("owner", "name");

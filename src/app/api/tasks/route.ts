@@ -9,11 +9,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'repositoryId is required' }, { status: 400 })
   }
 
-  const tasks = await prisma.task.findMany({
-    where: { repositoryId },
-    orderBy: { priority: 'desc' }
-  })
-  return NextResponse.json(tasks)
+  try {
+    const tasks = await prisma.task.findMany({
+      where: { repositoryId },
+      orderBy: { priority: 'desc' }
+    })
+    return NextResponse.json(tasks)
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Failed to fetch tasks', details: err.message }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {

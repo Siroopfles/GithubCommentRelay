@@ -22,6 +22,7 @@ type Repository = {
   id: string;
   owner: string;
   name: string;
+  maxConcurrentTasks: number;
 };
 
 const COLUMNS = [
@@ -141,6 +142,8 @@ export default function TasksPage() {
         setEditingTask(null);
         reset();
         fetchTasks();
+      } else {
+        throw new Error('Failed to save task');
       }
     } catch (e) {
       console.error(e);
@@ -150,7 +153,8 @@ export default function TasksPage() {
   const deleteTask = async (id: string) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
     try {
-      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete task');
       fetchTasks();
     } catch (e) {
       console.error(e);
@@ -171,6 +175,11 @@ export default function TasksPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Tasks</h1>
         <div className="flex gap-4">
+          {repositories.find(r => r.id === selectedRepo)?.maxConcurrentTasks === 0 && (
+            <span className="flex items-center px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-md border border-amber-200">
+              Worker paused
+            </span>
+          )}
           <select
             value={selectedRepo}
             onChange={(e) => setSelectedRepo(e.target.value)}
