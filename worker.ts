@@ -35,11 +35,11 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
               if (parts.length >= 3) {
                 const fm = parts[1];
                 body = parts.slice(2).join('---').trim();
-                const titleMatch = fm.match(/title:s*(.*)/);
+                const titleMatch = fm.match(/title:\s*(.*)/);
                 if (titleMatch) title = titleMatch[1].trim();
-                const prioMatch = fm.match(/priority:s*(\d+)/);
+                const prioMatch = fm.match(/priority:\s*(\d+)/);
                 if (prioMatch) priority = parseInt(prioMatch[1], 10);
-                const ctxMatch = fm.match(/contextFiles:s*\[(.*)\]/);
+                const ctxMatch = fm.match(/contextFiles:\s*\[(.*)\]/);
                 if (ctxMatch) {
                     try {
                         contextFiles = JSON.stringify(ctxMatch[1].split(',').map((s: string) => s.trim().replace(/['"]/g, '')));
@@ -181,7 +181,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                 });
 
                 for (const pr of pulls.data) {
-                    const bodyMatch = pr.body?.includes(`Fixes #${t.githubIssueNumber}`) ||
+                    const bodyMatch = (t.githubIssueNumber !== null && pr.body?.includes(`Fixes #${t.githubIssueNumber}`)) ||
                                       (t.julesSessionId && pr.body?.includes(`task/${t.julesSessionId}`));
                     if (bodyMatch) {
                         await prisma.task.update({
@@ -197,7 +197,10 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
     }
 
     // Start new tasks if we have capacity
-    if (activeTasks < maxConcurrent) {
+    const currentActiveTasks = await prisma.task.count({
+        where: { repositoryId: repoConfig.id, status: { in: ['in_progress', 'in_review'] } }
+    });
+    if (currentActiveTasks < maxConcurrent) {
         const nextTask = await prisma.task.findFirst({
             where: { repositoryId: repoConfig.id, status: 'todo' },
             orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }]
