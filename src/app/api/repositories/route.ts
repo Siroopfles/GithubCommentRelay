@@ -11,7 +11,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
         mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge',
         taskSourceType: validTaskSourceType,
         taskSourcePath: taskSourcePath || null,
+        maxConcurrentTasks: typeof maxConcurrentTasks === 'number' ? maxConcurrentTasks : 3,
         julesPromptTemplate: julesPromptTemplate || null,
         julesChatForwardMode: validJulesChatForwardMode,
         julesChatForwardDelay: parsedDelay,

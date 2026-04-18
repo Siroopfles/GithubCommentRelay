@@ -127,3 +127,10 @@ Added a button on the settings page to perform a self-update.
 ### Decisions:
 - Due to the nature of self-updating processes on Node, the application relies on an asynchronous child process using PM2 to perform the restart. This is simpler to implement but makes it hard to guarantee a response on completion. Therefore, the UI just shows an "Update Started..." state.
 - Proceeded with a `git reset --hard` to minimize conflicts when pulling the latest changes.
+
+## Session Update
+- Built a Kanban-style Task Manager to coordinate AI agent tasks.
+- Added a `Task` model to Prisma schema to store status, priority, and PR/issue context.
+- Added `maxConcurrentTasks` configuration per repository.
+- Built a drag-and-drop Kanban board UI at `/tasks`.
+- Integrated `syncAndProcessTasks` into the background worker to auto-promote tasks, start AI sessions, and monitor PR merges.
