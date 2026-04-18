@@ -21,11 +21,11 @@ export async function GET(
     // Fetch GitHub Token from settings
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
 
-    if (!settings?.githubToken) {
+    if (!repo.githubToken && !settings?.githubToken) {
       return NextResponse.json({ error: 'GitHub token not configured' }, { status: 400 })
     }
 
-    const octokit = new Octokit({ auth: settings.githubToken })
+    const octokit = new Octokit({ auth: repo.githubToken || settings?.githubToken })
 
     // 1. Fetch live Open PRs from GitHub
     let prs = []
