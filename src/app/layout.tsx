@@ -55,7 +55,7 @@ export default function RootLayout({
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-950">
             <div className="p-8 max-w-5xl mx-auto">
               {children}
             </div>
