@@ -11,6 +11,34 @@ let lastRateLimitUpdate: number | null = null;
 // Helper to create an Octokit instance with rate limit tracking
 function createOctokit(token: string) {
   const octokit = new Octokit({ auth: token });
+  octokit.hook.after("request", async (response: any, options: any) => {
+    const remaining = response.headers['x-ratelimit-remaining'];
+    const reset = response.headers['x-ratelimit-reset'];
+
+    if (remaining !== undefined && reset !== undefined) {
+      const now = Date.now();
+      if (!lastRateLimitUpdate || now - lastRateLimitUpdate > 60000 || parseInt(remaining) < 50) {
+        lastRateLimitUpdate = now;
+        const resetDate = new Date(parseInt(reset) * 1000);
+        try {
+          await prisma.settings.upsert({
+            where: { id: 1 },
+            update: {
+              rateLimitRemaining: parseInt(remaining),
+              rateLimitReset: resetDate
+            },
+            create: {
+              id: 1,
+              rateLimitRemaining: parseInt(remaining),
+              rateLimitReset: resetDate
+            }
+          });
+        } catch (error) {
+          logger.warn('Failed to persist GitHub rate-limit headers', error);
+        }
+      }
+    }
+  });
   return octokit;
 }
 

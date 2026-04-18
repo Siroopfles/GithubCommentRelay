@@ -75,7 +75,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           ...(data.githubToken ? { githubToken: data.githubToken } : {}),
           ...(data.julesApiKey ? { julesApiKey: data.julesApiKey } : {}),
-          webhookSecret: data.webhookSecret,
+          ...(data.webhookSecret !== undefined ? { webhookSecret: data.webhookSecret } : {}),
           pollingInterval,
           batchDelay,
           retentionDays
