@@ -11,6 +11,8 @@ type SettingsForm = {
 
 export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [updateSecret, setUpdateSecret] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [hasToken, setHasToken] = useState(false)
@@ -88,18 +90,13 @@ export default function SettingsPage() {
     }
   }
 
-  const handleUpdate = async () => {
-    const confirmed = window.confirm(
-      "Warning: This will overwrite any local code modifications.\n\n" +
-      "The application will fetch the latest version from GitHub (main branch), build, and restart. This may take a few minutes.\n\n" +
-      "Are you sure you want to update?"
-    );
+  const confirmUpdate = async () => {
+    if (!updateSecret) {
+      setMessage({ type: 'error', text: 'System Update Secret is required.' })
+      return
+    }
 
-    if (!confirmed) return;
-
-    const updateToken = prompt("Please enter the System Update Secret:");
-    if (!updateToken) return;
-
+    setShowUpdateModal(false)
     setIsUpdating(true);
     setMessage(null);
 
@@ -107,7 +104,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/system/update', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${updateToken}`
+          'Authorization': `Bearer ${updateSecret}`
         }
       });
       const data = await res.json();
@@ -117,6 +114,9 @@ export default function SettingsPage() {
       }
 
       setMessage({ type: 'success', text: data.message || 'Update started. The server will restart shortly.' });
+      window.setTimeout(() => {
+        setIsUpdating(false)
+      }, 5 * 60 * 1000)
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'An error occurred while starting the update' });
       setIsUpdating(false);
@@ -190,13 +190,49 @@ export default function SettingsPage() {
           Fetch the latest version from GitHub and restart the application. Warning: this performs a `git reset --hard` and overwrites local changes.
         </p>
         <button
-          onClick={handleUpdate}
+          onClick={() => setShowUpdateModal(true)}
           disabled={isUpdating}
           className="px-6 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isUpdating ? 'Update Started...' : 'Update to latest version'}
         </button>
       </div>
-    </div>
+
+      {showUpdateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Confirm System Update</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Warning: This will overwrite any local code modifications. The application will fetch the latest version from GitHub (main branch), build, and restart. This may take a few minutes.
+            </p>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">System Update Secret</label>
+            <input
+              type="password"
+              value={updateSecret}
+              onChange={(e) => setUpdateSecret(e.target.value)}
+              className="w-full px-4 py-2 mb-6 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+              placeholder="Enter secret to confirm..."
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowUpdateModal(false)
+                  setUpdateSecret('')
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmUpdate}
+                className="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors"
+              >
+                Confirm Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   )
 }

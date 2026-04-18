@@ -35,12 +35,31 @@ export async function POST(request: NextRequest) {
       cwd: process.cwd()
     })
 
+    const UPDATE_TIMEOUT_MS = 30 * 60 * 1000
+    const timeout = setTimeout(() => {
+      console.error('Update process timed out; terminating process group.')
+      if (child.pid) {
+        try {
+          process.kill(-child.pid, 'SIGTERM')
+        } catch (error) {
+          console.error('Failed to terminate timed-out update process:', error)
+          updateInProgress = false
+        }
+      } else {
+        updateInProgress = false
+      }
+    }, UPDATE_TIMEOUT_MS)
+    timeout.unref()
+
+
     child.on('error', (error) => {
+      clearTimeout(timeout)
       updateInProgress = false
       console.error('Update execution error:', error)
     })
 
     child.on('exit', (code) => {
+      clearTimeout(timeout)
       updateInProgress = false
       if (code !== 0) {
         console.error(`Update process exited with code ${code}`)
