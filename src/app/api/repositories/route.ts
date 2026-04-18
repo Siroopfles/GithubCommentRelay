@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -32,6 +32,15 @@ export async function POST(request: Request) {
   const validTaskSourceType = ['none', 'local_folder', 'github_issues'].includes(taskSourceType) ? taskSourceType : 'none';
   const validJulesChatForwardMode = ['off', 'always', 'failsafe'].includes(julesChatForwardMode) ? julesChatForwardMode : 'off';
 
+  let parsedBatchDelay = null;
+  if (batchDelay !== undefined && batchDelay !== null) {
+      parsedBatchDelay = parseInt(batchDelay, 10);
+      if (isNaN(parsedBatchDelay) || parsedBatchDelay < 0) {
+           return NextResponse.json({ error: 'batchDelay must be a positive integer or null' }, { status: 400 });
+      }
+  }
+
+
   try {
     const repo = await prisma.repository.create({
       data: {
@@ -48,7 +57,12 @@ export async function POST(request: Request) {
         julesChatForwardDelay: parsedDelay,
         aiSystemPrompt: (typeof aiSystemPrompt === "string" && aiSystemPrompt !== "") ? aiSystemPrompt : null,
         commentTemplate: (typeof commentTemplate === "string" && commentTemplate !== "") ? commentTemplate : null,
-        postAggregatedComments: postAggregatedComments !== undefined ? postAggregatedComments : true
+        postAggregatedComments: postAggregatedComments !== undefined ? postAggregatedComments : true,
+        batchDelay: parsedBatchDelay,
+        branchWhitelist: typeof branchWhitelist === "string" && branchWhitelist !== "" ? branchWhitelist : null,
+        branchBlacklist: typeof branchBlacklist === "string" && branchBlacklist !== "" ? branchBlacklist : null,
+        githubToken: typeof githubToken === "string" && githubToken !== "" ? githubToken : null,
+        requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null
       }
     })
     return NextResponse.json(repo)

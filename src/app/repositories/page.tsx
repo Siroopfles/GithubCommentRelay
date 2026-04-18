@@ -20,6 +20,11 @@ type Repo = {
     julesChatForwardMode: string
     julesChatForwardDelay: number
     postAggregatedComments: boolean
+    batchDelay?: number | null
+    branchWhitelist?: string | null
+    branchBlacklist?: string | null
+    githubToken?: string | null
+    requiredBots?: string | null
 }
 
 export default function RepositoriesPage() {
@@ -39,6 +44,11 @@ export default function RepositoriesPage() {
     julesChatForwardMode: string
     julesChatForwardDelay: number
     postAggregatedComments: boolean
+    batchDelay?: number | null
+    branchWhitelist?: string | null
+    branchBlacklist?: string | null
+    githubToken?: string | null
+    requiredBots?: string | null
   }>({
     defaultValues: {
       autoMergeEnabled: false,
@@ -149,7 +159,12 @@ export default function RepositoriesPage() {
           julesPromptTemplate: data.julesPromptTemplate,
           julesChatForwardMode: data.julesChatForwardMode,
           julesChatForwardDelay: data.julesChatForwardDelay,
-          postAggregatedComments: data.postAggregatedComments
+          postAggregatedComments: data.postAggregatedComments,
+          batchDelay: data.batchDelay,
+          branchWhitelist: data.branchWhitelist,
+          branchBlacklist: data.branchBlacklist,
+          githubToken: data.githubToken,
+          requiredBots: data.requiredBots
         })
       })
       if (res.ok) {
@@ -177,6 +192,37 @@ export default function RepositoriesPage() {
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Repository Name</label>
             <input id="name" {...register('name', {required: true})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. vscode" />
           </div>
+        </div>
+
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="batchDelay" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Custom Batch Delay (mins)</label>
+            <input id="batchDelay" type="number" min="0" {...register('batchDelay')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Global fallback if empty" />
+          </div>
+          <div>
+            <label htmlFor="githubToken" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Repository GitHub Token</label>
+            <input id="githubToken" type="password" {...register('githubToken')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Global fallback if empty" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="branchWhitelist" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Branch Whitelist (comma-separated)</label>
+            <input id="branchWhitelist" {...register('branchWhitelist')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. main, develop" />
+            <p className="text-xs text-gray-500 mt-1">Only aggregate on these target branches (leave empty for all).</p>
+          </div>
+          <div>
+            <label htmlFor="branchBlacklist" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Branch Blacklist (comma-separated)</label>
+            <input id="branchBlacklist" {...register('branchBlacklist')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. gh-pages" />
+            <p className="text-xs text-gray-500 mt-1">Skip aggregation on these target branches.</p>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="requiredBots" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Required Bots (Smart Wait)</label>
+          <input id="requiredBots" {...register('requiredBots')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. dependabot[bot], sonarcloud[bot]" />
+          <p className="text-xs text-gray-500 mt-1">Wait until ALL these bots have commented before posting (comma-separated). Max wait time: 30 mins.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -271,6 +317,27 @@ export default function RepositoriesPage() {
                         Editing Settings for: {repo.owner} / {repo.name}
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                        <div>
+                          <label htmlFor="editBatchDelay" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Batch Delay (mins)</label>
+                          <input id="editBatchDelay" type="number" min="0" {...registerEdit("batchDelay")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="Global fallback" />
+                        </div>
+                        <div>
+                          <label htmlFor="editGithubToken" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">GitHub Token</label>
+                          <input id="editGithubToken" type="password" {...registerEdit("githubToken")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="Global fallback" />
+                        </div>
+                        <div>
+                          <label htmlFor="editBranchWhitelist" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Branch Whitelist</label>
+                          <input id="editBranchWhitelist" {...registerEdit("branchWhitelist")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="main, develop" />
+                        </div>
+                        <div>
+                          <label htmlFor="editBranchBlacklist" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Branch Blacklist</label>
+                          <input id="editBranchBlacklist" {...registerEdit("branchBlacklist")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="gh-pages" />
+                        </div>
+                        <div className="col-span-2">
+                          <label htmlFor="editRequiredBots" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Required Bots (Smart Wait)</label>
+                          <input id="editRequiredBots" {...registerEdit("requiredBots")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="e.g. bot1, bot2" />
+                        </div>
                         <div>
                           <label htmlFor="editTaskSourceType" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Task Source</label>
                           <select id="editTaskSourceType" {...registerEdit("taskSourceType")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded">

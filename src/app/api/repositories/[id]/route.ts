@@ -91,6 +91,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.mergeStrategy = json.mergeStrategy
     }
 
+
+
+    if (json.batchDelay !== undefined) {
+      if (json.batchDelay === null || json.batchDelay === '') {
+        updateData.batchDelay = null
+      } else {
+        const delay = parseInt(json.batchDelay, 10)
+        if (isNaN(delay) || delay < 0) {
+          return NextResponse.json({ error: "batchDelay must be a non-negative number" }, { status: 400 })
+        }
+        updateData.batchDelay = delay
+      }
+    }
+
+    if (json.branchWhitelist !== undefined) {
+      updateData.branchWhitelist = json.branchWhitelist === "" ? null : json.branchWhitelist
+    }
+
+    if (json.branchBlacklist !== undefined) {
+      updateData.branchBlacklist = json.branchBlacklist === "" ? null : json.branchBlacklist
+    }
+
+    if (json.githubToken !== undefined) {
+      updateData.githubToken = json.githubToken === "" ? null : json.githubToken
+    }
+
+    if (json.requiredBots !== undefined) {
+      updateData.requiredBots = json.requiredBots === "" ? null : json.requiredBots
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 })
     }
