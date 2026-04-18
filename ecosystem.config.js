@@ -6,6 +6,7 @@ module.exports = {
       args: "start",
       env: {
         NODE_ENV: "production",
+        DATABASE_URL: "file:./data.db"
       }
     },
     {
@@ -13,6 +14,7 @@ module.exports = {
       script: "./worker.js",
       env: {
         NODE_ENV: "production",
+        DATABASE_URL: "file:./data.db"
       }
     }
   ]
