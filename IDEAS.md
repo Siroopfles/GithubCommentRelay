@@ -5,11 +5,11 @@ Dit project is een lichtgewicht, lokaal gehoste (Proxmox LXC) tool. Het primaire
 
 ---
 
-## 2. 25 Ideeën tot Uitbreiding
+## 2. 25 Ideeën tot Uitbreiding 
 
 Hieronder volgt de lijst met 25 concrete opties om de output en werking van de aggregator naar het volgende niveau te tillen.
 
-### Categorie A: Optimalisatie van Comments voor AI-Agents (Data Structuur)
+### Categorie A: Optimalisatie van Comments voor AI-Agents (Data Structuur) [/]
 *Ideeën om de geaggregeerde posts perfect leesbaar en bruikbaar te maken voor AI's in de GitHub chat.*
 
 **1. JSON-Injectie in Markdown Comments**
@@ -31,8 +31,8 @@ Hieronder volgt de lijst met 25 concrete opties om de output en werking van de a
 **5. Bestand- en Context-Mapping**
 - **Wat:** Als een bot-comment betrekking heeft op een specifiek bestand (bijv. `src/utils.ts`), laat de aggregator dan automatisch bovenaan het blok de absolute padnaam en wellicht een link naar de diff in GitHub genereren.
 - **Waarom:** AI-agents in de PR-chat hebben vaak de exacte bestandslocatie nodig om goede suggesties of auto-fixes te genereren.
-
-### Categorie B: Geavanceerde Filtering & Deduplicatie (Ruis Verminderen)
+ 
+### Categorie B: Geavanceerde Filtering & Deduplicatie (Ruis Verminderen) [/]
 *Voorkomen dat AI-agents in de war raken door dubbele of nutteloze informatie.*
 
 **6. Strikte Inhoudelijke Deduplicatie**
