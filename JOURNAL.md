@@ -106,6 +106,15 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
   - Adjusted the background worker (`worker.ts`) to skip `octokit.rest.issues.createComment` and skip minimizing comments (by setting `minimizableComments = []`) if `postAggregatedComments` is false, but still forward to Jules.
 - **Status:** Completed.
 
+## Session 2026-04-18 14:35
+
+Implemented Category D ideas from `IDEAS.md`:
+- **Dynamic Batch Delays:** Added `batchDelay` to the Repository schema to allow a custom delay per repository, falling back to the global setting.
+- **Branch Whitelisting/Blacklisting:** Added `branchWhitelist` and `branchBlacklist` fields. The worker now checks the target branch of the PR before processing.
+- **Multi-Account Support:** Added a `githubToken` field per repository so that a specific PAT can be used instead of the global one.
+- **Smart Wait (Required Bots):** Instead of updating existing comments (Idea 20), implemented a new feature where the user can specify a comma-separated list of bots in `requiredBots`. The worker will delay processing until all required bots have commented, up to a maximum wait time of 30 minutes.
+
+All UI forms and API endpoints were updated accordingly, and the `worker.ts` polling logic now fetches this configuration directly inside its loop.
 
 ## 2026-04-18 - Added System Update Button
 

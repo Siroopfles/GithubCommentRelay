@@ -3,11 +3,15 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
-  return NextResponse.json(repos)
+  const safeRepos = repos.map(repo => {
+    const { githubToken, ...rest } = repo;
+    return { ...rest, hasGithubToken: !!githubToken };
+  });
+  return NextResponse.json(safeRepos)
 }
 
 export async function POST(request: Request) {
-  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments } = await request.json()
+  const { owner, name, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -32,6 +36,16 @@ export async function POST(request: Request) {
   const validTaskSourceType = ['none', 'local_folder', 'github_issues'].includes(taskSourceType) ? taskSourceType : 'none';
   const validJulesChatForwardMode = ['off', 'always', 'failsafe'].includes(julesChatForwardMode) ? julesChatForwardMode : 'off';
 
+  let parsedBatchDelay: number | null = null;
+  if (batchDelay !== undefined && batchDelay !== null && batchDelay !== '') {
+    const d = parseInt(batchDelay, 10);
+    if (isNaN(d) || d < 0) {
+      return NextResponse.json({ error: 'batchDelay must be a non-negative integer or null' }, { status: 400 });
+    }
+    parsedBatchDelay = d;
+  }
+
+
   try {
     const repo = await prisma.repository.create({
       data: {
@@ -48,10 +62,16 @@ export async function POST(request: Request) {
         julesChatForwardDelay: parsedDelay,
         aiSystemPrompt: (typeof aiSystemPrompt === "string" && aiSystemPrompt !== "") ? aiSystemPrompt : null,
         commentTemplate: (typeof commentTemplate === "string" && commentTemplate !== "") ? commentTemplate : null,
-        postAggregatedComments: postAggregatedComments !== undefined ? postAggregatedComments : true
+        postAggregatedComments: postAggregatedComments !== undefined ? postAggregatedComments : true,
+        batchDelay: parsedBatchDelay,
+        branchWhitelist: typeof branchWhitelist === "string" && branchWhitelist !== "" ? branchWhitelist : null,
+        branchBlacklist: typeof branchBlacklist === "string" && branchBlacklist !== "" ? branchBlacklist : null,
+        githubToken: typeof githubToken === "string" && githubToken !== "" ? githubToken : null,
+        requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null
       }
     })
-    return NextResponse.json(repo)
+    const { githubToken: _, ...safeRepo } = repo;
+    return NextResponse.json({ ...safeRepo, hasGithubToken: !!repo.githubToken })
   } catch (error) {
     return NextResponse.json({ error: 'Repository already exists or validation failed' }, { status: 400 })
   }

@@ -7,13 +7,6 @@ import { Octokit } from 'octokit'
 // @ts-ignore
 import cron from 'node-cron'
 
-async function getOctokit() {
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } })
-  if (!settings?.githubToken) {
-    throw new Error('GitHub token not configured')
-  }
-  return new Octokit({ auth: settings.githubToken })
-}
 
 let isRunning = false;
 
@@ -28,13 +21,14 @@ async function processRepositories() {
 
   try {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
-    if (!settings?.githubToken) {
-      console.log('Skipping cycle: GitHub Token not configured.')
+    const repos = await prisma.repository.findMany({ where: { isActive: true } });
+    const hasAnyToken = settings?.githubToken || repos.some(r => !!r.githubToken);
+    if (!hasAnyToken) {
+      console.log('Skipping cycle: No GitHub Token configured anywhere.')
       isRunning = false;
       return
     }
 
-    const repos = await prisma.repository.findMany({ where: { isActive: true } })
     const rawReviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } });
       const reviewers = rawReviewers.map(r => {
         let compiledRegex: RegExp | null = null;
@@ -55,10 +49,23 @@ async function processRepositories() {
     }
 
 
-    const octokit = await getOctokit()
-    const { data: currentUser } = await octokit.rest.users.getAuthenticated()
 
     for (const repo of repos) {
+      const tokenToUse = repo.githubToken || settings?.githubToken;
+      if (!tokenToUse) {
+        console.log(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
+        continue;
+      }
+      const octokit = new Octokit({ auth: tokenToUse });
+      let currentUser;
+      try {
+        const { data } = await octokit.rest.users.getAuthenticated();
+        currentUser = data;
+      } catch (e) {
+        console.log(`Skipping ${repo.owner}/${repo.name}: Failed to authenticate with provided token.`);
+        continue;
+      }
+
       console.log(`Checking ${repo.owner}/${repo.name}...`)
 
       const { data: prs } = await octokit.rest.pulls.list({
@@ -71,6 +78,22 @@ async function processRepositories() {
       })
 
       for (const pr of prs) {
+        // Evaluate Branch Whitelist/Blacklist
+        const targetBranch = pr.base?.ref;
+        if (targetBranch) {
+          if (repo.branchWhitelist) {
+            const allowed = repo.branchWhitelist.split(',').map(b => b.trim()).filter(b => b.length > 0);
+            if (allowed.length > 0 && !allowed.includes(targetBranch)) {
+              continue; // Skip PR
+            }
+          }
+          if (repo.branchBlacklist) {
+            const blocked = repo.branchBlacklist.split(',').map(b => b.trim()).filter(b => b.length > 0);
+            if (blocked.length > 0 && blocked.includes(targetBranch)) {
+              continue; // Skip PR
+            }
+          }
+        }
         // Only process PRs created by the user running the bot
         if (pr.user?.login !== currentUser.login) continue;
 
@@ -486,17 +509,63 @@ async function processRepositories() {
       }
     }
 
-    const batchDelayMs = (settings.batchDelay || 5) * 60 * 1000
     const now = new Date().getTime()
 
     const pendingSessions = await prisma.batchSession.findMany({
       where: { isProcessed: false, isProcessing: false }
     })
 
+
     for (const session of pendingSessions) {
       const timeSinceFirstSeen = now - new Date(session.firstSeenAt).getTime()
 
-      if (timeSinceFirstSeen >= batchDelayMs || session.forceProcess) {
+      // Fetch repo config for the current session to get delays/required bots
+      const repoConfig = await prisma.repository.findUnique({
+        where: { owner_name: { owner: session.repoOwner, name: session.repoName } }
+      });
+
+      const repoDelay = repoConfig?.batchDelay;
+      const effectiveDelayMin = repoDelay != null ? repoDelay : (settings?.batchDelay ?? 5);
+      const batchDelayMs = effectiveDelayMin * 60 * 1000;
+
+      // Fetch comments to see if required bots have responded
+      const commentsToBatch = await prisma.processedComment.findMany({
+        where: {
+          prNumber: session.prNumber,
+          repoOwner: session.repoOwner,
+          repoName: session.repoName,
+          postedAt: { gte: session.firstSeenAt },
+          isSkipped: false
+        },
+        orderBy: { postedAt: 'asc' }
+      })
+
+      // Smart Wait Logic
+      let shouldProcess = false;
+      const MAX_WAIT_MS = 30 * 60 * 1000; // 30 minutes absolute timeout
+
+      if (session.forceProcess) {
+        shouldProcess = true;
+      } else if (timeSinceFirstSeen >= MAX_WAIT_MS) {
+        shouldProcess = true; // Timeout reached
+      } else if (repoConfig?.requiredBots) {
+        // Required Bots evaluation
+        const norm = (s: string) => s.toLowerCase().replace(/\[bot\]$/, '');
+        const requiredList = repoConfig.requiredBots.split(',').map((b: string) => norm(b.trim())).filter((b: string) => b.length > 0);
+        const seenBots = commentsToBatch.map(c => norm(c.author));
+        const missingBots = requiredList.filter((rb: string) => !seenBots.includes(rb));
+
+        if (missingBots.length === 0) {
+           shouldProcess = true; // All required bots have commented
+        } else {
+           console.log(`PR #${session.prNumber} is waiting for required bots: ${missingBots.join(', ')}`);
+        }
+      } else if (timeSinceFirstSeen >= batchDelayMs) {
+        // Classic batch delay
+        shouldProcess = true;
+      }
+
+      if (shouldProcess) {
         console.log(`Processing batch for PR #${session.prNumber} in ${session.repoOwner}/${session.repoName}...`)
 
         // Atomically claim this session
@@ -514,25 +583,17 @@ async function processRepositories() {
         if (claimed.count === 0) continue; // Someone else claimed it
 
         try {
-          // Get repository configuration for templates and prompts
-          const repoConfig = await prisma.repository.findUnique({
-            where: { owner_name: { owner: session.repoOwner, name: session.repoName } }
-          });
           const aiSystemPrompt = repoConfig?.aiSystemPrompt;
           const commentTemplate = repoConfig?.commentTemplate;
 
-          const commentsToBatch = await prisma.processedComment.findMany({
-            where: {
-              prNumber: session.prNumber,
-              repoOwner: session.repoOwner,
-              repoName: session.repoName,
-              postedAt: { gte: session.firstSeenAt },
-              isSkipped: false
-            },
-            orderBy: { postedAt: 'asc' }
-          })
-
           if (commentsToBatch.length > 0) {
+
+            const tokenToUse = repoConfig?.githubToken || settings?.githubToken;
+            if (!tokenToUse) {
+               throw new Error('No github token available to post comment');
+            }
+            const octokit = new Octokit({ auth: tokenToUse });
+
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -699,8 +760,8 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
-  if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null } | null, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
+  if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings?.julesApiKey) {
     try {
       const { data: pullRequest } = await octokit.rest.pulls.get({
         owner: session.repoOwner,
@@ -711,7 +772,7 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
       if (sessionIdMatch) {
         const sessionId = sessionIdMatch[1]
         if (repoConfig.julesChatForwardMode === "always") {
-          await sendMessage(settings.julesApiKey, sessionId, aggregatedBody)
+          await sendMessage(settings?.julesApiKey, sessionId, aggregatedBody)
           await prisma.processedComment.updateMany({
             where: {
               prNumber: session.prNumber,
