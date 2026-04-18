@@ -106,22 +106,7 @@ async function processRepositories() {
       }
       const octokit = createOctokit(tokenToUse);
 
-    // Add request interceptor to capture rate limits
-    octokit.hook.after("request", async (response: any, options: any) => {
-      const remaining = response.headers['x-ratelimit-remaining'];
-      const reset = response.headers['x-ratelimit-reset'];
 
-      if (remaining !== undefined && reset !== undefined) {
-        const resetDate = new Date(parseInt(reset) * 1000);
-        await prisma.settings.update({
-           where: { id: 1 },
-           data: {
-             rateLimitRemaining: parseInt(remaining),
-             rateLimitReset: resetDate
-           }
-        });
-      }
-    });
 
       let currentUser;
       try {
@@ -660,22 +645,7 @@ async function processRepositories() {
             }
             const octokit = createOctokit(tokenToUse);
 
-    // Add request interceptor to capture rate limits
-    octokit.hook.after("request", async (response: any, options: any) => {
-      const remaining = response.headers['x-ratelimit-remaining'];
-      const reset = response.headers['x-ratelimit-reset'];
 
-      if (remaining !== undefined && reset !== undefined) {
-        const resetDate = new Date(parseInt(reset) * 1000);
-        await prisma.settings.update({
-           where: { id: 1 },
-           data: {
-             rateLimitRemaining: parseInt(remaining),
-             rateLimitReset: resetDate
-           }
-        });
-      }
-    });
 
 
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
