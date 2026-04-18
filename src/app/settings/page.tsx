@@ -10,6 +10,7 @@ type SettingsForm = {
 }
 
 export default function SettingsPage() {
+  const [isUpdating, setIsUpdating] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [hasToken, setHasToken] = useState(false)
@@ -87,6 +88,33 @@ export default function SettingsPage() {
     }
   }
 
+  const handleUpdate = async () => {
+    const confirmed = window.confirm(
+      "Waarschuwing: Dit overschrijft eventuele lokale code aanpassingen.\n\n" +
+      "De applicatie zal de laatste versie van GitHub (main branch) ophalen, bouwen en herstarten. Dit kan een paar minuten duren.\n\n" +
+      "Weet je zeker dat je wilt updaten?"
+    );
+
+    if (!confirmed) return;
+
+    setIsUpdating(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch('/api/system/update', { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Update failed to start');
+      }
+
+      setMessage({ type: 'success', text: data.message || 'Update gestart. De server zal binnenkort herstarten.' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Er is een fout opgetreden bij het starten van de update' });
+      setIsUpdating(false);
+    }
+  }
+
   if (isLoading) return <div className="text-black dark:text-gray-100">Loading settings...</div>
 
   return (
@@ -147,6 +175,20 @@ export default function SettingsPage() {
           Save Settings
         </button>
       </form>
+
+      <div className="mt-12 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-red-100 dark:border-red-900">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Systeem Update</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+          Haal de laatste versie van GitHub op en herstart de applicatie. Let op: dit voert een `git reset --hard` uit en overschrijft lokale wijzigingen in de code.
+        </p>
+        <button
+          onClick={handleUpdate}
+          disabled={isUpdating}
+          className="px-6 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isUpdating ? 'Update Gestart...' : 'Update naar laatste versie'}
+        </button>
+      </div>
     </div>
   )
 }

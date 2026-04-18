@@ -106,3 +106,15 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
   - Adjusted the background worker (`worker.ts`) to skip `octokit.rest.issues.createComment` and skip minimizing comments (by setting `minimizableComments = []`) if `postAggregatedComments` is false, but still forward to Jules.
 - **Status:** Completed.
 
+
+## 2024-04-18 - Added System Update Button
+
+Added a button on the settings page to perform a self-update.
+
+### Changes Made:
+- Created an API endpoint at `/api/system/update` to perform a `git fetch origin main`, `git reset --hard origin/main`, `git clean -fd`, `npm install`, `npm run build`, and `pm2 restart ecosystem.config.js`.
+- Added a "System Update" button to the `SettingsPage` that calls the new update endpoint. Included a warning message about the hard reset.
+
+### Decisions:
+- Due to the nature of self-updating processes on Node, the application relies on an asynchronous child process using PM2 to perform the restart. This is simpler to implement but makes it hard to guarantee a response on completion. Therefore, the UI just shows an "Update gestart..." state.
+- Proceeded with a `git reset --hard` to minimize conflicts when pulling the latest changes.
