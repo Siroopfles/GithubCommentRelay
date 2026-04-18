@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
       cwd: process.cwd()
     })
 
+    // Close the parent's copies of the file descriptors
+    // The spawned child process has its own copies and will keep writing to them
+    fs.closeSync(out)
+    fs.closeSync(err)
+
     const UPDATE_TIMEOUT_MS = 30 * 60 * 1000
     const timeout = setTimeout(() => {
       console.error('Update process timed out; terminating process group.')
