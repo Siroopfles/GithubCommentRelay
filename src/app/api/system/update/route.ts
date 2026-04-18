@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
+import * as fs from 'fs'
+import * as path from 'path'
 
 let updateInProgress = false
 
@@ -28,10 +30,14 @@ export async function POST(request: NextRequest) {
       pm2 restart ecosystem.config.js
     `;
 
+    const logFile = path.join(process.cwd(), 'system-update.log')
+    const out = fs.openSync(logFile, 'a')
+    const err = fs.openSync(logFile, 'a')
+
     const child = spawn(updateCommand, {
       shell: true,
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', out, err],
       cwd: process.cwd()
     })
 
