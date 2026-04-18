@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       git fetch origin main && \\
       git reset --hard origin/main && \\
       npm install && \\
+      npx prisma migrate deploy && \\
       npm run build && \\
       pm2 restart ecosystem.config.js
     `;
