@@ -92,6 +92,7 @@ export default function SettingsPage() {
 
   const confirmUpdate = async () => {
     if (!updateSecret) {
+      setShowUpdateModal(false)
       setMessage({ type: 'error', text: 'System Update Secret is required.' })
       return
     }
@@ -114,6 +115,7 @@ export default function SettingsPage() {
       }
 
       setMessage({ type: 'success', text: data.message || 'Update started. The server will restart shortly.' });
+      setUpdateSecret('');
       window.setTimeout(() => {
         setIsUpdating(false)
       }, 5 * 60 * 1000)

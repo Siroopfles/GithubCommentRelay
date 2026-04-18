@@ -43,11 +43,9 @@ export async function POST(request: NextRequest) {
           process.kill(-child.pid, 'SIGTERM')
         } catch (error) {
           console.error('Failed to terminate timed-out update process:', error)
-          updateInProgress = false
         }
-      } else {
-        updateInProgress = false
       }
+      updateInProgress = false
     }, UPDATE_TIMEOUT_MS)
     timeout.unref()
 
