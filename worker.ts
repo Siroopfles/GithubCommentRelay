@@ -7,13 +7,6 @@ import { Octokit } from 'octokit'
 // @ts-ignore
 import cron from 'node-cron'
 
-async function getOctokit() {
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } })
-  if (!settings?.githubToken) {
-    throw new Error('GitHub token not configured')
-  }
-  return new Octokit({ auth: settings.githubToken })
-}
 
 let isRunning = false;
 
@@ -28,13 +21,14 @@ async function processRepositories() {
 
   try {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
-    if (!settings?.githubToken) {
-      console.log('Skipping cycle: GitHub Token not configured.')
+    const repos = await prisma.repository.findMany({ where: { isActive: true } });
+    const hasAnyToken = settings?.githubToken || repos.some(r => !!r.githubToken);
+    if (!hasAnyToken) {
+      console.log('Skipping cycle: No GitHub Token configured anywhere.')
       isRunning = false;
       return
     }
 
-    const repos = await prisma.repository.findMany({ where: { isActive: true } })
     const rawReviewers = await prisma.targetReviewer.findMany({ where: { isActive: true } });
       const reviewers = rawReviewers.map(r => {
         let compiledRegex: RegExp | null = null;
@@ -55,11 +49,9 @@ async function processRepositories() {
     }
 
 
-    const octokit = await getOctokit()
-    const { data: currentUser } = await octokit.rest.users.getAuthenticated()
 
     for (const repo of repos) {
-      const tokenToUse = repo.githubToken || settings.githubToken;
+      const tokenToUse = repo.githubToken || settings?.githubToken;
       if (!tokenToUse) {
         console.log(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
         continue;
@@ -532,7 +524,9 @@ async function processRepositories() {
         where: { owner_name: { owner: session.repoOwner, name: session.repoName } }
       });
 
-      const batchDelayMs = (repoConfig?.batchDelay !== null && repoConfig?.batchDelay !== undefined ? repoConfig.batchDelay : (settings.batchDelay || 5)) * 60 * 1000;
+      const repoDelay = repoConfig?.batchDelay;
+      const effectiveDelayMin = repoDelay != null ? repoDelay : (settings?.batchDelay ?? 5);
+      const batchDelayMs = effectiveDelayMin * 60 * 1000;
 
       // Fetch comments to see if required bots have responded
       const commentsToBatch = await prisma.processedComment.findMany({
@@ -556,8 +550,9 @@ async function processRepositories() {
         shouldProcess = true; // Timeout reached
       } else if (repoConfig?.requiredBots) {
         // Required Bots evaluation
-        const requiredList = repoConfig.requiredBots.split(',').map((b: string) => b.trim().toLowerCase()).filter((b: string) => b.length > 0);
-        const seenBots = commentsToBatch.map(c => c.author.toLowerCase());
+        const norm = (s: string) => s.toLowerCase().replace(/\[bot\]$/, '');
+        const requiredList = repoConfig.requiredBots.split(',').map((b: string) => norm(b.trim())).filter((b: string) => b.length > 0);
+        const seenBots = commentsToBatch.map(c => norm(c.author));
         const missingBots = requiredList.filter((rb: string) => !seenBots.includes(rb));
 
         if (missingBots.length === 0) {
@@ -593,10 +588,9 @@ async function processRepositories() {
 
           if (commentsToBatch.length > 0) {
 
-            const tokenToUse = repoConfig?.githubToken || settings.githubToken;
+            const tokenToUse = repoConfig?.githubToken || settings?.githubToken;
             if (!tokenToUse) {
-               console.error('No github token available to post comment');
-               continue;
+               throw new Error('No github token available to post comment');
             }
             const octokit = new Octokit({ auth: tokenToUse });
 
@@ -604,7 +598,6 @@ async function processRepositories() {
 
             if (repoConfig?.postAggregatedComments !== false) {
               await octokit.rest.issues.createComment({
-
                 owner: session.repoOwner,
                 repo: session.repoName,
                 issue_number: session.prNumber,
@@ -767,8 +760,8 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null }, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
-  if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings.julesApiKey) {
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null } | null, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
+  if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings?.julesApiKey) {
     try {
       const { data: pullRequest } = await octokit.rest.pulls.get({
         owner: session.repoOwner,
@@ -779,7 +772,7 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
       if (sessionIdMatch) {
         const sessionId = sessionIdMatch[1]
         if (repoConfig.julesChatForwardMode === "always") {
-          await sendMessage(settings.julesApiKey, sessionId, aggregatedBody)
+          await sendMessage(settings?.julesApiKey, sessionId, aggregatedBody)
           await prisma.processedComment.updateMany({
             where: {
               prNumber: session.prNumber,

@@ -105,20 +105,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    if (json.branchWhitelist !== undefined) {
-      updateData.branchWhitelist = json.branchWhitelist === "" ? null : json.branchWhitelist
-    }
-
-    if (json.branchBlacklist !== undefined) {
-      updateData.branchBlacklist = json.branchBlacklist === "" ? null : json.branchBlacklist
-    }
-
-    if (json.githubToken !== undefined) {
-      updateData.githubToken = json.githubToken === "" ? null : json.githubToken
-    }
-
-    if (json.requiredBots !== undefined) {
-      updateData.requiredBots = json.requiredBots === "" ? null : json.requiredBots
+    const stringOrNullFields = ['branchWhitelist', 'branchBlacklist', 'githubToken', 'requiredBots'] as const
+    for (const f of stringOrNullFields) {
+      if (json[f] !== undefined) {
+        if (json[f] !== null && typeof json[f] !== 'string') {
+          return NextResponse.json({ error: `${f} must be a string or null` }, { status: 400 })
+        }
+        updateData[f] = json[f] === '' ? null : json[f]
+      }
     }
 
     if (Object.keys(updateData).length === 0) {

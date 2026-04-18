@@ -23,7 +23,8 @@ type Repo = {
     batchDelay?: number | null
     branchWhitelist?: string | null
     branchBlacklist?: string | null
-    githubToken?: string | null
+    hasGithubToken?: boolean
+    githubToken?: string | null // Used only for submitting new tokens
     requiredBots?: string | null
 }
 
@@ -95,7 +96,7 @@ export default function RepositoriesPage() {
         body: JSON.stringify(data)
       })
       if (res.ok) {
-        reset()
+        reset({ githubToken: "" })
         fetchRepos()
       } else {
         console.error('Failed to add repo:', await res.text())
@@ -137,7 +138,7 @@ export default function RepositoriesPage() {
 
   const startEdit = (repo: Repo) => {
     setEditingId(repo.id)
-    resetEdit(repo)
+    resetEdit({ ...repo, githubToken: "" })
   }
 
   const cancelEdit = () => {
@@ -163,7 +164,7 @@ export default function RepositoriesPage() {
           batchDelay: data.batchDelay,
           branchWhitelist: data.branchWhitelist,
           branchBlacklist: data.branchBlacklist,
-          githubToken: data.githubToken,
+          ...(data.githubToken ? { githubToken: data.githubToken } : {}),
           requiredBots: data.requiredBots
         })
       })
@@ -198,7 +199,7 @@ export default function RepositoriesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="batchDelay" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Custom Batch Delay (mins)</label>
-            <input id="batchDelay" type="number" min="0" {...register('batchDelay')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Global fallback if empty" />
+            <input id="batchDelay" type="number" min="0" {...register('batchDelay', { valueAsNumber: true, setValueAs: v => (v === '' || Number.isNaN(v) ? null : v) })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Global fallback if empty" />
           </div>
           <div>
             <label htmlFor="githubToken" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Repository GitHub Token</label>
@@ -320,11 +321,11 @@ export default function RepositoriesPage() {
 
                         <div>
                           <label htmlFor="editBatchDelay" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Batch Delay (mins)</label>
-                          <input id="editBatchDelay" type="number" min="0" {...registerEdit("batchDelay")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="Global fallback" />
+                          <input id="editBatchDelay" type="number" min="0" {...registerEdit("batchDelay", { valueAsNumber: true, setValueAs: v => (v === '' || Number.isNaN(v) ? null : v) })} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="Global fallback" />
                         </div>
                         <div>
                           <label htmlFor="editGithubToken" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">GitHub Token</label>
-                          <input id="editGithubToken" type="password" {...registerEdit("githubToken")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder="Global fallback" />
+                          <input id="editGithubToken" type="password" {...registerEdit("githubToken")} className="w-full px-2 py-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded" placeholder={repo.hasGithubToken ? "••••••••" : "Global fallback if empty"} />
                         </div>
                         <div>
                           <label htmlFor="editBranchWhitelist" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Branch Whitelist</label>
@@ -372,11 +373,6 @@ export default function RepositoriesPage() {
                         </div>
                         <div>
                           <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Auto Merge</label>
-                          <label htmlFor="editPostAggregatedComments" className="block text-xs text-gray-500 mb-1">Post PR Comment</label>
-                          <input id="editPostAggregatedComments" type="checkbox" {...registerEdit('postAggregatedComments')} className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <label htmlFor="editAutoMergeEnabled" className="block text-xs text-gray-500 mb-1">Auto Merge</label>
                           <input id="editAutoMergeEnabled" type="checkbox" {...registerEdit('autoMergeEnabled')} className="h-5 w-5" />
                         </div>
                         <div>

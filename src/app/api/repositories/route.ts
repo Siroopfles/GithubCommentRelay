@@ -3,7 +3,11 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
-  return NextResponse.json(repos)
+  const safeRepos = repos.map(repo => {
+    const { githubToken, ...rest } = repo;
+    return { ...rest, hasGithubToken: !!githubToken };
+  });
+  return NextResponse.json(safeRepos)
 }
 
 export async function POST(request: Request) {
@@ -32,12 +36,13 @@ export async function POST(request: Request) {
   const validTaskSourceType = ['none', 'local_folder', 'github_issues'].includes(taskSourceType) ? taskSourceType : 'none';
   const validJulesChatForwardMode = ['off', 'always', 'failsafe'].includes(julesChatForwardMode) ? julesChatForwardMode : 'off';
 
-  let parsedBatchDelay = null;
-  if (batchDelay !== undefined && batchDelay !== null) {
-      parsedBatchDelay = parseInt(batchDelay, 10);
-      if (isNaN(parsedBatchDelay) || parsedBatchDelay < 0) {
-           return NextResponse.json({ error: 'batchDelay must be a positive integer or null' }, { status: 400 });
-      }
+  let parsedBatchDelay: number | null = null;
+  if (batchDelay !== undefined && batchDelay !== null && batchDelay !== '') {
+    const d = parseInt(batchDelay, 10);
+    if (isNaN(d) || d < 0) {
+      return NextResponse.json({ error: 'batchDelay must be a non-negative integer or null' }, { status: 400 });
+    }
+    parsedBatchDelay = d;
   }
 
 
@@ -65,7 +70,8 @@ export async function POST(request: Request) {
         requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null
       }
     })
-    return NextResponse.json(repo)
+    const { githubToken: _, ...safeRepo } = repo;
+    return NextResponse.json({ ...safeRepo, hasGithubToken: !!repo.githubToken })
   } catch (error) {
     return NextResponse.json({ error: 'Repository already exists or validation failed' }, { status: 400 })
   }
