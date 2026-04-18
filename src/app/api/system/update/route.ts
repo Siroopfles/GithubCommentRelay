@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     const child = spawn(updateCommand, {
       shell: true,
       detached: true,
-      stdio: 'ignore'
+      stdio: 'ignore',
+      cwd: process.cwd()
     })
 
     child.on('error', (error) => {
