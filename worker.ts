@@ -78,7 +78,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
     }
 
     // 2. Sync from GitHub Issues
-    if (repoConfig.taskSourceType === 'github_issues' || repoConfig.taskSourceType === 'local_folder') {
+    if (repoConfig.taskSourceType === 'github_issues') {
        try {
            const issues = await octokit.rest.issues.listForRepo({
                owner: repoConfig.owner,
