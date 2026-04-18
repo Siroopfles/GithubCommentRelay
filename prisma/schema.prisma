@@ -35,6 +35,12 @@ model Repository {
   julesChatForwardDelay Int      @default(5) // In minutes
   aiSystemPrompt        String? // Top-level prompt for AI bots
   commentTemplate       String? // Markdown template for individual bot comments
+  postAggregatedComments Boolean  @default(true)
+  batchDelay            Int?
+  branchWhitelist       String?
+  branchBlacklist       String?
+  githubToken           String?
+  requiredBots          String?
   createdAt             DateTime @default(now())
 
   @@unique([owner, name])
@@ -75,6 +81,7 @@ model BatchSession {
   firstSeenAt  DateTime @default(now())
   isProcessed  Boolean  @default(false)
   isProcessing Boolean  @default(false)
+  forceProcess Boolean  @default(false)
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }

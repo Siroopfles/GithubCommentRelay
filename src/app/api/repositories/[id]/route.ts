@@ -77,11 +77,42 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.commentTemplate = json.commentTemplate === "" ? null : json.commentTemplate
     }
 
+    if (json.postAggregatedComments !== undefined) {
+      if (typeof json.postAggregatedComments !== 'boolean') {
+        return NextResponse.json({ error: 'postAggregatedComments must be a boolean' }, { status: 400 })
+      }
+      updateData.postAggregatedComments = json.postAggregatedComments
+    }
+
     if (json.mergeStrategy !== undefined) {
       if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) {
         return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 })
       }
       updateData.mergeStrategy = json.mergeStrategy
+    }
+
+
+
+    if (json.batchDelay !== undefined) {
+      if (json.batchDelay === null || json.batchDelay === '') {
+        updateData.batchDelay = null
+      } else {
+        const delay = parseInt(json.batchDelay, 10)
+        if (isNaN(delay) || delay < 0) {
+          return NextResponse.json({ error: "batchDelay must be a non-negative number" }, { status: 400 })
+        }
+        updateData.batchDelay = delay
+      }
+    }
+
+    const stringOrNullFields = ['branchWhitelist', 'branchBlacklist', 'githubToken', 'requiredBots'] as const
+    for (const f of stringOrNullFields) {
+      if (json[f] !== undefined) {
+        if (json[f] !== null && typeof json[f] !== 'string') {
+          return NextResponse.json({ error: `${f} must be a string or null` }, { status: 400 })
+        }
+        updateData[f] = json[f] === '' ? null : json[f]
+      }
     }
 
     if (Object.keys(updateData).length === 0) {

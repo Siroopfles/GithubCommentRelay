@@ -1,40 +1,33 @@
-# Project Journal
+# GitHub PR Comment Aggregator - Developer Journal
 
-## Session: Automatic Pull Request Merging
-**Date**: 2026-04-15
+This journal tracks development sessions, decisions made, and significant changes.
 
-### Context
-The user requested to start implementing the first item from the `docs/ROADMAP.md` which was: "Automatic Pull Request Merging".
-The goal was to allow the bot to automatically merge PRs created by the user once certain conditions (CI checks, reviews) were met.
-We also established that this journal file (`JOURNAL.md`) will serve as persistent memory across sessions to keep track of technical decisions and changes.
+## 2026-04-15: Initial Setup and Web UI Implementation
+- Created the foundational Next.js project with Tailwind CSS.
+- Defined the Prisma schema for `Settings`, `Repository`, `TargetReviewer`, `ProcessedComment`, and `BatchSession`.
+- Implemented the UI and API for the Dashboard, Repositories management, Reviewers management, and Settings.
+- Chose `lucide-react` for simple, consistent iconography.
+- Set up the SQLite database and Prisma client.
 
-### Changes Made
-1. **Database Update (Prisma)**
-   - Expanded the `Repository` model in `prisma/schema.prisma` to include auto-merge configuration fields per repo:
-     - `autoMergeEnabled` (Boolean)
-     - `requiredApprovals` (Int)
-     - `requireCI` (Boolean)
-     - `mergeStrategy` (String: 'merge', 'squash', 'rebase')
-   - Created a new `AutoMergeLog` model to track successes and failures of merge attempts.
-   - Migrated the local SQLite database.
+## 2026-04-15: Background Worker Development
+- Wrote `worker.ts` to run as a separate Node.js process using `node-cron`.
+- Implemented the core polling logic: fetching tracked repos, checking open PRs from the authenticated user, fetching comments from tracked reviewers.
+- Handled the batch delay logic: registering new comments in `ProcessedComment` and managing the state in `BatchSession`.
+- Added logic to combine all new comments into a single markdown post via the GitHub API.
+- Integrated PM2 ecosystem configuration for running both Next.js and the worker simultaneously.
 
-2. **Web UI & API**
-   - Updated Next.js API routes (`/api/repositories` and `/api/repositories/[id]`) to accept and update the new repo configurations.
-   - Created a new `/api/logs` endpoint to fetch the merge logs.
-   - Updated `src/app/repositories/page.tsx` with a form to define these new settings when adding a repo, and added an inline-edit row to update existing tracked repositories.
-   - Created `src/app/logs/page.tsx` to list out auto-merge events with success/fail status.
-   - Updated the sidebar navigation in `src/app/layout.tsx` to include the Logs page.
+## 2026-04-15: PM2 and Process Management refinements
+- Realized the worker needs to be compiled to JS before PM2 can easily run it alongside the Next server.
+- Added `tsconfig.worker.json` to handle compiling just `worker.ts` without conflicting with Next.js's compiler setup.
+- Updated the `build` script in `package.json` to compile the worker after Next.js builds.
+- Added the `dev:worker` script for local development.
 
-3. **Background Worker**
-   - Modified `worker.ts` to execute auto-merge validation before attempting to gather comments for aggregation.
-   - **CI Checking**: Implemented checks against both Github Actions (`checks.listForRef`) and classic Commit Statuses (`repos.getCombinedStatusForRef`). If `requireCI` is enabled, any configured checks *must* be successful for the merge to proceed.
-   - **Review Checking**: Gathered all reviews (`pulls.listReviews`) and ensured that the latest non-dismissed review per reviewer meets the `requiredApprovals` count, and verified there are no blocking `CHANGES_REQUESTED` statuses.
-   - **Execution & Logging**: Invoked `octokit.rest.pulls.merge` utilizing the configured `mergeStrategy`. Wrote the output (Success or Failure) to the new `AutoMergeLog` database table.
-
-### Notes for Future Sessions
-- The auto-merge feature heavily relies on the PR being owned by the same user who provided the GitHub Token (`pr.user.login === currentUser.login`).
-- `node-cron` and intervals are used for polling. Next steps on the roadmap involve Jules API integration.
-- The `JOURNAL.md` should be appended to at the end of each future session.
+## 2026-04-15: Repository Auto-Merge Implementation
+- Added logic inside `worker.ts` to handle automatic merging of pull requests.
+- Added new schema fields in `Repository`: `autoMergeEnabled`, `requiredApprovals`, `requireCI`, `mergeStrategy`.
+- Created an `AutoMergeLog` table to track successes and failures.
+- When processing a PR in `checkRepository`, the worker now evaluates if `autoMergeEnabled` is true. If so, it fetches PR details to verify reviews, CI status (checks suite), and mergeability.
+- Added a new logs page (`src/app/logs/page.tsx`) and API endpoint to view the auto-merge logs in the frontend.
 
 ## Session: Jules API Integration (Task Scheduling & Comment Forwarding)
 **Date**: 2026-04-15
@@ -97,9 +90,41 @@ The user requested implementation of all 5 items from Category A in `IDEAS.md`. 
 * **Minimize Original Comments:** After the worker posts the aggregated comment, it loops over all source comments, fetches their `node_id`, and utilizes the GitHub GraphQL API to minimize the original comments using the `RESOLVED` classifier, maintaining a clean PR chat timeline.
 * The Next.js production build and TypeScript compilation completed successfully.
 
-## 2026-04-17 Session Log
+## 2026-04-17: Design Upgrade Proposal via Stitch MCP
 - Gevraagd door gebruiker om een upgrade proposal te maken voor de "via de stitch MCP" met betrekking tot de GitHub PR Comment Aggregator.
 - Codebase geanalyseerd.
 - 3 nieuwe features bedacht: Agent Analytics Dashboard, Visual Template Builder, en Simulator / Preview.
 - Een Stitch project aangemaakt en 3 schermen ontworpen ("Dashboard", "Simulator", "Visual Template Builder") gebaseerd op het "Mono Prism" design system (minimalistisch, strak, developer-vriendelijk).
 - Gedetailleerd rapport `DESIGN_PROPOSAL.md` in het Nederlands opgesteld, compleet met links naar de gegenereerde designs en uitleg over 4 alternatieve stijlvormen (Glassmorphism, GitHub Native, Neon Dark, Pastel Blocks).
+- Visuele varianten (Glassmorphism, Neon Dark, Pastel Blocks, GitHub Native) gegenereerd en toegevoegd.
+
+## 2026-04-17 19:46 - Adding option to disable aggregated comments
+- **Task:** Allow disabling of PR commenting while ensuring Jules forwarding still works.
+- **Changes:**
+  - Added `postAggregatedComments` boolean field to the Prisma `Repository` schema.
+  - Updated API routes (`src/app/api/repositories/route.ts` and `src/app/api/repositories/[id]/route.ts`) to handle the new field.
+  - Updated the frontend UI (`src/app/repositories/page.tsx`) to show a checkbox "Post PR Comment" in the create and edit modal.
+  - Adjusted the background worker (`worker.ts`) to skip `octokit.rest.issues.createComment` and skip minimizing comments (by setting `minimizableComments = []`) if `postAggregatedComments` is false, but still forward to Jules.
+- **Status:** Completed.
+
+## Session 2026-04-18 14:35
+
+Implemented Category D ideas from `IDEAS.md`:
+- **Dynamic Batch Delays:** Added `batchDelay` to the Repository schema to allow a custom delay per repository, falling back to the global setting.
+- **Branch Whitelisting/Blacklisting:** Added `branchWhitelist` and `branchBlacklist` fields. The worker now checks the target branch of the PR before processing.
+- **Multi-Account Support:** Added a `githubToken` field per repository so that a specific PAT can be used instead of the global one.
+- **Smart Wait (Required Bots):** Instead of updating existing comments (Idea 20), implemented a new feature where the user can specify a comma-separated list of bots in `requiredBots`. The worker will delay processing until all required bots have commented, up to a maximum wait time of 30 minutes.
+
+All UI forms and API endpoints were updated accordingly, and the `worker.ts` polling logic now fetches this configuration directly inside its loop.
+
+## 2026-04-18 - Added System Update Button
+
+Added a button on the settings page to perform a self-update.
+
+### Changes Made:
+- Created an API endpoint at `/api/system/update` to perform a `git fetch origin main`, `git reset --hard origin/main`, `npm install`, `npx prisma migrate deploy`, `npm run build`, and `pm2 restart ecosystem.config.js`.
+- Added a "System Update" button to the `SettingsPage` that calls the new update endpoint. Included a warning message about the hard reset.
+
+### Decisions:
+- Due to the nature of self-updating processes on Node, the application relies on an asynchronous child process using PM2 to perform the restart. This is simpler to implement but makes it hard to guarantee a response on completion. Therefore, the UI just shows an "Update Started..." state.
+- Proceeded with a `git reset --hard` to minimize conflicts when pulling the latest changes.
