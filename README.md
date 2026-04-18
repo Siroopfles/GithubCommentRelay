@@ -58,10 +58,9 @@ pm2 startup
 
 ### 6. Configuration
 1. Open the Web UI at `http://<LXC_IP>:3000`
-2. If you want to use the System Update feature, add a `SYSTEM_UPDATE_SECRET` environment variable to your `.env` file.
-3. Go to **Settings** and add your GitHub Personal Access Token (requires `repo` scope).
-4. Go to **Repositories** and add the repositories you want to track.
-5. Go to **Reviewers** and add the usernames of the bots you want to aggregate.
+2. Go to **Settings** and add your GitHub Personal Access Token (requires `repo` scope).
+3. Go to **Repositories** and add the repositories you want to track.
+4. Go to **Reviewers** and add the usernames of the bots you want to aggregate.
 
 ## How it works
 The background worker polls GitHub every X seconds (configurable in Settings). It checks open Pull Requests created by *you* (the owner of the PAT) in the tracked repositories. If it finds new comments from the tracked reviewers, it waits for the configured *Batch Delay*. Once the delay expires, it combines all those bot comments into a single comment and posts it to the PR under your name.
