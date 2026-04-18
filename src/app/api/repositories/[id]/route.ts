@@ -46,6 +46,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (json.taskSourcePath !== undefined) {
       updateData.taskSourcePath = json.taskSourcePath === "" ? null : json.taskSourcePath
     }
+    if (json.maxConcurrentTasks !== undefined) {
+      const maxConcurrent = parseInt(json.maxConcurrentTasks, 10)
+      if (isNaN(maxConcurrent) || maxConcurrent < 0) {
+        return NextResponse.json({ error: "maxConcurrentTasks must be a non-negative number" }, { status: 400 })
+      }
+      updateData.maxConcurrentTasks = maxConcurrent
+    }
     if (json.julesPromptTemplate !== undefined) {
       updateData.julesPromptTemplate = json.julesPromptTemplate === "" ? null : json.julesPromptTemplate
     }

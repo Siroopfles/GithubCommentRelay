@@ -1,25 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+import * as fs from 'fs';
 
-generator client {
-  provider = "prisma-client-js"
-}
+let content = fs.readFileSync('prisma/schema.prisma', 'utf8');
 
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
+const repositoryRegex = /model Repository {([\s\S]*?)@@unique\(\[owner, name\]\)\n}/;
 
-model Settings {
-  id              Int      @id @default(1)
-  githubToken     String?
-  pollingInterval Int      @default(60) // In seconds
-  batchDelay      Int      @default(5) // In minutes
-  julesApiKey     String?
-  updatedAt       DateTime @updatedAt
-}
-
-model Repository {
+const newRepositoryContent = `model Repository {
   id                    String   @id @default(cuid())
   owner                 String
   name                  String
@@ -47,61 +32,11 @@ model Repository {
   tasks                 Task[]
 
   @@unique([owner, name])
-}
+}`;
 
-model TargetReviewer {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  isActive  Boolean  @default(true)
-  noActionRegex String?
-  createdAt DateTime @default(now())
-}
+content = content.replace(repositoryRegex, newRepositoryContent);
 
-model ProcessedComment {
-  id               String   @id @default(cuid())
-  commentId        BigInt
-  nodeId           String?
-  isSkipped        Boolean  @default(false)
-  source           String
-  prNumber         Int
-  repoOwner        String
-  repoName         String
-  author           String
-  body             String
-  postedAt         DateTime
-  processedAt      DateTime @default(now())
-  forwardedToJules Boolean  @default(false)
-
-  @@unique([commentId, source])
-  @@index([repoOwner, repoName, prNumber, postedAt])
-}
-
-model BatchSession {
-  id           String   @id @default(cuid())
-  prNumber     Int
-  repoOwner    String
-  repoName     String
-  firstSeenAt  DateTime @default(now())
-  isProcessed  Boolean  @default(false)
-  isProcessing Boolean  @default(false)
-  forceProcess Boolean  @default(false)
-
-  @@index([prNumber, repoOwner, repoName, isProcessed])
-}
-
-model AutoMergeLog {
-  id        String   @id @default(cuid())
-  repoOwner String
-  repoName  String
-  prNumber  Int
-  status    String // 'SUCCESS', 'FAILED'
-  message   String?
-  createdAt DateTime @default(now())
-
-  @@index([repoOwner, repoName, prNumber])
-}
-
-
+const taskModel = `
 model Task {
   id                String     @id @default(cuid())
   repositoryId      String
@@ -120,3 +55,8 @@ model Task {
 
   @@index([repositoryId, status])
 }
+`;
+
+content += taskModel;
+
+fs.writeFileSync('prisma/schema.prisma', content);
