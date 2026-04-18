@@ -125,7 +125,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
         where: { repositoryId: repoConfig.id, status: 'todo' }
     });
 
-    if (todoTasksCount === 0) {
+    if (todoTasksCount === 0 && maxConcurrent > 0) {
         const topBacklog = await prisma.task.findFirst({
             where: { repositoryId: repoConfig.id, status: 'backlog' },
             orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }]

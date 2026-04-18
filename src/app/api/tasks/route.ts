@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         status: ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done'].includes(status) ? status : 'backlog',
         source: 'manual',
         priority: parsedPriority,
-        contextFiles: typeof contextFiles === 'string' ? contextFiles : JSON.stringify(contextFiles || []),
+        contextFiles: contextFiles ? (typeof contextFiles === 'string' ? contextFiles : JSON.stringify(contextFiles)) : null,
       }
     })
     return NextResponse.json(task)
