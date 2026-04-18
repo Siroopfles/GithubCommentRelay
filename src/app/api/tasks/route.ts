@@ -43,7 +43,10 @@ export async function POST(request: Request) {
       }
     })
     return NextResponse.json(task)
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'P2003') {
+        return NextResponse.json({ error: 'Repository does not exist' }, { status: 400 })
+    }
     return NextResponse.json({ error: 'Failed to create task' }, { status: 500 })
   }
 }

@@ -8,7 +8,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const json = await request.json()
     const updateData: any = {}
 
-    if (json.status !== undefined) updateData.status = json.status
+    if (json.status !== undefined) {
+      if (!['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done'].includes(json.status)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+      }
+      updateData.status = json.status
+    }
     if (json.priority !== undefined) {
       const p = parseInt(json.priority, 10)
       if (!isNaN(p)) updateData.priority = p

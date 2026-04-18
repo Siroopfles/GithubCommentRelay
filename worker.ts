@@ -117,14 +117,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
     }
 
     // 3. Process Tasks (Kanban flow)
-    const activeTasks = await prisma.task.count({
-        where: {
-            repositoryId: repoConfig.id,
-            status: { in: ['in_progress', 'in_review'] }
-        }
-    });
-
-    const maxConcurrent = repoConfig.maxConcurrentTasks || 3;
+    const maxConcurrent = repoConfig.maxConcurrentTasks ?? 3;
 
     // Auto-promote backlog to todo if todo is empty
     const todoTasksCount = await prisma.task.count({
@@ -150,6 +143,8 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
         where: { repositoryId: repoConfig.id, status: { in: ['in_progress', 'in_review'] } }
     });
 
+    let cachedPulls: any[] | null = null;
+
     for (const t of trackingTasks) {
         if (t.prNumber) {
             try {
@@ -174,13 +169,16 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
         } else {
             // Find PR by issue number or julesSessionId
             try {
-                const pulls = await octokit.rest.pulls.list({
-                    owner: repoConfig.owner,
-                    repo: repoConfig.name,
-                    state: 'open'
-                });
+                if (!cachedPulls) {
+                    const pulls = await octokit.rest.pulls.list({
+                        owner: repoConfig.owner,
+                        repo: repoConfig.name,
+                        state: 'open'
+                    });
+                    cachedPulls = pulls.data;
+                }
 
-                for (const pr of pulls.data) {
+                for (const pr of cachedPulls!) {
                     const bodyMatch = (t.githubIssueNumber !== null && pr.body?.includes(`Fixes #${t.githubIssueNumber}`)) ||
                                       (t.julesSessionId && pr.body?.includes(`task/${t.julesSessionId}`));
                     if (bodyMatch) {
