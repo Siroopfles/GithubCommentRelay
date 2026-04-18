@@ -1,47 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exec } from 'child_process'
+import { spawn } from 'child_process'
 
-// Simplistic mock auth check - in a real app, use next-auth or similar
-function isAuthenticated(request: NextRequest) {
-  // We use the same basic check as the settings route
-  return true;
-}
+let updateInProgress = false
 
 export async function POST(request: NextRequest) {
-  if (!isAuthenticated(request)) {
+  // Check for the shared secret in the Authorization header
+  const authHeader = request.headers.get('Authorization')
+  const expectedToken = process.env.SYSTEM_UPDATE_SECRET
+
+  if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  if (updateInProgress) {
+    return NextResponse.json({ error: 'Update already in progress' }, { status: 409 })
+  }
+
   try {
-    // We execute the update process asynchronously.
-    // We use a detached process or just run the command and don't wait for completion
-    // because the build might take a while and the pm2 restart will kill this process anyway.
+    updateInProgress = true
 
     const updateCommand = `
       git fetch origin main && \\
       git reset --hard origin/main && \\
-      git clean -fd && \\
       npm install && \\
       npm run build && \\
       pm2 restart ecosystem.config.js
     `;
 
-    // Execute in the background. We don't await this because we want to return a response to the user.
-    exec(updateCommand, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Update execution error: ${error.message}`);
-        return;
+    const child = spawn(updateCommand, {
+      shell: true,
+      detached: true,
+      stdio: 'ignore'
+    })
+
+    child.on('error', (error) => {
+      updateInProgress = false
+      console.error('Update execution error:', error)
+    })
+
+    child.on('exit', (code) => {
+      updateInProgress = false
+      if (code !== 0) {
+        console.error(`Update process exited with code ${code}`)
+      } else {
+        console.log('Update process completed successfully.')
       }
-      if (stderr) {
-        console.error(`Update stderr: ${stderr}`);
-      }
-      console.log(`Update stdout: ${stdout}`);
-    });
+    })
+
+    child.unref()
 
     return NextResponse.json({
       message: 'Update started. The server will pull the latest changes, build, and restart shortly. This may take a few minutes.'
     })
   } catch (error) {
+    updateInProgress = false
     console.error('Update initiation error:', error)
     return NextResponse.json({ error: 'Failed to initiate update' }, { status: 500 })
   }

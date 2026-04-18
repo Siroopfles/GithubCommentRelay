@@ -90,27 +90,35 @@ export default function SettingsPage() {
 
   const handleUpdate = async () => {
     const confirmed = window.confirm(
-      "Waarschuwing: Dit overschrijft eventuele lokale code aanpassingen.\n\n" +
-      "De applicatie zal de laatste versie van GitHub (main branch) ophalen, bouwen en herstarten. Dit kan een paar minuten duren.\n\n" +
-      "Weet je zeker dat je wilt updaten?"
+      "Warning: This will overwrite any local code modifications.\n\n" +
+      "The application will fetch the latest version from GitHub (main branch), build, and restart. This may take a few minutes.\n\n" +
+      "Are you sure you want to update?"
     );
 
     if (!confirmed) return;
+
+    const updateToken = prompt("Please enter the System Update Secret:");
+    if (!updateToken) return;
 
     setIsUpdating(true);
     setMessage(null);
 
     try {
-      const res = await fetch('/api/system/update', { method: 'POST' });
+      const res = await fetch('/api/system/update', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${updateToken}`
+        }
+      });
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || 'Update failed to start');
       }
 
-      setMessage({ type: 'success', text: data.message || 'Update gestart. De server zal binnenkort herstarten.' });
+      setMessage({ type: 'success', text: data.message || 'Update started. The server will restart shortly.' });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Er is een fout opgetreden bij het starten van de update' });
+      setMessage({ type: 'error', text: err.message || 'An error occurred while starting the update' });
       setIsUpdating(false);
     }
   }
@@ -177,7 +185,7 @@ export default function SettingsPage() {
       </form>
 
       <div className="mt-12 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-red-100 dark:border-red-900">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Systeem Update</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">System Update</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
           Haal de laatste versie van GitHub op en herstart de applicatie. Let op: dit voert een `git reset --hard` uit en overschrijft lokale wijzigingen in de code.
         </p>
@@ -186,7 +194,7 @@ export default function SettingsPage() {
           disabled={isUpdating}
           className="px-6 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isUpdating ? 'Update Gestart...' : 'Update naar laatste versie'}
+          {isUpdating ? 'Update Started...' : 'Update to latest version'}
         </button>
       </div>
     </div>
