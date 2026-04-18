@@ -27,7 +27,7 @@ export default async function Dashboard() {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">Total Processed Comments</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Processed Comments</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats}</p>
           </div>
         </div>
@@ -37,7 +37,7 @@ export default async function Dashboard() {
             <Clock size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">Active Batch Sessions</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Batch Sessions</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeSessions.length}</p>
           </div>
         </div>
@@ -54,7 +54,7 @@ export default async function Dashboard() {
           </div>
           <div className="p-6">
             {activeSessions.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm italic">No active sessions waiting.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm italic">No active sessions waiting.</p>
             ) : (
               <ul className="space-y-4">
                 {activeSessions.map(session => (
@@ -63,7 +63,7 @@ export default async function Dashboard() {
                       <GitPullRequest size={18} className="text-gray-400 dark:text-gray-500" />
                       <div>
                         <p className="font-medium text-gray-900 dark:text-gray-100">{session.repoOwner}/{session.repoName} #PR-{session.prNumber}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">Started: {new Date(session.firstSeenAt).toLocaleString()}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Started: {new Date(session.firstSeenAt).toLocaleString()}</p>
                       </div>
                     </div>
                     <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">Waiting</span>
@@ -84,7 +84,7 @@ export default async function Dashboard() {
           </div>
           <div className="p-6">
             {recentComments.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm italic">No comments processed yet.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm italic">No comments processed yet.</p>
             ) : (
               <ul className="space-y-4">
                 {recentComments.map(comment => (
@@ -92,7 +92,7 @@ export default async function Dashboard() {
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                       {comment.repoOwner}/{comment.repoName} #PR-{comment.prNumber}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-2">Original Author: <span className="font-medium text-gray-700 dark:text-gray-200">{comment.author}</span></p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Original Author: <span className="font-medium text-gray-700 dark:text-gray-200">{comment.author}</span></p>
                     <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 italic">&quot;{comment.body}&quot;</p>
                   </li>
                 ))}

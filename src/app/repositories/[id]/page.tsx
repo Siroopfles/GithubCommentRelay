@@ -105,7 +105,7 @@ export default function RepositoryPRsPage() {
         <button onClick={() => setError(null)} className="text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 font-medium">Dismiss</button>
       </div>}
       <div className="flex items-center gap-4 mb-6">
-        <Link href="/repositories" className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
+        <Link href="/repositories" className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
           <ArrowLeft size={20} />
         </Link>
         <div>
