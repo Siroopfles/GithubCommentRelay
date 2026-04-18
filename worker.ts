@@ -1,10 +1,42 @@
 import { logger } from './src/lib/logger';
 import { PrismaClient } from '@prisma/client'
-import { processFailsafeForwarding } from "./patch_failsafe";
 import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { Octokit } from 'octokit'
+
+
+let lastRateLimitUpdate: number | null = null;
+
+// Helper to create an Octokit instance with rate limit tracking
+function createOctokit(token: string) {
+  const octokit = new Octokit({ auth: token });
+  octokit.hook.after("request", async (response: any, options: any) => {
+    const remaining = response.headers['x-ratelimit-remaining'];
+    const reset = response.headers['x-ratelimit-reset'];
+
+    if (remaining !== undefined && reset !== undefined) {
+      // Only write to DB if it's less than 50 or it drops significantly, or just write it.
+      // To prevent excessive writes, we could cache the last written value.
+      // For simplicity and safety, we write it, but since it's now shared, less writes happen.
+      // Let's implement a small throttle here.
+      const now = Date.now();
+      if (!lastRateLimitUpdate || now - lastRateLimitUpdate > 60000 || parseInt(remaining) < 50) {
+          lastRateLimitUpdate = now;
+          const resetDate = new Date(parseInt(reset) * 1000);
+          await prisma.settings.update({
+             where: { id: 1 },
+             data: {
+               rateLimitRemaining: parseInt(remaining),
+               rateLimitReset: resetDate
+             }
+          });
+      }
+    }
+  });
+  return octokit;
+}
+
 // @ts-ignore
 import cron from 'node-cron'
 
@@ -67,7 +99,7 @@ async function processRepositories() {
         logger.info(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
         continue;
       }
-      const octokit = new Octokit({ auth: tokenToUse });
+      const octokit = createOctokit(tokenToUse);
 
     // Add request interceptor to capture rate limits
     octokit.hook.after("request", async (response: any, options: any) => {
@@ -621,7 +653,7 @@ async function processRepositories() {
             if (!tokenToUse) {
                throw new Error('No github token available to post comment');
             }
-            const octokit = new Octokit({ auth: tokenToUse });
+            const octokit = createOctokit(tokenToUse);
 
     // Add request interceptor to capture rate limits
     octokit.hook.after("request", async (response: any, options: any) => {
@@ -740,6 +772,10 @@ async function processRepositories() {
       }
     }
 
+    // One time check of rate limit via a lightweight API call could go here
+    // But since we removed the per-request hook, we should probably just check
+    // it once per run if we have a token. For now, we rely on the interceptor
+    // we'll add once per Octokit instance instead of inside the loop.
   } catch (error) {
     logger.error('Error during polling cycle:', error)
   } finally {
@@ -775,23 +811,7 @@ async function start() {
     await processWebhookSignals();
   }, 5000); // Check every 5 seconds
 
-  // Setup interval for failsafe forwarding
-  setInterval(async () => {
-    logger.info('Running failsafe forwarding for Jules...')
-    try {
-      await processFailsafeForwarding()
-    } catch (err) {
-      logger.error('Failsafe forwarding task failed:', err)
-    }
-  }, 5 * 60 * 1000) // run every 5 minutes
-
-  // Run failsafe forwarding on boot
-  logger.info('Running failsafe forwarding for Jules on boot...')
-  try {
-    await processFailsafeForwarding()
-  } catch (err) {
-    logger.error('Failsafe forwarding boot task failed:', err)
-  }
+  // Failsafe forwarding was removed
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
   const interval = settings?.pollingInterval || 60

@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
       const hmac = crypto.createHmac('sha256', secret);
       const digest = 'sha256=' + hmac.update(rawBody).digest('hex');
 
-      if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest))) {
+      const sigBuf = Buffer.from(signature);
+      const digestBuf = Buffer.from(digest);
+      if (sigBuf.length !== digestBuf.length || !crypto.timingSafeEqual(sigBuf, digestBuf)) {
         logger.warn('Webhook rejected: Invalid signature');
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }

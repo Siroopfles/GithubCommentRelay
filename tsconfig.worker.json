@@ -9,7 +9,6 @@
   },
   "include": [
     "worker.ts",
-    "patch_failsafe.ts",
     "src/lib/**/*.ts"
   ]
 }
