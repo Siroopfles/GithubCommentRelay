@@ -52,6 +52,8 @@ export async function POST(request: NextRequest) {
       if (err !== undefined) fs.closeSync(err)
     }
 
+    let forceKillTimeout: NodeJS.Timeout | undefined
+
     const UPDATE_TIMEOUT_MS = 30 * 60 * 1000
     const timeout = setTimeout(() => {
       console.error('Update process timed out; terminating process group.')
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
         return
       }
 
-      const forceKillTimeout = setTimeout(() => {
+      forceKillTimeout = setTimeout(() => {
         try {
           if (child && child.pid) {
             process.kill(-child.pid, 'SIGKILL')
@@ -87,12 +89,14 @@ export async function POST(request: NextRequest) {
     if (child) {
       child.on('error', (error) => {
         clearTimeout(timeout)
+        if (forceKillTimeout) clearTimeout(forceKillTimeout)
         updateInProgress = false
         console.error('Update execution error:', error)
       })
 
       child.on('exit', (code) => {
         clearTimeout(timeout)
+        if (forceKillTimeout) clearTimeout(forceKillTimeout)
         updateInProgress = false
         if (code !== 0) {
           console.error(`Update process exited with code ${code}`)
