@@ -311,7 +311,7 @@ export default function RepositoriesPage() {
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">
-                        <button type="button" onClick={cancelEdit} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 rounded flex items-center gap-1">
+                        <button type="button" onClick={cancelEdit} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded flex items-center gap-1">
                           <X size={14} /> Cancel
                         </button>
                         <button type="submit" className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded flex items-center gap-1">
@@ -327,7 +327,7 @@ export default function RepositoriesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {repo.autoMergeEnabled ? (
-                        <span className="text-green-600 font-medium text-xs bg-green-50 px-2 py-1 rounded">Enabled ({repo.mergeStrategy})</span>
+                        <span className="text-green-600 dark:text-green-400 font-medium text-xs bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">Enabled ({repo.mergeStrategy})</span>
                       ) : (
                         <span className="text-gray-400 dark:text-gray-500 text-xs">Disabled</span>
                       )}

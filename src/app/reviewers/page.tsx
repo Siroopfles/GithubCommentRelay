@@ -160,7 +160,7 @@ export default function ReviewersPage() {
                         </div>
                       </div>
                       <div className="flex justify-end gap-2">
-                        <button type="button" onClick={cancelEdit} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded flex items-center gap-1">
+                        <button type="button" onClick={cancelEdit} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded flex items-center gap-1">
                           <X size={14} /> Cancel
                         </button>
                         <button type="submit" className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded flex items-center gap-1">
