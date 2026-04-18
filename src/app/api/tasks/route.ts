@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     })
     return NextResponse.json(tasks)
   } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to fetch tasks', details: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
   }
 }
 
