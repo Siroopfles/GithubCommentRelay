@@ -42,6 +42,7 @@ export default function RepositoriesPage() {
     mergeStrategy: 'merge' | 'squash' | 'rebase'
     taskSourceType: string
     taskSourcePath?: string
+    maxConcurrentTasks: number
     julesPromptTemplate?: string
     julesChatForwardMode: string
     julesChatForwardDelay: number
@@ -53,6 +54,7 @@ export default function RepositoriesPage() {
     requiredBots?: string | null
   }>({
     defaultValues: {
+      maxConcurrentTasks: 3,
       autoMergeEnabled: false,
       requiredApprovals: 1,
       requireCI: true,

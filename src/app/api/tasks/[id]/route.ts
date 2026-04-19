@@ -16,7 +16,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
     if (json.priority !== undefined) {
       const p = parseInt(json.priority, 10)
-      if (!isNaN(p)) updateData.priority = p
+      if (isNaN(p) || p < 0) {
+        return NextResponse.json({ error: 'priority must be a non-negative number' }, { status: 400 })
+      }
+      updateData.priority = p
     }
     if (json.title !== undefined) {
       if (typeof json.title !== 'string' || json.title.trim() === '') {

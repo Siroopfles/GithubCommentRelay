@@ -36,6 +36,16 @@ export async function POST(request: Request) {
   const validTaskSourceType = ['none', 'local_folder', 'github_issues'].includes(taskSourceType) ? taskSourceType : 'none';
   const validJulesChatForwardMode = ['off', 'always', 'failsafe'].includes(julesChatForwardMode) ? julesChatForwardMode : 'off';
 
+
+  let parsedMaxConcurrentTasks = 3;
+  if (maxConcurrentTasks !== undefined) {
+    const m = typeof maxConcurrentTasks === 'number' ? maxConcurrentTasks : parseInt(maxConcurrentTasks, 10);
+    if (isNaN(m) || m < 0) {
+      return NextResponse.json({ error: 'maxConcurrentTasks must be a non-negative number' }, { status: 400 });
+    }
+    parsedMaxConcurrentTasks = m;
+  }
+
   let parsedBatchDelay: number | null = null;
   if (batchDelay !== undefined && batchDelay !== null && batchDelay !== '') {
     const d = parseInt(batchDelay, 10);
@@ -57,13 +67,7 @@ export async function POST(request: Request) {
         mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge',
         taskSourceType: validTaskSourceType,
         taskSourcePath: taskSourcePath || null,
-        maxConcurrentTasks: (() => {
-          if (maxConcurrentTasks !== undefined) {
-             const m = typeof maxConcurrentTasks === 'number' ? maxConcurrentTasks : parseInt(maxConcurrentTasks, 10);
-             return (!isNaN(m) && m >= 0) ? m : 3;
-          }
-          return 3;
-        })(),
+        maxConcurrentTasks: parsedMaxConcurrentTasks,
         julesPromptTemplate: julesPromptTemplate || null,
         julesChatForwardMode: validJulesChatForwardMode,
         julesChatForwardDelay: parsedDelay,

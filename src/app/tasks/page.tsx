@@ -105,7 +105,7 @@ export default function TasksPage() {
     setTasks(updatedTasks);
 
     try {
-      await fetch(`/api/tasks/${draggableId}`, {
+      const res = await fetch(`/api/tasks/${draggableId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
