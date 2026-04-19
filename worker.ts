@@ -687,7 +687,7 @@ async function processRepositories() {
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessing: false }
+            data: { isProcessing: false, forceProcess: false }
           })
         }
       }
@@ -705,7 +705,7 @@ async function start() {
   try {
     await prisma.batchSession.updateMany({
       where: { isProcessing: true },
-      data: { isProcessing: false }
+      data: { isProcessing: false, forceProcess: false }
     })
   } catch (err) {
     console.error('Failed to clean up stuck sessions:', err)
