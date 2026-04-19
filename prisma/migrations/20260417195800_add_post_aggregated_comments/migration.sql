@@ -17,6 +17,11 @@ CREATE TABLE "new_Repository" (
     "aiSystemPrompt" TEXT,
     "commentTemplate" TEXT,
     "postAggregatedComments" BOOLEAN NOT NULL DEFAULT true,
+    "batchDelay" INTEGER,
+    "branchWhitelist" TEXT,
+    "branchBlacklist" TEXT,
+    "githubToken" TEXT,
+    "requiredBots" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO "new_Repository" ("aiSystemPrompt", "autoMergeEnabled", "commentTemplate", "createdAt", "id", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "mergeStrategy", "name", "owner", "requireCI", "requiredApprovals", "taskSourcePath", "taskSourceType") SELECT "aiSystemPrompt", "autoMergeEnabled", "commentTemplate", "createdAt", "id", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "mergeStrategy", "name", "owner", "requireCI", "requiredApprovals", "taskSourcePath", "taskSourceType" FROM "Repository";
