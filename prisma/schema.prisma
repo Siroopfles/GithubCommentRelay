@@ -34,6 +34,7 @@ model Repository {
   mergeStrategy         String   @default("merge") // 'merge', 'squash', 'rebase'
   taskSourceType        String   @default("none") // 'none', 'local_folder', 'github_issues'
   taskSourcePath        String? // Path to folder if taskSourceType is 'local_folder'
+  maxConcurrentTasks    Int      @default(3) // Limits AI tasks running simultaneously
   julesPromptTemplate   String? // Template for the prompt
   julesChatForwardMode  String   @default("off") // 'off', 'always'
   julesChatForwardDelay Int      @default(5) // In minutes
@@ -46,6 +47,8 @@ model Repository {
   githubToken           String?
   requiredBots          String?
   createdAt             DateTime @default(now())
+
+  tasks                 Task[]
 
   @@unique([owner, name])
 }
@@ -113,4 +116,23 @@ model WebhookSignal {
 
   @@index([repoOwner, repoName, prNumber, processed])
   @@index([processed, createdAt])
+}
+
+model Task {
+  id                String     @id @default(cuid())
+  repositoryId      String
+  repository        Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  title             String
+  body              String?
+  status            String     @default("backlog") // backlog, todo, in_progress, in_review, blocked, done
+  source            String     @default("manual")  // local_folder, github_issue, manual
+  priority          Int        @default(0)         // Higher number = higher priority
+  githubIssueNumber Int?
+  julesSessionId    String?
+  prNumber          Int?
+  contextFiles      String?    // JSON array of file paths
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([repositoryId, status])
 }
