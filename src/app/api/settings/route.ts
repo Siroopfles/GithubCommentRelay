@@ -72,6 +72,10 @@ export async function POST(request: NextRequest) {
         pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
     }
 
+    if (data.webhookSecret !== undefined) {
+      updateData.webhookSecret = data.webhookSecret === "" ? null : data.webhookSecret;
+    }
+
     if (data.julesApiKey !== undefined) {
       updateData.julesApiKey = data.julesApiKey === "" ? null : data.julesApiKey;
     }
