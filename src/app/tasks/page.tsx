@@ -238,7 +238,7 @@ export default function TasksPage() {
                                     <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate pr-2" title={task.title}>
                                       {task.title}
                                     </h4>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                       <button type="button" aria-label={`Edit task ${task.title}`} title="Edit task" onClick={() => openEditModal(task)} className="text-gray-400 hover:text-blue-500"><Edit2 size={14}/></button>
                                       <button type="button" aria-label={`Delete task ${task.title}`} title="Delete task" onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
                                     </div>
@@ -278,29 +278,29 @@ export default function TasksPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-200 dark:border-gray-700 shadow-xl">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+          <div role="dialog" aria-modal="true" aria-labelledby="modal-title" className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full border border-gray-200 dark:border-gray-700 shadow-xl">
+            <h2 id="modal-title" className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
               {editingTask ? 'Edit Task' : 'Create Task'}
             </h2>
             <form onSubmit={handleSubmit(onSubmitTask)} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-                <input {...register('title', { required: true })} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                <label htmlFor="task-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                <input id="task-title" {...register('title', { required: true })} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-                <textarea {...register('body')} rows={3} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                <label htmlFor="task-body" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <textarea id="task-body" {...register('body')} rows={3} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                  <select {...register('status')} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                  <label htmlFor="task-status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                  <select id="task-status" {...register('status')} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
                     {COLUMNS.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
-                  <input type="number" {...register('priority')} defaultValue="0" className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                  <label htmlFor="task-priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                  <input id="task-priority" type="number" {...register('priority')} defaultValue="0" className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
