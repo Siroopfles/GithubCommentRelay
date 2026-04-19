@@ -2,7 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
-import { Settings, GitBranch, Users, Activity, FileText } from 'lucide-react'
+import { Settings, GitBranch, Users, Activity, FileText, ListTodo } from 'lucide-react'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -33,6 +33,10 @@ export default function RootLayout({
                 <Link href="/" className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                   <Activity size={20} />
                   Dashboard
+                </Link>
+                <Link href="/tasks" className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                  <ListTodo size={20} />
+                  Tasks
                 </Link>
                 <Link href="/repositories" className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                   <GitBranch size={20} />

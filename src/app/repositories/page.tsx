@@ -16,7 +16,8 @@ type Repo = {
   mergeStrategy: 'merge' | 'squash' | 'rebase'
     taskSourceType: string
     taskSourcePath?: string
-    julesPromptTemplate?: string
+    maxConcurrentTasks: number
+  julesPromptTemplate?: string
     julesChatForwardMode: string
     julesChatForwardDelay: number
     postAggregatedComments: boolean
@@ -157,6 +158,7 @@ export default function RepositoriesPage() {
           mergeStrategy: data.mergeStrategy,
           taskSourceType: data.taskSourceType,
           taskSourcePath: data.taskSourcePath,
+          maxConcurrentTasks: data.maxConcurrentTasks,
           julesPromptTemplate: data.julesPromptTemplate,
           julesChatForwardMode: data.julesChatForwardMode,
           julesChatForwardDelay: data.julesChatForwardDelay,
