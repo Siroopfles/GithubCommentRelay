@@ -40,7 +40,12 @@ export async function POST(request: Request) {
         repositoryId,
         title,
         body: body || null,
-        status: ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done'].includes(status) ? status : 'backlog',
+        status: (() => {
+          if (status !== undefined && status !== null && !['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done'].includes(status)) {
+            throw new Error('Invalid status')
+          }
+          return status || 'backlog'
+        })(),
         source: 'manual',
         priority: parsedPriority,
         contextFiles: contextFiles ? (typeof contextFiles === 'string' ? contextFiles : JSON.stringify(contextFiles)) : null,
@@ -48,6 +53,9 @@ export async function POST(request: Request) {
     })
     return NextResponse.json(task)
   } catch (error: any) {
+    if (error.message === 'Invalid status') {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
     if (error.code === 'P2003') {
         return NextResponse.json({ error: 'Repository does not exist' }, { status: 400 })
     }
