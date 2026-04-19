@@ -57,7 +57,13 @@ export async function POST(request: Request) {
         mergeStrategy: ['merge', 'squash', 'rebase'].includes(mergeStrategy) ? mergeStrategy : 'merge',
         taskSourceType: validTaskSourceType,
         taskSourcePath: taskSourcePath || null,
-        maxConcurrentTasks: (typeof maxConcurrentTasks === 'number' && maxConcurrentTasks >= 0) ? maxConcurrentTasks : 3,
+        maxConcurrentTasks: (() => {
+          if (maxConcurrentTasks !== undefined) {
+             const m = typeof maxConcurrentTasks === 'number' ? maxConcurrentTasks : parseInt(maxConcurrentTasks, 10);
+             return (!isNaN(m) && m >= 0) ? m : 3;
+          }
+          return 3;
+        })(),
         julesPromptTemplate: julesPromptTemplate || null,
         julesChatForwardMode: validJulesChatForwardMode,
         julesChatForwardDelay: parsedDelay,
