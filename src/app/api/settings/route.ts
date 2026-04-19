@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
         githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
         pollingInterval: data.pollingInterval,
         batchDelay: data.batchDelay,
+        pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
         julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey
       }
     })

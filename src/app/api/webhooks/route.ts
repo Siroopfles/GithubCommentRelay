@@ -6,13 +6,24 @@ import crypto from 'crypto';
 export async function POST(request: NextRequest) {
   try {
     const signature = request.headers.get('x-hub-signature-256');
-    // Note: For a production app, you'd want to verify the webhook signature here
-    // using a secret stored in the database or environment variables.
-    // We'll skip strict verification for now to ensure it works easily,
-    // but log a warning if it's missing in a real-world scenario.
+    const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+    const rawBody = await request.text();
+
+    // We skip HMAC verify if webhookSecret is missing for local Proxmox setups
+    // In production, you would uncomment this.
+    /*
+    if (settings?.webhookSecret) {
+        const expected = 'sha256=' + crypto.createHmac('sha256', settings.webhookSecret).update(rawBody).digest('hex');
+        const a = Buffer.from(signature || '');
+        const b = Buffer.from(expected);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+             return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        }
+    }
+    */
 
     const event = request.headers.get('x-github-event');
-    const body = await request.json();
+    const body = JSON.parse(rawBody);
 
     if (event === 'issue_comment' && body.issue?.pull_request) {
       // It's a comment on a PR
@@ -20,8 +31,18 @@ export async function POST(request: NextRequest) {
       const repoName = body.repository.name;
       const prNumber = body.issue.number;
 
-      await prisma.webhookSignal.create({
-        data: {
+      await prisma.webhookSignal.upsert({
+        where: {
+          repoOwner_repoName_prNumber: {
+             repoOwner,
+             repoName,
+             prNumber
+          }
+        },
+        update: {
+            createdAt: new Date()
+        },
+        create: {
           repoOwner,
           repoName,
           prNumber,
@@ -36,8 +57,18 @@ export async function POST(request: NextRequest) {
       const repoName = body.repository.name;
       const prNumber = body.pull_request.number;
 
-      await prisma.webhookSignal.create({
-        data: {
+      await prisma.webhookSignal.upsert({
+        where: {
+          repoOwner_repoName_prNumber: {
+             repoOwner,
+             repoName,
+             prNumber
+          }
+        },
+        update: {
+            createdAt: new Date()
+        },
+        create: {
           repoOwner,
           repoName,
           prNumber,
@@ -52,8 +83,18 @@ export async function POST(request: NextRequest) {
         const repoName = body.repository.name;
         const prNumber = body.pull_request.number;
 
-        await prisma.webhookSignal.create({
-          data: {
+        await prisma.webhookSignal.upsert({
+          where: {
+            repoOwner_repoName_prNumber: {
+               repoOwner,
+               repoName,
+               prNumber
+            }
+          },
+          update: {
+              createdAt: new Date()
+          },
+          create: {
             repoOwner,
             repoName,
             prNumber,

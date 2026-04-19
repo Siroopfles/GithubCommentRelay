@@ -51,16 +51,16 @@ export default function SettingsPage() {
     const batchDelay = Number(data.batchDelay)
     const pruneDays = Number(data.pruneDays)
 
-    if (!Number.isFinite(pollingInterval) || pollingInterval <= 0) {
+    if (!Number.isInteger(pollingInterval) || pollingInterval <= 0) {
       setMessage({ type: 'error', text: 'Polling Interval must be a valid positive number.' })
       return
     }
-    if (!Number.isFinite(pruneDays) || pruneDays <= 0) {
-      setMessage({ type: 'error', text: 'Prune Days must be a valid positive number.' })
+    if (!Number.isInteger(pruneDays) || pruneDays < 0) {
+      setMessage({ type: 'error', text: 'Prune Days must be a non-negative integer.' })
       return
     }
 
-    if (!Number.isFinite(batchDelay) || batchDelay <= 0) {
+    if (!Number.isInteger(batchDelay) || batchDelay <= 0) {
       setMessage({ type: 'error', text: 'Batch Delay must be a valid positive number.' })
       return
     }
@@ -73,7 +73,8 @@ export default function SettingsPage() {
           ...(data.githubToken ? { githubToken: data.githubToken } : {}),
           ...(data.julesApiKey ? { julesApiKey: data.julesApiKey } : {}),
           pollingInterval,
-          batchDelay
+          batchDelay,
+          pruneDays
         })
       })
 
@@ -89,7 +90,7 @@ export default function SettingsPage() {
         githubToken: '', // Clear token field after save
         pollingInterval: responseData.pollingInterval.toString(),
         batchDelay: responseData.batchDelay.toString(),
-        pruneDays: responseData.pruneDays.toString(),
+        pruneDays: (responseData.pruneDays ?? pruneDays).toString(),
         julesApiKey: '' // Clear token field after save
       })
 

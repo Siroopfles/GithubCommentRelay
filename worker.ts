@@ -364,7 +364,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         logger.info(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
         continue;
       }
-      const octokit = new Octokit({ auth: tokenToUse });
+      const octokit = createOctokit(tokenToUse);
       let currentUser;
       try {
         const { data } = await octokit.rest.users.getAuthenticated();
@@ -900,7 +900,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             if (!tokenToUse) {
                throw new Error('No github token available to post comment');
             }
-            const octokit = new Octokit({ auth: tokenToUse });
+            const octokit = createOctokit(tokenToUse);
 
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
@@ -1071,7 +1071,7 @@ async function start() {
       logger.info('Running database auto-pruning...');
       try {
           const currentSettings = await prisma.settings.findUnique({ where: { id: 1 } });
-          const pruneDays = currentSettings?.pruneDays || 60;
+          const pruneDays = currentSettings?.pruneDays ?? 60;
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - pruneDays);
 
@@ -1086,7 +1086,7 @@ async function start() {
       } catch (err) {
           logger.error('Failed to run auto-pruning:', err);
       }
-  });
+  }, { timezone: 'UTC' });
 
   // Run failsafe forwarding on boot
   logger.info('Running failsafe forwarding for Jules on boot...')
