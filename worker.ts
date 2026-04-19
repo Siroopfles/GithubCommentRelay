@@ -791,7 +791,11 @@ async function start() {
 
   // Setup interval for processing webhook signals
   setInterval(async () => {
-    await processWebhookSignals();
+    try {
+      await processWebhookSignals();
+    } catch (e) {
+      logger.error('Unhandled error in webhook signal interval:', e);
+    }
   }, 5000); // Check every 5 seconds
 
   // Failsafe forwarding was removed
