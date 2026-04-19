@@ -19,6 +19,7 @@ model Settings {
   pruneDays       Int      @default(60)
   githubRateLimitRemaining Int?
   githubRateLimitReset     DateTime?
+  webhookSecret            String?
   updatedAt       DateTime @updatedAt
 }
 

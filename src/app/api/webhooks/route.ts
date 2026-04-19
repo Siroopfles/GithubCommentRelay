@@ -9,101 +9,61 @@ export async function POST(request: NextRequest) {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });
     const rawBody = await request.text();
 
-    // We skip HMAC verify if webhookSecret is missing for local Proxmox setups
-    // In production, you would uncomment this.
-    /*
-    if (settings?.webhookSecret) {
+        if (settings?.webhookSecret) {
+        if (!signature) {
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        }
         const expected = 'sha256=' + crypto.createHmac('sha256', settings.webhookSecret).update(rawBody).digest('hex');
-        const a = Buffer.from(signature || '');
+        const a = Buffer.from(signature);
         const b = Buffer.from(expected);
         if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
              return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
         }
     }
-    */
 
     const event = request.headers.get('x-github-event');
-    const body = JSON.parse(rawBody);
-
-    if (event === 'issue_comment' && body.issue?.pull_request) {
-      // It's a comment on a PR
-      const repoOwner = body.repository.owner.login;
-      const repoName = body.repository.name;
-      const prNumber = body.issue.number;
-
-      await prisma.webhookSignal.upsert({
-        where: {
-          repoOwner_repoName_prNumber: {
-             repoOwner,
-             repoName,
-             prNumber
-          }
-        },
-        update: {
-            createdAt: new Date()
-        },
-        create: {
-          repoOwner,
-          repoName,
-          prNumber,
-        }
-      });
-      return NextResponse.json({ success: true, message: 'Webhook signal created for PR comment' });
+    let body;
+    try {
+        body = JSON.parse(rawBody);
+    } catch(e) {
+        return NextResponse.json({ error: 'Malformed JSON payload' }, { status: 400 });
     }
 
-    if (event === 'pull_request_review_comment') {
-      // It's a review comment on a PR
-      const repoOwner = body.repository.owner.login;
-      const repoName = body.repository.name;
-      const prNumber = body.pull_request.number;
+    const repoOwner = body?.repository?.owner?.login;
+    const repoName = body?.repository?.name;
 
-      await prisma.webhookSignal.upsert({
-        where: {
-          repoOwner_repoName_prNumber: {
-             repoOwner,
-             repoName,
-             prNumber
-          }
-        },
-        update: {
-            createdAt: new Date()
-        },
-        create: {
-          repoOwner,
-          repoName,
-          prNumber,
-        }
-      });
-      return NextResponse.json({ success: true, message: 'Webhook signal created for PR review comment' });
+    if (!repoOwner || !repoName) {
+        return NextResponse.json({ success: true, message: 'Ignored event (missing repo info)' });
     }
 
-    if (event === 'pull_request_review') {
-        // It's a review on a PR
-        const repoOwner = body.repository.owner.login;
-        const repoName = body.repository.name;
-        const prNumber = body.pull_request.number;
+    let prNumber;
+    if (event === 'issue_comment' && body?.issue?.pull_request && body?.issue?.number) {
+        prNumber = body.issue.number;
+    } else if ((event === 'pull_request_review_comment' || event === 'pull_request_review') && body?.pull_request?.number) {
+        prNumber = body.pull_request.number;
+    } else {
+        return NextResponse.json({ success: true, message: 'Ignored event' });
+    }
 
-        await prisma.webhookSignal.upsert({
-          where: {
+    await prisma.webhookSignal.upsert({
+        where: {
             repoOwner_repoName_prNumber: {
-               repoOwner,
-               repoName,
-               prNumber
+                repoOwner,
+                repoName,
+                prNumber
             }
-          },
-          update: {
-              createdAt: new Date()
-          },
-          create: {
+        },
+        update: {
+            createdAt: new Date()
+        },
+        create: {
             repoOwner,
             repoName,
             prNumber,
-          }
-        });
-        return NextResponse.json({ success: true, message: 'Webhook signal created for PR review' });
-      }
+        }
+    });
 
-    return NextResponse.json({ success: true, message: 'Ignored event' });
+    return NextResponse.json({ success: true, message: 'Webhook signal created' });
   } catch (error) {
     logger.error('Webhook processing error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
