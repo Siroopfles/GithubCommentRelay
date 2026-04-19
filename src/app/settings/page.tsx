@@ -55,8 +55,8 @@ export default function SettingsPage() {
       setMessage({ type: 'error', text: 'Polling Interval must be a valid positive number.' })
       return
     }
-    if (!Number.isInteger(pruneDays) || pruneDays < 0) {
-      setMessage({ type: 'error', text: 'Prune Days must be a non-negative integer.' })
+    if (!Number.isInteger(pruneDays) || pruneDays <= 0) {
+      setMessage({ type: 'error', text: 'Prune Days must be a positive integer.' })
       return
     }
 
