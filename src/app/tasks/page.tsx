@@ -75,9 +75,9 @@ export default function TasksPage() {
 
   useEffect(() => {
     if (selectedRepo) {
-      fetchTasks();
+      void fetchTasks();
       const interval = setInterval(() => {
-        fetchTasks();
+        void fetchTasks();
       }, 5000);
       return () => clearInterval(interval);
     }
