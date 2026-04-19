@@ -267,6 +267,10 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
 }
 
 
+
+let lastSavedRemaining = 5000;
+let lastSavedAt = 0;
+
 function createOctokit(token: string) {
   return new Octokit({
     auth: token,
@@ -281,20 +285,25 @@ function createOctokit(token: string) {
             const limit = parseInt(limitStr, 10);
             const reset = new Date(parseInt(resetStr, 10) * 1000);
 
-            try {
-              await prisma.settings.update({
-                where: { id: 1 },
-                data: {
-                  githubRateLimitRemaining: limit,
-                  githubRateLimitReset: reset
+            const now = Date.now();
+            if (Math.abs(lastSavedRemaining - limit) >= 10 || limit < 200 || (now - lastSavedAt) > 60000) {
+                try {
+                  await prisma.settings.update({
+                    where: { id: 1 },
+                    data: {
+                      githubRateLimitRemaining: limit,
+                      githubRateLimitReset: reset
+                    }
+                  });
+                  lastSavedRemaining = limit;
+                  lastSavedAt = now;
+                } catch (dbErr) {
+                  logger.error('Failed to update rate limit in DB:', dbErr);
                 }
-              });
-            } catch (dbErr) {
-              logger.error('Failed to update rate limit in DB:', dbErr);
             }
 
             if (limit < 50) {
-                logger.warn(`GitHub API rate limit is critically low: ${limit} remaining. Resets at ${reset.toLocaleString()}`);
+                logger.warn(`GitHub API rate limit is critically low: ${limit} remaining. Resets at ${reset.toISOString()}`);
             }
           }
           return res;
@@ -306,13 +315,19 @@ function createOctokit(token: string) {
                     const limit = parseInt(limitStr, 10);
                     const reset = new Date(parseInt(resetStr, 10) * 1000);
 
-                    await prisma.settings.update({
-                    where: { id: 1 },
-                    data: {
-                        githubRateLimitRemaining: limit,
-                        githubRateLimitReset: reset
+                    try {
+                        await prisma.settings.update({
+                        where: { id: 1 },
+                        data: {
+                            githubRateLimitRemaining: limit,
+                            githubRateLimitReset: reset
+                        }
+                        });
+                        lastSavedRemaining = limit;
+                        lastSavedAt = Date.now();
+                    } catch (dbErr) {
+                       logger.error('Failed to update rate limit in DB error branch:', dbErr);
                     }
-                    });
                 }
             }
             throw error;

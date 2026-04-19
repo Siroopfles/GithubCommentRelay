@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
       hasJulesApiKey: !!settings.julesApiKey,
     pruneDays: settings.pruneDays,
     githubRateLimitRemaining: settings.githubRateLimitRemaining,
-    githubRateLimitReset: settings.githubRateLimitReset
+    githubRateLimitReset: settings.githubRateLimitReset,
+    hasWebhookSecret: !!settings.webhookSecret
   })
 }
 
@@ -88,7 +89,8 @@ export async function POST(request: NextRequest) {
         pollingInterval: data.pollingInterval,
         batchDelay: data.batchDelay,
         pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
-        julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey
+        julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey,
+        webhookSecret: data.webhookSecret === "" || data.webhookSecret === undefined ? null : data.webhookSecret
       }
     })
 
@@ -96,7 +98,11 @@ export async function POST(request: NextRequest) {
       hasGithubToken: !!settings.githubToken,
       pollingInterval: settings.pollingInterval,
       batchDelay: settings.batchDelay,
-      hasJulesApiKey: !!settings.julesApiKey
+      hasJulesApiKey: !!settings.julesApiKey,
+      pruneDays: settings.pruneDays,
+      githubRateLimitRemaining: settings.githubRateLimitRemaining,
+      githubRateLimitReset: settings.githubRateLimitReset,
+      hasWebhookSecret: !!settings.webhookSecret
     })
   } catch (error) {
     logger.error('Settings update error:', error)

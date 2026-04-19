@@ -6,8 +6,9 @@ type SettingsForm = {
   githubToken: string
   pollingInterval: string
   batchDelay: string
-          pruneDays: string
+  pruneDays: string
   julesApiKey: string
+  webhookSecret: string
 }
 
 export default function SettingsPage() {
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [hasToken, setHasToken] = useState(false)
   const [hasJulesKey, setHasJulesKey] = useState(false)
+  const [hasWebhookSecret, setHasWebhookSecret] = useState(false)
   const { register, handleSubmit, reset } = useForm<SettingsForm>()
 
   useEffect(() => {
@@ -27,12 +29,14 @@ export default function SettingsPage() {
         if (data && !data.error) {
           setHasToken(data.hasGithubToken)
           setHasJulesKey(data.hasJulesApiKey)
+          setHasWebhookSecret(data.hasWebhookSecret)
           reset({
             githubToken: '', // Never pre-fill
             pollingInterval: data.pollingInterval?.toString() || '60',
             batchDelay: data.batchDelay?.toString() || '5',
             pruneDays: data.pruneDays?.toString() || '60',
-            julesApiKey: ''
+            julesApiKey: '',
+        webhookSecret: ''
           })
         }
       })
@@ -72,6 +76,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           ...(data.githubToken ? { githubToken: data.githubToken } : {}),
           ...(data.julesApiKey ? { julesApiKey: data.julesApiKey } : {}),
+          ...(data.webhookSecret ? { webhookSecret: data.webhookSecret } : {}),
           pollingInterval,
           batchDelay,
           pruneDays
@@ -86,6 +91,7 @@ export default function SettingsPage() {
 
       setHasToken(responseData.hasGithubToken)
       setHasJulesKey(responseData.hasJulesApiKey)
+      setHasWebhookSecret(responseData.hasWebhookSecret)
       reset({
         githubToken: '', // Clear token field after save
         pollingInterval: responseData.pollingInterval.toString(),
@@ -201,6 +207,18 @@ export default function SettingsPage() {
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">API Key used for integration with the Jules API.</p>
 
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Webhook Secret</label>
+          <input
+            type="password"
+            {...register('webhookSecret')}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
+            placeholder={hasWebhookSecret ? "Secret is securely stored. Enter a new one to update." : "Webhook Secret..."}
+          />
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Used to verify the signature of incoming GitHub Webhooks. Highly recommended for production.</p>
+        </div>
+
 
         <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors">
           Save Settings
