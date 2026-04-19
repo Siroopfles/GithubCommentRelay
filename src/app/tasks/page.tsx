@@ -93,24 +93,14 @@ export default function TasksPage() {
     }
 
     // Optimistic UI update
-    const sourceColTasks = tasks.filter(t => t.status === source.droppableId).sort((a, b) => b.priority - a.priority);
-    const destColTasks = source.droppableId === destination.droppableId
-      ? sourceColTasks
-      : tasks.filter(t => t.status === destination.droppableId).sort((a, b) => b.priority - a.priority);
+    // Optimistic UI update: only status is persisted; priority reordering within a column is a TODO.
 
-    const movedTask = tasks.find(t => t.id === draggableId)!;
-
-    // Update local state first
     const updatedTasks = tasks.map(t => {
       if (t.id === draggableId) {
         return { ...t, status: destination.droppableId };
       }
       return t;
     });
-
-    // We also need to update priorities to reflect the new order.
-    // A simple way is to reassign priorities based on the new index within the column.
-    // Higher priority = lower index (top of the list).
 
     setTasks(updatedTasks);
 
