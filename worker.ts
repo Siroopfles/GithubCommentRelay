@@ -281,13 +281,17 @@ function createOctokit(token: string) {
             const limit = parseInt(limitStr, 10);
             const reset = new Date(parseInt(resetStr, 10) * 1000);
 
-            await prisma.settings.update({
-              where: { id: 1 },
-              data: {
-                githubRateLimitRemaining: limit,
-                githubRateLimitReset: reset
-              }
-            });
+            try {
+              await prisma.settings.update({
+                where: { id: 1 },
+                data: {
+                  githubRateLimitRemaining: limit,
+                  githubRateLimitReset: reset
+                }
+              });
+            } catch (dbErr) {
+              logger.error('Failed to update rate limit in DB:', dbErr);
+            }
 
             if (limit < 50) {
                 logger.warn(`GitHub API rate limit is critically low: ${limit} remaining. Resets at ${reset.toLocaleString()}`);
