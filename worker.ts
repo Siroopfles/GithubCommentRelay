@@ -1049,9 +1049,13 @@ async function processWebhooks() {
         }
 
         const signalIds = signals.map(s => s.id);
-        await processRepositories(prsToProcess);
 
-        await prisma.webhookSignal.deleteMany({ where: { id: { in: signalIds } } });
+        // Use a detached fire-and-forget promise to not block the polling interval
+        processRepositories(prsToProcess).then(async () => {
+             await prisma.webhookSignal.deleteMany({ where: { id: { in: signalIds } } });
+        }).catch((e) => {
+             logger.error('Failed to process targeted webhook repositories', e);
+        });
 
     } catch (err) {
         logger.error('Error processing webhooks:', err);
