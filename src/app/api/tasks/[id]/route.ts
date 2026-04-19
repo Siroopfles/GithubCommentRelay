@@ -18,7 +18,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const p = parseInt(json.priority, 10)
       if (!isNaN(p)) updateData.priority = p
     }
-    if (json.title !== undefined) updateData.title = json.title
+    if (json.title !== undefined) {
+      if (typeof json.title !== 'string' || json.title.trim() === '') {
+        return NextResponse.json({ error: 'Title cannot be empty' }, { status: 400 })
+      }
+      updateData.title = json.title
+    }
     if (json.body !== undefined) updateData.body = json.body
     if (json.contextFiles !== undefined) {
         updateData.contextFiles = typeof json.contextFiles === 'string' ? json.contextFiles : JSON.stringify(json.contextFiles)
