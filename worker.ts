@@ -772,13 +772,21 @@ async function start() {
 
   // Setup interval for auto-pruning
   setInterval(async () => {
-    logger.info('Running auto-pruning task...');
-    await pruneOldRecords();
+    try {
+      logger.info('Running auto-pruning task...');
+      await pruneOldRecords();
+    } catch (e) {
+      logger.error('Unhandled error in auto-pruning interval:', e);
+    }
   }, 24 * 60 * 60 * 1000); // run every 24 hours
 
   // Run auto-pruning on boot
-  logger.info('Running auto-pruning task on boot...');
-  await pruneOldRecords();
+  try {
+    logger.info('Running auto-pruning task on boot...');
+    await pruneOldRecords();
+  } catch (e) {
+    logger.error('Unhandled error during boot auto-pruning:', e);
+  }
 
 
   // Setup interval for processing webhook signals
