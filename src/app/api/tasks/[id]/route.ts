@@ -27,9 +27,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       updateData.title = json.title
     }
-    if (json.body !== undefined) updateData.body = json.body
+    if (json.body !== undefined) {
+      if (json.body !== null && typeof json.body !== 'string') {
+        return NextResponse.json({ error: 'body must be a string or null' }, { status: 400 })
+      }
+      updateData.body = json.body
+    }
     if (json.contextFiles !== undefined) {
-        updateData.contextFiles = typeof json.contextFiles === 'string' ? json.contextFiles : JSON.stringify(json.contextFiles)
+      if (json.contextFiles === null || typeof json.contextFiles === 'string') {
+        updateData.contextFiles = json.contextFiles
+      } else if (Array.isArray(json.contextFiles)) {
+        updateData.contextFiles = JSON.stringify(json.contextFiles)
+      } else {
+        return NextResponse.json({ error: 'contextFiles must be an array, string, or null' }, { status: 400 })
+      }
     }
 
     if (Object.keys(updateData).length === 0) {

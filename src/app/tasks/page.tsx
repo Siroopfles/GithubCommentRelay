@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, GripVertical, AlertCircle, GitPullRequest, Trash2, Edit2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -45,22 +45,23 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetch('/api/repositories')
-      .then(res => res.json())
+      .then(async res => {
+        if (!res.ok) throw new Error(`Failed to fetch repositories: ${res.status}`);
+        return res.json();
+      })
       .then(data => {
+        if (!Array.isArray(data)) throw new Error('Invalid repositories response');
         setRepositories(data);
         if (data.length > 0 && !selectedRepo) {
           setSelectedRepo(data[0].id);
         }
-      });
+      })
+      .catch(console.error);
   }, []);
 
-  useEffect(() => {
-    if (selectedRepo) {
-      fetchTasks();
-    }
-  }, [selectedRepo]);
 
-  const fetchTasks = async () => {
+
+  const fetchTasks = useCallback(async () => {
     if (!selectedRepo) return;
     const res = await fetch(`/api/tasks?repositoryId=${selectedRepo}`);
     if (res.ok) {
@@ -68,10 +69,19 @@ export default function TasksPage() {
       if (Array.isArray(data)) {
         setTasks(data);
       }
-    } else {
-      console.error('Failed to fetch tasks');
+    } else {      console.error('Failed to fetch tasks');
     }
-  };
+  }, [selectedRepo]);
+
+  useEffect(() => {
+    if (selectedRepo) {
+      fetchTasks();
+      const interval = setInterval(() => {
+        fetchTasks();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedRepo, fetchTasks]);
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -239,8 +249,8 @@ export default function TasksPage() {
                                       {task.title}
                                     </h4>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => openEditModal(task)} className="text-gray-400 hover:text-blue-500"><Edit2 size={14}/></button>
-                                      <button onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+                                      <button type="button" aria-label={`Edit task ${task.title}`} title="Edit task" onClick={() => openEditModal(task)} className="text-gray-400 hover:text-blue-500"><Edit2 size={14}/></button>
+                                      <button type="button" aria-label={`Delete task ${task.title}`} title="Delete task" onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
                                     </div>
                                   </div>
                                   <div className="mt-2 flex flex-wrap gap-1">
