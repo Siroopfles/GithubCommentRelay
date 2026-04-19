@@ -1044,15 +1044,14 @@ async function processWebhooks() {
             prNumber: s.prNumber
         }));
 
-        // Delete processed signals
-        const signalIds = signals.map(s => s.id);
-        await prisma.webhookSignal.deleteMany({
-            where: { id: { in: signalIds } }
-        });
-
-        if (!isRunning) {
-            void processRepositories(prsToProcess);
+        if (isRunning) {
+            return; // Leave signals; next tick will retry
         }
+
+        const signalIds = signals.map(s => s.id);
+        await processRepositories(prsToProcess);
+
+        await prisma.webhookSignal.deleteMany({ where: { id: { in: signalIds } } });
 
     } catch (err) {
         logger.error('Error processing webhooks:', err);
