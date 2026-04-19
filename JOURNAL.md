@@ -134,3 +134,14 @@ Added a button on the settings page to perform a self-update.
 - Added `maxConcurrentTasks` configuration per repository.
 - Built a drag-and-drop Kanban board UI at `/tasks`.
 - Integrated `syncAndProcessTasks` into the background worker to auto-promote tasks, start AI sessions, and monitor PR merges.
+
+## Session 2026-04-19 - Category E Implementation
+
+Implemented Category E ideas from `IDEAS.md`:
+- **Webhooks (21):** Added an `/api/webhooks` route to receive GitHub webhook events (`issue_comment`, `pull_request_review_comment`, `pull_request_review`). These events create a `WebhookSignal` in the database. The background worker now polls this table every 5 seconds to provide near-instant aggregation processing, while falling back to the standard polling interval.
+- **Rate Limit Bewaking (22):** Intercepted all `Octokit` API responses in the background worker to read the `x-ratelimit-remaining` and `x-ratelimit-reset` headers. Stored these values in the `Settings` database. The worker now pauses execution if the rate limit drops below 50, and a warning banner appears at the top of the UI (`RateLimitBanner` in `layout.tsx`).
+- **Database Auto-Pruning (23):** Added a new `pruneDays` setting (default 60 days) to the `Settings` model and UI. Added a daily `node-cron` job (`0 0 * * *`) in the worker to automatically delete `ProcessedComment` records older than this configured threshold.
+- **Gecentraliseerde Logging (24):** Integrated `winston` for file-based logging. Created a `logger` utility that outputs to both console and local `.log` files (`logs/error.log` and `logs/combined.log`). Replaced all `console.log` and `console.error` calls across the API routes and worker with this new logger.
+- **Docker & Docker Compose (25):** Created a `Dockerfile` to build both the Next.js application and background worker into a single container image. Created a `docker-compose.yml` to define the service, exposing port 3000 and mounting volumes for the SQLite database (`./data`) and Winston logs (`./logs`).
+
+All Next.js and worker build checks passed.

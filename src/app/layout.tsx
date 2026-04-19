@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   description: 'Aggregates bot comments on GitHub PRs',
 }
 
+import RateLimitBanner from './RateLimitBanner';
+
 export default function RootLayout({
   children,
 }: {
@@ -19,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100`}>
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex flex-col">
+          <RateLimitBanner />
+          <div className="flex-1 flex overflow-hidden">
           {/* Sidebar */}
           <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex-shrink-0">
             <div className="h-full flex flex-col">
@@ -64,6 +68,7 @@ export default function RootLayout({
               {children}
             </div>
           </main>
+        </div>
         </div>
       </body>
     </html>

@@ -16,6 +16,9 @@ model Settings {
   pollingInterval Int      @default(60) // In seconds
   batchDelay      Int      @default(5) // In minutes
   julesApiKey     String?
+  pruneDays       Int      @default(60)
+  githubRateLimitRemaining Int?
+  githubRateLimitReset     DateTime?
   updatedAt       DateTime @updatedAt
 }
 
@@ -119,4 +122,15 @@ model Task {
   updatedAt         DateTime   @updatedAt
 
   @@index([repositoryId, status])
+}
+
+
+model WebhookSignal {
+  id        String   @id @default(cuid())
+  repoOwner String
+  repoName  String
+  prNumber  Int
+  createdAt DateTime @default(now())
+
+  @@index([repoOwner, repoName, prNumber])
 }
