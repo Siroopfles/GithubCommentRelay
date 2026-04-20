@@ -94,10 +94,18 @@ export default function RepositoryPRsPage() {
           const payload = JSON.parse(event.data);
           if (payload.type === 'sessions') {
             setPrs((current) =>
-              current.map((pr) => ({
-                ...pr,
-                batch_session: payload.data.find((s: BatchSession) => s.prNumber === pr.number) ?? pr.batch_session
-              }))
+              current.map((pr) => {
+                const activeSseSession = payload.data.find((s: BatchSession) => s.prNumber === pr.number);
+                // If there's an active session from SSE, use it.
+                // If not, but we had one locally that was active, it means it just finished processing (dropped from SSE),
+                // so we update it to isProcessed = true.
+                const newSession = activeSseSession || (pr.batch_session ? { ...pr.batch_session, isProcessed: true, isProcessing: false } : undefined);
+                return {
+                  ...pr,
+                  batch_session: newSession,
+                  is_batching: newSession && !newSession.isProcessed ? true : false
+                };
+              })
             );
             setError(null);
           }
