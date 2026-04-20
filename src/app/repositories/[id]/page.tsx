@@ -99,7 +99,7 @@ export default function RepositoryPRsPage() {
                 // If there's an active session from SSE, use it.
                 // If not, but we had one locally that was active, it means it just finished processing (dropped from SSE),
                 // so we update it to isProcessed = true.
-                const newSession = activeSseSession || (pr.batch_session ? { ...pr.batch_session, isProcessed: true, isProcessing: false } : undefined);
+                const newSession = activeSseSession || (pr.batch_session ? { ...pr.batch_session, isProcessed: true, isProcessing: false } : null);
                 return {
                   ...pr,
                   batch_session: newSession,
