@@ -268,10 +268,12 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
 
 
 
-let lastSavedRemaining = 5000;
-let lastSavedAt = 0;
+const rateLimitCache = new Map<string, { lastSavedRemaining: number; lastSavedAt: number }>();
 
 function createOctokit(token: string) {
+  const cache = rateLimitCache.get(token) ?? { lastSavedRemaining: 5000, lastSavedAt: 0 };
+  rateLimitCache.set(token, cache);
+
   return new Octokit({
     auth: token,
     request: {
@@ -286,7 +288,7 @@ function createOctokit(token: string) {
             const reset = new Date(parseInt(resetStr, 10) * 1000);
 
             const now = Date.now();
-            if (Math.abs(lastSavedRemaining - limit) >= 10 || limit < 200 || (now - lastSavedAt) > 60000) {
+            if (Math.abs(cache.lastSavedRemaining - limit) >= 10 || limit < 200 || (now - cache.lastSavedAt) > 60000) {
                 try {
                   await prisma.settings.update({
                     where: { id: 1 },
@@ -295,8 +297,8 @@ function createOctokit(token: string) {
                       githubRateLimitReset: reset
                     }
                   });
-                  lastSavedRemaining = limit;
-                  lastSavedAt = now;
+                  cache.lastSavedRemaining = limit;
+                  cache.lastSavedAt = now;
                 } catch (dbErr) {
                   logger.error('Failed to update rate limit in DB:', dbErr);
                 }
@@ -323,8 +325,8 @@ function createOctokit(token: string) {
                             githubRateLimitReset: reset
                         }
                         });
-                        lastSavedRemaining = limit;
-                        lastSavedAt = Date.now();
+                        cache.lastSavedRemaining = limit;
+                        cache.lastSavedAt = Date.now();
                     } catch (dbErr) {
                        logger.error('Failed to update rate limit in DB error branch:', dbErr);
                     }
@@ -1098,13 +1100,19 @@ async function start() {
           cutoffDate.setDate(cutoffDate.getDate() - pruneDays);
 
           const result = await prisma.processedComment.deleteMany({
-              where: {
-                  postedAt: {
-                      lt: cutoffDate
-                  }
-              }
+              where: { postedAt: { lt: cutoffDate } }
           });
           logger.info(`Pruned ${result.count} old comments from the database.`);
+
+          const sessionResult = await prisma.batchSession.deleteMany({
+              where: { isProcessed: true, firstSeenAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${sessionResult.count} old batch sessions.`);
+
+          const logResult = await prisma.autoMergeLog.deleteMany({
+              where: { createdAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${logResult.count} old auto-merge logs.`);
       } catch (err) {
           logger.error('Failed to run auto-pruning:', err);
       }
