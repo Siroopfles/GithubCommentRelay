@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 
 interface BatchSession {
   id: string
@@ -12,6 +12,7 @@ interface BatchSession {
   firstSeenAt: string
   isProcessed: boolean
   isProcessing: boolean
+  includeCheckRuns: boolean
 }
 
 interface ProcessedComment {
@@ -87,8 +88,41 @@ export default function RepositoryPRsPage() {
 
     if (params.id) {
       fetchPRs()
-      const interval = setInterval(fetchPRs, 15000) // Poll every 15s
-      return () => clearInterval(interval)
+      const events = new EventSource(`/api/repositories/${params.id}/sse`);
+      events.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'sessions') {
+            setPrs((current) =>
+              current.map((pr) => {
+                const activeSseSession = payload.data.find((s: BatchSession) => s.prNumber === pr.number);
+                // If there's an active session from SSE, use it.
+                // If not, but we had one locally that was active, it means it just finished processing (dropped from SSE),
+                // so we update it to isProcessed = true.
+                const newSession = activeSseSession || (pr.batch_session ? { ...pr.batch_session, isProcessed: true, isProcessing: false } : undefined);
+                return {
+                  ...pr,
+                  batch_session: newSession,
+                  is_batching: newSession && !newSession.isProcessed ? true : false
+                };
+              })
+            );
+            setError(null);
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE', e);
+        }
+      };
+      events.onerror = () => {
+        setError('Lost live update connection');
+      };
+
+      const interval = setInterval(fetchPRs, 30000); // Slower polling for comments/logs
+
+      return () => {
+        events.close();
+        clearInterval(interval);
+      };
     }
   }, [params.id])
 

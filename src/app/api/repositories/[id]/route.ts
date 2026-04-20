@@ -1,3 +1,4 @@
+import { Prisma, PRLabelRuleEvent } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -7,6 +8,35 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const json = await request.json()
     const updateData: any = {}
+
+
+    let nextPrLabelRules: Array<{ event: PRLabelRuleEvent; labelName: string }> | undefined
+
+    if (json.prLabelRules !== undefined) {
+      if (!Array.isArray(json.prLabelRules)) {
+        return NextResponse.json({ error: 'prLabelRules must be an array' }, { status: 400 });
+      }
+      const allowedEvents = new Set<PRLabelRuleEvent>(['processing_start', 'processing_done']);
+      const seenRules = new Set<string>();
+      const validatedRules: Array<{ event: PRLabelRuleEvent; labelName: string }> = [];
+
+      for (const rule of json.prLabelRules) {
+        const event = rule?.event as PRLabelRuleEvent;
+        const labelName = typeof rule?.labelName === 'string' ? rule.labelName.trim() : '';
+        if (!allowedEvents.has(event) || labelName === '') {
+          return NextResponse.json({ error: 'Invalid prLabelRules entry' }, { status: 400 });
+        }
+
+        const key = `${event}\0${labelName}`;
+        if (seenRules.has(key)) {
+          return NextResponse.json({ error: 'Duplicate prLabelRules entry' }, { status: 400 });
+        }
+        seenRules.add(key);
+        validatedRules.push({ event, labelName });
+      }
+
+      nextPrLabelRules = validatedRules;
+    }
 
     if (json.isActive !== undefined) {
       if (typeof json.isActive !== 'boolean') {
@@ -70,18 +100,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.julesChatForwardDelay = delay
     }
 
-    if (json.aiSystemPrompt !== undefined) {
-      if (json.aiSystemPrompt !== null && typeof json.aiSystemPrompt !== "string") {
-        return NextResponse.json({ error: "aiSystemPrompt must be a string or null" }, { status: 400 })
-      }
-      updateData.aiSystemPrompt = json.aiSystemPrompt === "" ? null : json.aiSystemPrompt
-    }
+    const stringOrNullFields = [
+      'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
+      'branchBlacklist', 'githubToken', 'requiredBots'
+    ];
 
-    if (json.commentTemplate !== undefined) {
-      if (json.commentTemplate !== null && typeof json.commentTemplate !== "string") {
-        return NextResponse.json({ error: "commentTemplate must be a string or null" }, { status: 400 })
+    for (const field of stringOrNullFields) {
+      if (json[field] !== undefined) {
+        if (json[field] !== null && typeof json[field] !== 'string') {
+          return NextResponse.json({ error: `${field} must be a string or null` }, { status: 400 });
+        }
+        updateData[field] = json[field] === '' ? null : json[field];
       }
-      updateData.commentTemplate = json.commentTemplate === "" ? null : json.commentTemplate
     }
 
     if (json.postAggregatedComments !== undefined) {
@@ -89,6 +119,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: 'postAggregatedComments must be a boolean' }, { status: 400 })
       }
       updateData.postAggregatedComments = json.postAggregatedComments
+    }
+
+    if (json.includeCheckRuns !== undefined) {
+      if (typeof json.includeCheckRuns !== 'boolean') {
+        return NextResponse.json({ error: 'includeCheckRuns must be a boolean' }, { status: 400 })
+      }
+      updateData.includeCheckRuns = json.includeCheckRuns
     }
 
     if (json.mergeStrategy !== undefined) {
@@ -106,36 +143,63 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       } else {
         const delay = parseInt(json.batchDelay, 10)
         if (isNaN(delay) || delay < 0) {
-          return NextResponse.json({ error: "batchDelay must be a non-negative number" }, { status: 400 })
+          return NextResponse.json({ error: 'batchDelay must be a non-negative number or null' }, { status: 400 })
         }
         updateData.batchDelay = delay
       }
     }
 
-    const stringOrNullFields = ['branchWhitelist', 'branchBlacklist', 'githubToken', 'requiredBots'] as const
-    for (const f of stringOrNullFields) {
-      if (json[f] !== undefined) {
-        if (json[f] !== null && typeof json[f] !== 'string') {
-          return NextResponse.json({ error: `${f} must be a string or null` }, { status: 400 })
-        }
-        updateData[f] = json[f] === '' ? null : json[f]
-      }
-    }
 
-    if (Object.keys(updateData).length === 0) {
+
+
+
+
+    if (Object.keys(updateData).length === 0 && nextPrLabelRules === undefined) {
       return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 })
     }
 
-    const repo = await prisma.repository.update({
-      where: { id },
-      data: updateData
+    const repo = await prisma.$transaction(async (tx) => {
+      if (nextPrLabelRules !== undefined) {
+        await tx.repository.findUniqueOrThrow({
+          where: { id },
+          select: { id: true },
+        });
+        await tx.pRLabelRule.deleteMany({ where: { repositoryId: id } })
+        if (nextPrLabelRules.length > 0) {
+          await tx.pRLabelRule.createMany({
+            data: nextPrLabelRules.map((rule) => ({ repositoryId: id, ...rule })),
+          })
+        }
+      }
+      return Object.keys(updateData).length > 0
+        ? tx.repository.update({ where: { id }, data: updateData, include: { prLabelRules: true } })
+        : tx.repository.findUniqueOrThrow({ where: { id }, include: { prLabelRules: true } })
     })
-    return NextResponse.json(repo)
-  } catch (error: any) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+
+    const { githubToken, ...safeRepo } = repo;
+    return NextResponse.json({ ...safeRepo, hasGithubToken: !!githubToken })
+  } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Repository update error', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  try {
+    const repo = await prisma.repository.findUnique({
+      where: { id },
+      include: { prLabelRules: true }
+    });
+    if (!repo) return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+    const { githubToken, ...safeRepo } = repo;
+    return NextResponse.json({ ...safeRepo, hasGithubToken: !!githubToken });
+  } catch (error: any) {
+    console.error("Repository fetch error", error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -143,12 +207,14 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params
 
   try {
-    await prisma.repository.delete({ where: { id } })
-    return new NextResponse(null, { status: 204 })
+    await prisma.repository.delete({
+      where: { id }
+    })
+    return NextResponse.json({ success: true })
   } catch (error: any) {
     if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete repository' }, { status: 500 });
   }
 }

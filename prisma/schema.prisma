@@ -44,11 +44,13 @@ model Repository {
   batchDelay            Int?
   branchWhitelist       String?
   branchBlacklist       String?
+  includeCheckRuns      Boolean  @default(false)
   githubToken           String?
   requiredBots          String?
   createdAt             DateTime @default(now())
 
   tasks                 Task[]
+  prLabelRules          PRLabelRule[]
 
   @@unique([owner, name])
 }
@@ -89,6 +91,7 @@ model BatchSession {
   isProcessed  Boolean  @default(false)
   isProcessing Boolean  @default(false)
   forceProcess Boolean  @default(false)
+  includeCheckRuns Boolean @default(false)
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }
@@ -135,4 +138,23 @@ model WebhookSignal {
 
   @@unique([repoOwner, repoName, prNumber])
   @@index([createdAt, repoOwner, repoName])
+}
+
+
+
+enum PRLabelRuleEvent {
+  processing_start
+  processing_done
+}
+
+model PRLabelRule {
+  id           String     @id @default(cuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  event        PRLabelRuleEvent
+  labelName    String
+  createdAt    DateTime   @default(now())
+
+  @@index([repositoryId])
+  @@unique([repositoryId, event, labelName])
 }
