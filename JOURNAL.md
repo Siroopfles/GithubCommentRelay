@@ -201,7 +201,7 @@ The user requested adding 50 new ideas to the existing `IDEAS.md` document, buil
 - The additions reflect the project's identity as a hub for local AI agents without hosting the LLM directly itself.
 - All ideas were written in Dutch, as requested and previously maintained in the document.
 
-## 2024-xx-xx: Category F - Advanced GitHub Integrations
+## 2026-04-20: Category F - Advanced GitHub Integrations
 - Implemented **Check Runs Mapping**:
   - `includeCheckRuns` boolean added to `Repository` and `BatchSession` Prisma models.
   - Worker configured to fetch check runs if enabled.
@@ -217,4 +217,4 @@ The user requested adding 50 new ideas to the existing `IDEAS.md` document, buil
 - Implemented **Label Syncing**:
   - Added `PRLabelRule` Prisma model.
   - Updated worker to apply/remove specified labels on `processing_start` and `processing_done` events.
-  - Added UI interface within the repo configuration modal to manage these custom label automation rules.
+  - Added UI within the repo configuration modal to manage these custom label automation rules.

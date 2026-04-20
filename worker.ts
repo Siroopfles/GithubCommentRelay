@@ -940,15 +940,16 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                     });
                     const headSha = prData.head.sha;
 
-                    const { data: checksData } = await octokit.rest.checks.listForRef({
+                    const checkRuns = await octokit.paginate(octokit.rest.checks.listForRef, {
                         owner: session.repoOwner,
                         repo: session.repoName,
-                        ref: headSha
+                        ref: headSha,
+                        per_page: 100
                     });
 
-                    if (checksData.check_runs.length > 0) {
+                    if (checkRuns.length > 0) {
                         checkRunsContent = "\n\n### CI Check Runs\n";
-                        checksData.check_runs.forEach((run: any) => {
+                        checkRuns.forEach((run: any) => {
                             const icon = run.conclusion === 'success' ? '✅' : (run.conclusion === 'failure' ? '❌' : '🔄');
                             checkRunsContent += `- ${icon} **${run.name}**: ${run.status} (${run.conclusion || 'pending'})\n`;
                             if (run.output && run.output.summary) {
@@ -977,7 +978,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
               // We need to fetch the original comments from github since the DB doesn't store path/line
               let commentWithLine: any = null;
               try {
-                  const { data: prReviewComments } = await octokit.rest.pulls.listReviewComments({
+                  const prReviewComments = await octokit.paginate(octokit.rest.pulls.listReviewComments, {
                       owner: session.repoOwner,
                       repo: session.repoName,
                       pull_number: session.prNumber,
@@ -1111,7 +1112,6 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
               const doneRules = await prisma.pRLabelRule.findMany({
                   where: { repository: { owner: session.repoOwner, name: session.repoName }, event: 'processing_done' }
               });
-              const repoConfig = await prisma.repository.findFirst({ where: { owner: session.repoOwner, name: session.repoName } });
               const t = repoConfig?.githubToken || settings?.githubToken;
               if (t && doneRules.length > 0) {
                   const octo = createOctokit(t);

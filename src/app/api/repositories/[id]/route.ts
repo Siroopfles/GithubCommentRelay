@@ -1,3 +1,4 @@
+import { PRLabelRuleEvent } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -8,21 +9,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const json = await request.json()
     const updateData: any = {}
 
+
+    let nextPrLabelRules: Array<{ event: PRLabelRuleEvent; labelName: string }> | undefined
+
     if (json.prLabelRules !== undefined) {
       if (!Array.isArray(json.prLabelRules)) {
         return NextResponse.json({ error: 'prLabelRules must be an array' }, { status: 400 });
       }
-      // Replace existing rules
-      await prisma.pRLabelRule.deleteMany({ where: { repositoryId: id } });
-      if (json.prLabelRules.length > 0) {
-        await prisma.pRLabelRule.createMany({
-          data: json.prLabelRules.map((rule: any) => ({
-            repositoryId: id,
-            event: rule.event,
-            labelName: rule.labelName
-          }))
-        });
-      }
+      nextPrLabelRules = json.prLabelRules.map((rule: any) => {
+        if (
+          !['processing_start', 'processing_done'].includes(rule?.event) ||
+          typeof rule?.labelName !== 'string' ||
+          rule.labelName.trim() === ''
+        ) {
+          throw new Error('Invalid prLabelRules entry')
+        }
+        return { event: rule.event as PRLabelRuleEvent, labelName: rule.labelName.trim() }
+      })
     }
 
     if (json.isActive !== undefined) {
@@ -88,17 +91,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (json.aiSystemPrompt !== undefined) {
-      if (json.aiSystemPrompt !== null && typeof json.aiSystemPrompt !== "string") {
-        return NextResponse.json({ error: "aiSystemPrompt must be a string or null" }, { status: 400 })
-      }
-      updateData.aiSystemPrompt = json.aiSystemPrompt === "" ? null : json.aiSystemPrompt
+      updateData.aiSystemPrompt = json.aiSystemPrompt === '' ? null : json.aiSystemPrompt
     }
 
     if (json.commentTemplate !== undefined) {
-      if (json.commentTemplate !== null && typeof json.commentTemplate !== "string") {
-        return NextResponse.json({ error: "commentTemplate must be a string or null" }, { status: 400 })
-      }
-      updateData.commentTemplate = json.commentTemplate === "" ? null : json.commentTemplate
+      updateData.commentTemplate = json.commentTemplate === '' ? null : json.commentTemplate
     }
 
     if (json.postAggregatedComments !== undefined) {
@@ -106,6 +103,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: 'postAggregatedComments must be a boolean' }, { status: 400 })
       }
       updateData.postAggregatedComments = json.postAggregatedComments
+    }
+
+    if (json.includeCheckRuns !== undefined) {
+      if (typeof json.includeCheckRuns !== 'boolean') {
+        return NextResponse.json({ error: 'includeCheckRuns must be a boolean' }, { status: 400 })
+      }
+      updateData.includeCheckRuns = json.includeCheckRuns
     }
 
     if (json.mergeStrategy !== undefined) {
@@ -117,49 +121,56 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 
 
-    if (json.includeCheckRuns !== undefined) {
-      if (typeof json.includeCheckRuns !== 'boolean') {
-        return NextResponse.json({ error: 'includeCheckRuns must be a boolean' }, { status: 400 })
-      }
-      updateData.includeCheckRuns = json.includeCheckRuns
-    }
-
     if (json.batchDelay !== undefined) {
       if (json.batchDelay === null || json.batchDelay === '') {
         updateData.batchDelay = null
       } else {
         const delay = parseInt(json.batchDelay, 10)
         if (isNaN(delay) || delay < 0) {
-          return NextResponse.json({ error: "batchDelay must be a non-negative number" }, { status: 400 })
+          return NextResponse.json({ error: 'batchDelay must be a non-negative number or null' }, { status: 400 })
         }
         updateData.batchDelay = delay
       }
     }
 
-    const stringOrNullFields = ['branchWhitelist', 'branchBlacklist', 'githubToken', 'requiredBots'] as const
-    for (const f of stringOrNullFields) {
-      if (json[f] !== undefined) {
-        if (json[f] !== null && typeof json[f] !== 'string') {
-          return NextResponse.json({ error: `${f} must be a string or null` }, { status: 400 })
-        }
-        updateData[f] = json[f] === '' ? null : json[f]
-      }
+    if (json.branchWhitelist !== undefined) {
+      updateData.branchWhitelist = json.branchWhitelist === '' ? null : json.branchWhitelist
     }
 
-    if (Object.keys(updateData).length === 0) {
+    if (json.branchBlacklist !== undefined) {
+      updateData.branchBlacklist = json.branchBlacklist === '' ? null : json.branchBlacklist
+    }
+
+    if (json.githubToken !== undefined) {
+      updateData.githubToken = json.githubToken === '' ? null : json.githubToken
+    }
+
+    if (json.requiredBots !== undefined) {
+        updateData.requiredBots = json.requiredBots === '' ? null : json.requiredBots;
+    }
+
+
+    if (Object.keys(updateData).length === 0 && nextPrLabelRules === undefined) {
       return NextResponse.json({ error: 'No valid fields provided for update' }, { status: 400 })
     }
 
-    const repo = await prisma.repository.update({
-      where: { id },
-      data: updateData
+    const repo = await prisma.$transaction(async (tx) => {
+      if (nextPrLabelRules !== undefined) {
+        await tx.pRLabelRule.deleteMany({ where: { repositoryId: id } })
+        if (nextPrLabelRules.length > 0) {
+          await tx.pRLabelRule.createMany({
+            data: nextPrLabelRules.map((rule) => ({ repositoryId: id, ...rule })),
+          })
+        }
+      }
+      return Object.keys(updateData).length > 0
+        ? tx.repository.update({ where: { id }, data: updateData, include: { prLabelRules: true } })
+        : tx.repository.findUniqueOrThrow({ where: { id }, include: { prLabelRules: true } })
     })
+
     return NextResponse.json(repo)
   } catch (error: any) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
@@ -173,7 +184,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!repo) return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
     return NextResponse.json(repo);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Repository fetch error", error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -181,12 +193,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params
 
   try {
-    await prisma.repository.delete({ where: { id } })
-    return new NextResponse(null, { status: 204 })
+    await prisma.repository.delete({
+      where: { id }
+    })
+    return NextResponse.json({ success: true })
   } catch (error: any) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete repository' }, { status: 500 })
   }
 }

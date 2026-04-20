@@ -141,13 +141,20 @@ model WebhookSignal {
 }
 
 
+
+enum PRLabelRuleEvent {
+  processing_start
+  processing_done
+}
+
 model PRLabelRule {
   id           String     @id @default(cuid())
   repositoryId String
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  event        String     // e.g. "processing_start", "processing_done"
+  event        PRLabelRuleEvent
   labelName    String
   createdAt    DateTime   @default(now())
 
   @@index([repositoryId])
+  @@unique([repositoryId, event, labelName])
 }

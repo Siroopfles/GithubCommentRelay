@@ -8,6 +8,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id, prNumber } = await params;
 
   try {
+    const pullNumber = Number(prNumber);
+    if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+      return NextResponse.json({ error: 'Invalid PR number' }, { status: 400 });
+    }
+
     const repo = await prisma.repository.findUnique({ where: { id } });
     if (!repo) return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
 
@@ -24,20 +29,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { data: prData } = await octokit.rest.pulls.get({
         owner: repo.owner,
         repo: repo.name,
-        pull_number: parseInt(prNumber, 10)
+        pull_number: pullNumber
     });
 
     const headSha = prData.head.sha;
 
     // Fetch check runs for the ref to find the check suite IDs associated with failed runs
-    const { data: checksData } = await octokit.rest.checks.listForRef({
+    const checkRuns = await octokit.paginate(octokit.rest.checks.listForRef, {
         owner: repo.owner,
         repo: repo.name,
-        ref: headSha
+        ref: headSha,
+        per_page: 100
     });
 
     const failedSuites = new Set<number>();
-    for (const run of checksData.check_runs) {
+    for (const run of checkRuns) {
         if (run.conclusion === 'failure' || run.conclusion === 'cancelled' || run.conclusion === 'timed_out' || run.conclusion === 'action_required') {
            if(run.check_suite?.id) {
                failedSuites.add(run.check_suite.id);
@@ -59,7 +65,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     return NextResponse.json({ success: true, message: `Requested re-run for ${failedSuites.size} check suite(s).` });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("Trigger checks error:", error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

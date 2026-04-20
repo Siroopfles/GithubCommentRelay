@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,10 +52,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           sendEvent({ type: 'sessions', data: sessions });
 
           // Wait 3 seconds before polling again
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise(resolve => setTimeout(resolve, 10000));
         }
       } catch (err) {
-        console.error('SSE Error:', err);
+        logger.error('SSE Error:', err);
         if (!isClosed) {
           controller.error(err);
         }
