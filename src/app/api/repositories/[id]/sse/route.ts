@@ -45,6 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             where: {
               repoOwner: repo.owner,
               repoName: repo.name,
+              isProcessed: false,
             },
             orderBy: { firstSeenAt: 'desc' },
             take: 20
