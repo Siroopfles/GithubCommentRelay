@@ -350,6 +350,19 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
   try {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
+    if (
+      settings?.githubRateLimitRemaining != null &&
+      settings.githubRateLimitRemaining < 50 &&
+      settings.githubRateLimitReset &&
+      new Date() < settings.githubRateLimitReset
+    ) {
+      logger.warn(
+        `Skipping run due to low GitHub rate limit (${settings.githubRateLimitRemaining} remaining). Resets at ${settings.githubRateLimitReset.toISOString()}`
+      );
+      isRunning = false;
+      return;
+    }
+
     const repos = await prisma.repository.findMany({ where: { isActive: true } });
     const hasAnyToken = settings?.githubToken || repos.some(r => !!r.githubToken);
     if (!hasAnyToken) {
