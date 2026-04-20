@@ -950,16 +950,29 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
                     if (checkRuns.length > 0) {
                         checkRunsContent = "\n\n### CI Check Runs\n";
-                        checkRuns.forEach((run: any) => {
+                        const maxCheckRunsContentLength = 20_000;
+                        let omittedCheckRuns = 0;
+
+                        for (const [index, run] of checkRuns.entries()) {
                             const icon = run.conclusion === 'success' ? '✅' : (run.conclusion === 'failure' ? '❌' : '🔄');
-                            checkRunsContent += `- ${icon} **${run.name}**: ${run.status} (${run.conclusion || 'pending'})\n`;
+                            let entry = `- ${icon} **${run.name}**: ${run.status} (${run.conclusion || 'pending'})\n`;
                             if (run.output && run.output.summary) {
                                 // Limit summary length
                                 const summaryStr = typeof run.output.summary === 'string' ? run.output.summary : String(run.output.summary);
                                 const summary = summaryStr.substring(0, 500) + (summaryStr.length > 500 ? '...' : '');
-                                checkRunsContent += "  <details><summary>Output Summary</summary>\n\n  ```\n  " + summary + "\n  ```\n  </details>\n";
+                                entry += "  <details><summary>Output Summary</summary>\n\n  ```\n  " + summary + "\n  ```\n  </details>\n";
                             }
-                        });
+
+                            if (checkRunsContent.length + entry.length > maxCheckRunsContentLength) {
+                                omittedCheckRuns = checkRuns.length - index;
+                                break;
+                            }
+                            checkRunsContent += entry;
+                        }
+
+                        if (omittedCheckRuns > 0) {
+                            checkRunsContent += `\n_${omittedCheckRuns} check run(s) omitted to keep the comment within GitHub limits._\n`;
+                        }
                     }
                 } catch (checkErr) {
                     logger.error(`Failed to fetch check runs for PR #${session.prNumber}:`, checkErr);

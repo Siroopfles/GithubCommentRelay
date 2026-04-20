@@ -1,4 +1,4 @@
-import { PRLabelRuleEvent } from '@prisma/client';
+import { Prisma, PRLabelRuleEvent } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -16,16 +16,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!Array.isArray(json.prLabelRules)) {
         return NextResponse.json({ error: 'prLabelRules must be an array' }, { status: 400 });
       }
-      nextPrLabelRules = json.prLabelRules.map((rule: any) => {
-        if (
-          !['processing_start', 'processing_done'].includes(rule?.event) ||
-          typeof rule?.labelName !== 'string' ||
-          rule.labelName.trim() === ''
-        ) {
-          throw new Error('Invalid prLabelRules entry')
+      const allowedEvents = new Set<PRLabelRuleEvent>(['processing_start', 'processing_done']);
+      const seenRules = new Set<string>();
+      const validatedRules: Array<{ event: PRLabelRuleEvent; labelName: string }> = [];
+
+      for (const rule of json.prLabelRules) {
+        const event = rule?.event as PRLabelRuleEvent;
+        const labelName = typeof rule?.labelName === 'string' ? rule.labelName.trim() : '';
+        if (!allowedEvents.has(event) || labelName === '') {
+          return NextResponse.json({ error: 'Invalid prLabelRules entry' }, { status: 400 });
         }
-        return { event: rule.event as PRLabelRuleEvent, labelName: rule.labelName.trim() }
-      })
+
+        const key = `${event}\0${labelName}`;
+        if (seenRules.has(key)) {
+          return NextResponse.json({ error: 'Duplicate prLabelRules entry' }, { status: 400 });
+        }
+        seenRules.add(key);
+        validatedRules.push({ event, labelName });
+      }
+
+      nextPrLabelRules = validatedRules;
     }
 
     if (json.isActive !== undefined) {
@@ -163,8 +173,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     return NextResponse.json(repo)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+    }
+    console.error('Repository update error', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
