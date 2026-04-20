@@ -109,7 +109,12 @@ export default function RepositoryPRsPage() {
         setError('Lost live update connection');
       };
 
-      return () => events.close();
+      const interval = setInterval(fetchPRs, 30000); // Slower polling for comments/logs
+
+      return () => {
+        events.close();
+        clearInterval(interval);
+      };
     }
   }, [params.id])
 

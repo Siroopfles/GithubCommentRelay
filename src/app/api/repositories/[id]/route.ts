@@ -160,6 +160,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const repo = await prisma.$transaction(async (tx) => {
       if (nextPrLabelRules !== undefined) {
+        await tx.repository.findUniqueOrThrow({
+          where: { id },
+          select: { id: true },
+        });
         await tx.pRLabelRule.deleteMany({ where: { repositoryId: id } })
         if (nextPrLabelRules.length > 0) {
           await tx.pRLabelRule.createMany({
@@ -172,7 +176,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         : tx.repository.findUniqueOrThrow({ where: { id }, include: { prLabelRules: true } })
     })
 
-    return NextResponse.json(repo)
+    const { githubToken, ...safeRepo } = repo;
+    return NextResponse.json({ ...safeRepo, hasGithubToken: !!githubToken })
   } catch (error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
@@ -190,7 +195,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       include: { prLabelRules: true }
     });
     if (!repo) return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
-    return NextResponse.json(repo);
+    const { githubToken, ...safeRepo } = repo;
+    return NextResponse.json({ ...safeRepo, hasGithubToken: !!githubToken });
   } catch (error: any) {
     console.error("Repository fetch error", error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
