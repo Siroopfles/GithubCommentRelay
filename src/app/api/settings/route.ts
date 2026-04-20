@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
       pollingInterval: 60,
       batchDelay: 5,
       hasJulesApiKey: false,
-      pruneDays: 60
+      pruneDays: 60,
+      githubRateLimitRemaining: null,
+      githubRateLimitReset: null,
+      hasWebhookSecret: false
     })
   }
 
