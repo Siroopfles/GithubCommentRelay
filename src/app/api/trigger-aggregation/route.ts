@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, session: updatedSession })
   } catch (error) {
-    console.error('Failed to trigger aggregation:', error)
+    logger.error('Failed to trigger aggregation:', error)
     return NextResponse.json({ error: 'Failed to trigger aggregation' }, { status: 500 })
   }
 }

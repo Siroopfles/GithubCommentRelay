@@ -6,6 +6,7 @@ import { prisma } from './src/lib/prisma'
 import { Octokit } from 'octokit'
 // @ts-ignore
 import cron from 'node-cron'
+import { logger } from './src/lib/logger'
 
 
 let isRunning = false;
@@ -70,7 +71,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                   contextFiles
                 }
               });
-              console.log(`Imported task from file: ${title}`);
+              logger.info(`Imported task from file: ${title}`);
             }
           }
         }
@@ -108,12 +109,12 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                                githubIssueNumber: issue.number,
                            }
                        });
-                       console.log(`Imported task from issue #${issue.number}`);
+                       logger.info(`Imported task from issue #${issue.number}`);
                    }
                }
            }
        } catch (e) {
-           console.error(`Failed to sync issues for ${repoConfig.name}: `, e);
+           logger.error(`Failed to sync issues for ${repoConfig.name}: `, e);
        }
     }
 
@@ -135,7 +136,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                 where: { id: topBacklog.id },
                 data: { status: 'todo' }
             });
-            console.log(`Promoted task ${topBacklog.title} from backlog to todo`);
+            logger.info(`Promoted task ${topBacklog.title} from backlog to todo`);
         }
     }
 
@@ -157,15 +158,15 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
 
                 if (pr.data.merged) {
                     await prisma.task.update({ where: { id: t.id }, data: { status: 'done' } });
-                    console.log(`Task ${t.title} marked as done (PR merged)`);
+                    logger.info(`Task ${t.title} marked as done (PR merged)`);
                 } else if (pr.data.state === 'closed') {
                     await prisma.task.update({ where: { id: t.id }, data: { status: 'blocked' } });
-                    console.log(`Task ${t.title} blocked (PR closed without merge)`);
+                    logger.info(`Task ${t.title} blocked (PR closed without merge)`);
                 } else if (t.status === 'in_progress') {
                     await prisma.task.update({ where: { id: t.id }, data: { status: 'in_review' } });
                 }
             } catch (e) {
-                console.error(`Failed to check PR status for task ${t.title}`);
+                logger.error(`Failed to check PR status for task ${t.title}`);
             }
         } else {
             // Find PR by issue number or julesSessionId
@@ -187,7 +188,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                             where: { id: t.id },
                             data: { prNumber: pr.number, status: 'in_review' }
                         });
-                        console.log(`Linked task ${t.title} to PR #${pr.number}`);
+                        logger.info(`Linked task ${t.title} to PR #${pr.number}`);
                         break;
                     }
                 }
@@ -206,7 +207,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
         });
 
         if (nextTask) {
-            console.log(`Starting task: ${nextTask.title}`);
+            logger.info(`Starting task: ${nextTask.title}`);
 
             if (nextTask.githubIssueNumber) {
                 // Add jules label to trigger external GitHub App
@@ -222,7 +223,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                         data: { status: 'in_progress' }
                     });
                 } catch (e) {
-                    console.error(`Failed to add label to issue #${nextTask.githubIssueNumber}`);
+                    logger.error(`Failed to add label to issue #${nextTask.githubIssueNumber}`);
                 }
             } else if (settings?.julesApiKey) {
                 // Use Jules API natively
@@ -248,38 +249,111 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                         });
                     }
                 } catch (e) {
-                    console.error(`Failed to start task natively via Jules API`);
+                    logger.error(`Failed to start task natively via Jules API`);
                     await prisma.task.update({
                         where: { id: nextTask.id },
                         data: { status: 'blocked' }
                     });
                 }
             } else {
-                 console.log("Cannot start manual task: no Jules API key and no Github Issue number.");
+                 logger.info("Cannot start manual task: no Jules API key and no Github Issue number.");
             }
         }
     }
 
   } catch (e) {
-    console.error(`Error in syncAndProcessTasks for ${repoConfig.name}: `, e);
+    logger.error(`Error in syncAndProcessTasks for ${repoConfig.name}: `, e);
   }
 }
 
-async function processRepositories() {
+
+
+const rateLimitCache = new Map<string, { lastSavedRemaining: number; lastSavedAt: number }>();
+
+function createOctokit(token: string) {
+  const cache = rateLimitCache.get(token) ?? { lastSavedRemaining: 5000, lastSavedAt: 0 };
+  rateLimitCache.set(token, cache);
+
+  return new Octokit({
+    auth: token,
+    request: {
+      hook: async (request: any, options: any) => {
+        try {
+          const res = await request(options);
+          const limitStr = res.headers['x-ratelimit-remaining'];
+          const resetStr = res.headers['x-ratelimit-reset'];
+
+          if (limitStr && resetStr) {
+            const limit = parseInt(limitStr, 10);
+            const reset = new Date(parseInt(resetStr, 10) * 1000);
+
+            const now = Date.now();
+            if (Math.abs(cache.lastSavedRemaining - limit) >= 10 || limit < 200 || (now - cache.lastSavedAt) > 60000) {
+                try {
+                  await prisma.settings.update({
+                    where: { id: 1 },
+                    data: {
+                      githubRateLimitRemaining: limit,
+                      githubRateLimitReset: reset
+                    }
+                  });
+                  cache.lastSavedRemaining = limit;
+                  cache.lastSavedAt = now;
+                } catch (dbErr) {
+                  logger.error('Failed to update rate limit in DB:', dbErr);
+                }
+            }
+
+            if (limit < 50) {
+                logger.warn(`GitHub API rate limit is critically low: ${limit} remaining. Resets at ${reset.toISOString()}`);
+            }
+          }
+          return res;
+        } catch (error: any) {
+            if (error.response && error.response.headers) {
+                const limitStr = error.response.headers['x-ratelimit-remaining'];
+                const resetStr = error.response.headers['x-ratelimit-reset'];
+                if (limitStr && resetStr) {
+                    const limit = parseInt(limitStr, 10);
+                    const reset = new Date(parseInt(resetStr, 10) * 1000);
+
+                    try {
+                        await prisma.settings.update({
+                        where: { id: 1 },
+                        data: {
+                            githubRateLimitRemaining: limit,
+                            githubRateLimitReset: reset
+                        }
+                        });
+                        cache.lastSavedRemaining = limit;
+                        cache.lastSavedAt = Date.now();
+                    } catch (dbErr) {
+                       logger.error('Failed to update rate limit in DB error branch:', dbErr);
+                    }
+                }
+            }
+            throw error;
+        }
+      }
+    }
+  });
+}
+
+async function processRepositories(webhookPrs?: {owner: string, name: string, prNumber: number}[]) {
   if (isRunning) {
-    console.log(`[${new Date().toISOString()}] Previous cycle still running, skipping...`);
+    logger.info(`[${new Date().toISOString()}] Previous cycle still running, skipping...`);
     return;
   }
   isRunning = true;
 
-  console.log(`[${new Date().toISOString()}] Starting polling cycle...`)
+  logger.info(`[${new Date().toISOString()}] Starting polling cycle...`)
 
   try {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } })
     const repos = await prisma.repository.findMany({ where: { isActive: true } });
     const hasAnyToken = settings?.githubToken || repos.some(r => !!r.githubToken);
     if (!hasAnyToken) {
-      console.log('Skipping cycle: No GitHub Token configured anywhere.')
+      logger.info('Skipping cycle: No GitHub Token configured anywhere.')
       isRunning = false;
       return
     }
@@ -291,14 +365,14 @@ async function processRepositories() {
           try {
             compiledRegex = new RegExp(r.noActionRegex, 'i');
           } catch (e) {
-            console.error(`CRITICAL: Failed to compile noActionRegex for ${r.username}: ${r.noActionRegex}`);
+            logger.error(`CRITICAL: Failed to compile noActionRegex for ${r.username}: ${r.noActionRegex}`);
           }
         }
         return { ...r, compiledRegex };
       });
 
     if (repos.length === 0) {
-      console.log('Skipping cycle: No active repositories configured.')
+      logger.info('Skipping cycle: No active repositories configured.')
       isRunning = false;
       return
     }
@@ -308,20 +382,20 @@ async function processRepositories() {
     for (const repo of repos) {
       const tokenToUse = repo.githubToken || settings?.githubToken;
       if (!tokenToUse) {
-        console.log(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
+        logger.info(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
         continue;
       }
-      const octokit = new Octokit({ auth: tokenToUse });
+      const octokit = createOctokit(tokenToUse);
       let currentUser;
       try {
         const { data } = await octokit.rest.users.getAuthenticated();
         currentUser = data;
       } catch (e) {
-        console.log(`Skipping ${repo.owner}/${repo.name}: Failed to authenticate with provided token.`);
+        logger.info(`Skipping ${repo.owner}/${repo.name}: Failed to authenticate with provided token.`);
         continue;
       }
 
-      console.log(`Checking ${repo.owner}/${repo.name}...`)
+      logger.info(`Checking ${repo.owner}/${repo.name}...`)
 
       const { data: prs } = await octokit.rest.pulls.list({
         owner: repo.owner,
@@ -447,7 +521,7 @@ async function processRepositories() {
               }
 
               if (canMerge) {
-                console.log(`Auto-merging PR #${pr.number} for ${repo.owner}/${repo.name}...`);
+                logger.info(`Auto-merging PR #${pr.number} for ${repo.owner}/${repo.name}...`);
                 await octokit.rest.pulls.merge({
                   owner: repo.owner,
                   repo: repo.name,
@@ -466,7 +540,7 @@ async function processRepositories() {
                     }
                   });
                 } catch (logError) {
-                  console.error('Failed to log auto-merge success:', logError);
+                  logger.error('Failed to log auto-merge success:', logError);
                 }
 
                 // Jules Task Scheduling
@@ -516,7 +590,7 @@ async function processRepositories() {
                             });
                             labelSuccess = true;
                           } catch (labelErr) {
-                            console.warn(`Failed to label issue ${actualIssue.number} as scheduled. Skipping to prevent duplicates.`, labelErr);
+                            logger.warn(`Failed to label issue ${actualIssue.number} as scheduled. Skipping to prevent duplicates.`, labelErr);
                           }
 
                           if (!labelSuccess) {
@@ -547,7 +621,7 @@ async function processRepositories() {
                          `github.com/${repo.owner}/${repo.name}`,
                          sourceRevision || 'refs/heads/main'
                        );
-                       console.log(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
+                       logger.info(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
 
                        // Extract task ID and post a comment on the original issue so forwardCommentsToJules can find it
                        if (sessionResponse && sessionResponse.name) {
@@ -567,15 +641,15 @@ async function processRepositories() {
                                body: `*Task started in Jules: [${julesLink}](${julesLink})*`
                              });
                            } catch (commentErr) {
-                             console.warn(`Failed to post Jules session link to issue ${issueNumber}`, commentErr);
+                             logger.warn(`Failed to post Jules session link to issue ${issueNumber}`, commentErr);
                            }
                          }
                        }
                     } else {
-                       console.log(`No pending tasks found for ${repo.owner}/${repo.name} (${repo.taskSourceType})`);
+                       logger.info(`No pending tasks found for ${repo.owner}/${repo.name} (${repo.taskSourceType})`);
                     }
                   } catch (e) {
-                    console.error(`Failed to schedule next Jules task:`, e);
+                    logger.error(`Failed to schedule next Jules task:`, e);
                   }
                 }
 
@@ -585,7 +659,7 @@ async function processRepositories() {
               }
             }
           } catch (error: any) {
-            console.error(`Failed to auto-merge PR #${pr.number}:`, error.message);
+            logger.error(`Failed to auto-merge PR #${pr.number}:`, error.message);
             // We shouldn't fail the whole loop on one auto-merge fail
             // Also log to DB if it's not already merged
 
@@ -623,7 +697,7 @@ async function processRepositories() {
                 });
               }
             } catch (logError) {
-              console.error('Failed to log auto-merge error:', logError);
+              logger.error('Failed to log auto-merge error:', logError);
             }
           }
         }
@@ -698,7 +772,7 @@ async function processRepositories() {
                   // Prevent ReDoS by truncating extremely long bodies
                   const safeBody = comment.body.slice(0, 10000);
                   if (reviewerConfig.compiledRegex.test(safeBody)) {
-                    console.log(`Skipping comment from ${comment.user.login} on PR #${pr.number} due to noActionRegex match.`);
+                    logger.info(`Skipping comment from ${comment.user.login} on PR #${pr.number} due to noActionRegex match.`);
                     isSkipped = true;
                   }
               }
@@ -720,7 +794,7 @@ async function processRepositories() {
                 });
                 continue;
               }
-              console.log(`Found new comment from ${comment.user.login} on PR #${pr.number}`)
+              logger.info(`Found new comment from ${comment.user.login} on PR #${pr.number}`)
 
               const postedAt = new Date(comment.created_at)
 
@@ -813,7 +887,7 @@ async function processRepositories() {
         if (missingBots.length === 0) {
            shouldProcess = true; // All required bots have commented
         } else {
-           console.log(`PR #${session.prNumber} is waiting for required bots: ${missingBots.join(', ')}`);
+           logger.info(`PR #${session.prNumber} is waiting for required bots: ${missingBots.join(', ')}`);
         }
       } else if (timeSinceFirstSeen >= batchDelayMs) {
         // Classic batch delay
@@ -821,7 +895,7 @@ async function processRepositories() {
       }
 
       if (shouldProcess) {
-        console.log(`Processing batch for PR #${session.prNumber} in ${session.repoOwner}/${session.repoName}...`)
+        logger.info(`Processing batch for PR #${session.prNumber} in ${session.repoOwner}/${session.repoName}...`)
 
         // Atomically claim this session
         const claimed = await prisma.batchSession.updateMany({
@@ -847,7 +921,7 @@ async function processRepositories() {
             if (!tokenToUse) {
                throw new Error('No github token available to post comment');
             }
-            const octokit = new Octokit({ auth: tokenToUse });
+            const octokit = createOctokit(tokenToUse);
 
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
 
@@ -858,9 +932,9 @@ async function processRepositories() {
                 issue_number: session.prNumber,
                 body: aggregatedBody
               })
-              console.log(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+              logger.info(`Successfully posted aggregated comment to PR #${session.prNumber}`)
             } else {
-              console.log(`Skipped posting aggregated comment to PR #${session.prNumber} because postAggregatedComments is disabled`)
+              logger.info(`Skipped posting aggregated comment to PR #${session.prNumber} because postAggregatedComments is disabled`)
             }
 
             try {
@@ -890,13 +964,13 @@ async function processRepositories() {
                           chunk.forEach((comment: any, index: number) => {
                               const alias = `m${index}`;
                               if (response[alias] && response[alias].minimizedComment && response[alias].minimizedComment.isMinimized) {
-                                  console.log(`Minimized original comment ${comment.commentId} from ${comment.author}`);
+                                  logger.info(`Minimized original comment ${comment.commentId} from ${comment.author}`);
                               } else {
-                                  console.warn(`Failed to verify minimization for comment ${comment.commentId} from ${comment.author}`);
+                                  logger.warn(`Failed to verify minimization for comment ${comment.commentId} from ${comment.author}`);
                               }
                           });
                       } catch (minErr: any) {
-                          console.error(`Failed to minimize chunk of comments, falling back to sequential minimization:`, minErr.message);
+                          logger.error(`Failed to minimize chunk of comments, falling back to sequential minimization:`, minErr.message);
                           for (const comment of chunk) {
                               try {
                                   await octokit.graphql(
@@ -907,16 +981,16 @@ async function processRepositories() {
                                       }`,
                                       { subjectId: comment.nodeId }
                                   );
-                                  console.log(`Fallback: Minimized original comment ${comment.commentId} from ${comment.author}`);
+                                  logger.info(`Fallback: Minimized original comment ${comment.commentId} from ${comment.author}`);
                               } catch (fallbackErr: any) {
-                                  console.error(`Fallback failed to minimize comment ${comment.commentId}:`, fallbackErr.message);
+                                  logger.error(`Fallback failed to minimize comment ${comment.commentId}:`, fallbackErr.message);
                               }
                           }
                       }
                   }
               }
             } catch (e) {
-              console.error(`Failed to minimize comments for PR #${session.prNumber}:`, e);
+              logger.error(`Failed to minimize comments for PR #${session.prNumber}:`, e);
             }
 
 
@@ -924,7 +998,7 @@ async function processRepositories() {
               await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit, repoConfig)
             } catch (e) {
               const actionStr = repoConfig?.postAggregatedComments !== false ? "(aggregated comment posted)" : "(aggregated comment posting disabled)";
-              console.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
+              logger.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
             }
           }
 
@@ -936,7 +1010,7 @@ async function processRepositories() {
             data: { isProcessed: true, isProcessing: false, forceProcess: false }
           })
         } catch (error) {
-          console.error(`Failed to process batch for PR #${session.prNumber}:`, error)
+          logger.error(`Failed to process batch for PR #${session.prNumber}:`, error)
           // Revert claim on failure so it can be retried
 
 
@@ -949,45 +1023,113 @@ async function processRepositories() {
     }
 
   } catch (error) {
-    console.error('Error during polling cycle:', error)
+    logger.error('Error during polling cycle:', error)
   } finally {
     isRunning = false;
   }
 }
 
+
+async function processWebhooks() {
+    try {
+        const signals = await prisma.webhookSignal.findMany({
+            take: 10
+        });
+
+        if (signals.length === 0) return;
+
+        logger.info(`Found ${signals.length} webhook signals. Processing...`);
+
+        const prsToProcess = signals.map(s => ({
+            owner: s.repoOwner,
+            name: s.repoName,
+            prNumber: s.prNumber
+        }));
+
+        if (isRunning) {
+            return; // Leave signals; next tick will retry
+        }
+
+        const signalIds = signals.map(s => s.id);
+
+        // Use a detached fire-and-forget promise to not block the polling interval
+        processRepositories(prsToProcess).then(async () => {
+             await prisma.webhookSignal.deleteMany({ where: { id: { in: signalIds } } });
+        }).catch((e) => {
+             logger.error('Failed to process targeted webhook repositories', e);
+        });
+
+    } catch (err) {
+        logger.error('Error processing webhooks:', err);
+    }
+}
+
 async function start() {
-  console.log('Cleaning up any stuck processing sessions from previous runs...')
+  logger.info('Cleaning up any stuck processing sessions from previous runs...')
   try {
     await prisma.batchSession.updateMany({
       where: { isProcessing: true },
       data: { isProcessing: false, forceProcess: false }
     })
   } catch (err) {
-    console.error('Failed to clean up stuck sessions:', err)
+    logger.error('Failed to clean up stuck sessions:', err)
   }
 
   // Setup interval for failsafe forwarding
   setInterval(async () => {
-    console.log('Running failsafe forwarding for Jules...')
+    logger.info('Running failsafe forwarding for Jules...')
     try {
       await processFailsafeForwarding()
     } catch (err) {
-      console.error('Failsafe forwarding task failed:', err)
+      logger.error('Failsafe forwarding task failed:', err)
     }
   }, 5 * 60 * 1000) // run every 5 minutes
 
+  // Setup webhook polling (every 5 seconds)
+  setInterval(async () => {
+    await processWebhooks()
+  }, 5 * 1000)
+
+  // Setup auto-pruning (run daily at midnight)
+  cron.schedule('0 0 * * *', async () => {
+      logger.info('Running database auto-pruning...');
+      try {
+          const currentSettings = await prisma.settings.findUnique({ where: { id: 1 } });
+          const pruneDays = currentSettings?.pruneDays ?? 60;
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - pruneDays);
+
+          const result = await prisma.processedComment.deleteMany({
+              where: { postedAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${result.count} old comments from the database.`);
+
+          const sessionResult = await prisma.batchSession.deleteMany({
+              where: { isProcessed: true, firstSeenAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${sessionResult.count} old batch sessions.`);
+
+          const logResult = await prisma.autoMergeLog.deleteMany({
+              where: { createdAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${logResult.count} old auto-merge logs.`);
+      } catch (err) {
+          logger.error('Failed to run auto-pruning:', err);
+      }
+  }, { timezone: 'UTC' });
+
   // Run failsafe forwarding on boot
-  console.log('Running failsafe forwarding for Jules on boot...')
+  logger.info('Running failsafe forwarding for Jules on boot...')
   try {
     await processFailsafeForwarding()
   } catch (err) {
-    console.error('Failsafe forwarding boot task failed:', err)
+    logger.error('Failsafe forwarding boot task failed:', err)
   }
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
   const interval = settings?.pollingInterval || 60
 
-  console.log(`Starting worker with polling interval: ${interval}s`)
+  logger.info(`Starting worker with polling interval: ${interval}s`)
 
   if (interval < 60) {
     const cronExpression = `*/${interval} * * * * *`
@@ -998,7 +1140,7 @@ async function start() {
       // Trigger immediate first run for consistency
       void processRepositories()
     } catch (err) {
-      console.error('Failed to schedule cron job:', err)
+      logger.error('Failed to schedule cron job:', err)
     }
   } else {
     // For 60s or more, use setInterval directly.
@@ -1038,11 +1180,11 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
             },
             data: { forwardedToJules: true }
           })
-          console.log(`Forwarded aggregated comment to Jules session ${sessionId}`)
+          logger.info(`Forwarded aggregated comment to Jules session ${sessionId}`)
         }
       }
     } catch (e) {
-      console.error(`Failed to forward comment to Jules:`, e)
+      logger.error(`Failed to forward comment to Jules:`, e)
       throw e; // Rethrow to let the outer batch processor handle the failure (revert claim for retry)
     }
   }

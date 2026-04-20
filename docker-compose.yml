@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  github-bot:
+    build: .
+    container_name: github-bot
+    ports:
+      - "3000:3000"
+    volumes:
+      # Map the database folder
+      - ./data:/app/prisma/data
+      # Persist logs
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      # Update the database URL to point to the mounted volume
+      - DATABASE_URL=file:/app/prisma/data/dev.db
+    restart: unless-stopped
