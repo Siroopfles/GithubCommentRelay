@@ -171,7 +171,7 @@ _Diepere koppelingen met GitHub voor betere flows._
 
 **28. Threading & Replies (Inline comments)**
 
-- **Wat:** Zorg dat de aggregator reageert op de bestaande thread of inline op specifieke regels code (in de "Files changed" view) reageert, in plaats van algemene root comments.
+- **Wat:** Zorg dat de aggregator reageert op de bestaande thread of inline op specifieke regels code (in de "Files changed" view), in plaats van algemene root comments.
 - **Waarom:** Biedt meer context voor AI-agents en houdt de PR tijdlijn nog schoner door GitHub's native review functionaliteiten te gebruiken.
 
 **29. GitHub GraphQL Subscriptions (Real-time)**
@@ -220,7 +220,7 @@ _Beter dirigeren van de agents via Kanban en taken._
 **36. Priority Queues voor PR's**
 
 - **Wat:** Markeer PR's in het dashboard als "High Priority", wat een extra string in de JSON/prompt injecteert die de AI-agent aanstuurt dit met voorrang af te handelen.
-- **Waarom:** Geef je de controle om kritieke bugfixes sneller door AI te laten oppakken.
+- **Waarom:** Geeft je de controle om kritieke bugfixes sneller door AI te laten oppakken.
 
 **37. Agent-Specifieke Routing (Bot-to-Agent Mapping)**
 
@@ -277,7 +277,7 @@ _Wanneer je meerdere bots of agents in de mix hebt._
 
 **46. Multi-Agent Rollen & Verantwoordelijkheden**
 
-- **Wat:** Defineer "rollen" (Tester, Coder, Reviewer) in het dashboard. De aggregator stuurt specifieke taken gericht door aan de rol (bv: "Dit is voor de Tester-agent").
+- **Wat:** Definieer "rollen" (Tester, Coder, Reviewer) in het dashboard. De aggregator stuurt specifieke taken gericht door aan de rol (bv: "Dit is voor de Tester-agent").
 - **Waarom:** Brengt structuur in complexe systemen met meerdere gespecialiseerde LLM's/agents.
 
 **47. Agent-to-Agent Communicatie Opslag**
@@ -293,7 +293,7 @@ _Wanneer je meerdere bots of agents in de mix hebt._
 **49. Agent Mentions Mapping**
 
 - **Wat:** Vertaal bot-waarschuwingen (zoals SonarQube) volautomatisch naar @mentions voor de specifieke GitHub accounts van je AI-agents in de geaggregeerde post.
-- **Waarom:** Helpt je specifieke agents via de GitHub notificatiestroom aan te sturen in plaats van algemene broadasting.
+- **Waarom:** Helpt je specifieke agents via de GitHub notificatiestroom aan te sturen in plaats van algemene broadcasting.
 
 **50. Conflicterende Agent Detectie**
 
@@ -311,7 +311,7 @@ _Verbeteringen aan het beheer dashboard._
 
 **52. Drag-and-Drop Markdown Template Builder**
 
-- **Wat:** Een visuele builder in de UI voor je comment templates, met visuele blokken (variables) in plaats van alleen een tekstveld.
+- **Wat:** Een visuele builder in de UI voor je comment templates, met visuele blokken (variabelen) in plaats van alleen een tekstveld.
 - **Waarom:** Verlaagt de foutkans en verhoogt het gebruiksgemak.
 
 **53. Repository Mappen / Groepering**
@@ -345,10 +345,10 @@ _Het efficiënt inzetten van de LXC Container._
 
 **58. Volledig Parallelle Repository Processing**
 
-- **Wat:** Hershrijf de polling loop zodat hij niet serieel per repository verwerkt, maar asynchroon over alle repositories tegelijkertijd loopt.
+- **Wat:** Herschrijf de polling loop zodat hij niet serieel per repository verwerkt, maar asynchroon over alle repositories tegelijkertijd loopt.
 - **Waarom:** Schaalbaarheid. Zo blijft het aggregeren snel, zelfs bij meer dan 100 geregistreerde repositories.
 
-**59. Aggressieve Text/Log Stripping (Token-saving)**
+**59. Agressieve Text/Log Stripping (Token-saving)**
 
 - **Wat:** Verwijder onzinnige logs (zoals npm install waarschuwingen of base64 afbeeldingen) volautomatisch met regex uit bot comments voordat deze in de uiteindelijke post belanden.
 - **Waarom:** De output is bedoeld voor AI; hoe minder irrelevante tekst, hoe goedkoper je AI API calls zijn (minder input tokens).

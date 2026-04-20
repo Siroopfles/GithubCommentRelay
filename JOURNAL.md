@@ -46,7 +46,9 @@ We also established that this journal file (`JOURNAL.md`) will serve as persiste
 
 ### Context
 
-The user requested implementation of the second and third items from `docs/ROADMAP.md`: 2. "Jules API Integration (Task Scheduling)" - automatically starting a new Jules session after a PR is auto-merged. 3. "Forwarding GitHub Comments to Jules Chat with Delay" - mirroring aggregated bot comments to the Jules session if configured.
+The user requested implementation of the second and third items from `docs/ROADMAP.md`:
+2. "Jules API Integration (Task Scheduling)" - automatically starting a new Jules session after a PR is auto-merged.
+3. "Forwarding GitHub Comments to Jules Chat with Delay" - mirroring aggregated bot comments to the Jules session if configured.
 
 ### Changes Made
 
