@@ -192,6 +192,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     })
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: 'Failed to delete repository' }, { status: 500 })
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Failed to delete repository' }, { status: 500 });
   }
 }
