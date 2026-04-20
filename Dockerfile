@@ -39,4 +39,4 @@ EXPOSE 3000
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # Start command handles migrations, starting the web UI, and the background worker properly
-CMD ["sh", "-c", "npx prisma migrate deploy && (npm start & node worker.js & wait -n)"]
+CMD ["sh", "-c", "npx prisma migrate deploy && (npm start & node worker.js & wait)"]
