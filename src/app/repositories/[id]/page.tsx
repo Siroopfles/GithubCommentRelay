@@ -88,8 +88,28 @@ export default function RepositoryPRsPage() {
 
     if (params.id) {
       fetchPRs()
-      const interval = setInterval(fetchPRs, 15000) // Poll every 15s
-      return () => clearInterval(interval)
+      const events = new EventSource(`/api/repositories/${params.id}/sse`);
+      events.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'sessions') {
+            setPrs((current) =>
+              current.map((pr) => ({
+                ...pr,
+                batch_session: payload.data.find((s: BatchSession) => s.prNumber === pr.number) ?? pr.batch_session
+              }))
+            );
+            setError(null);
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE', e);
+        }
+      };
+      events.onerror = () => {
+        setError('Lost live update connection');
+      };
+
+      return () => events.close();
     }
   }, [params.id])
 
