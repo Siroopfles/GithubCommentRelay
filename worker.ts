@@ -971,8 +971,6 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             if (repoConfig?.postAggregatedComments !== false) {
               // Attempt to parse line number and commit ID to post inline review comment
               let postedInline = false;
-              let lineToComment: number | null = null;
-              let pathToFile: string | null = null;
 
               // Basic heuristic: check if any of the batched comments had a path and line
               // We need to fetch the original comments from github since the DB doesn't store path/line

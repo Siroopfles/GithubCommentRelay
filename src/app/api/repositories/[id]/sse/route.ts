@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
           sendEvent({ type: 'sessions', data: sessions });
 
-          // Wait 3 seconds before polling again
+          // Wait 10 seconds before polling again
           await new Promise(resolve => setTimeout(resolve, 10000));
         }
       } catch (err) {
