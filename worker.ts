@@ -931,6 +931,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
             let checkRunsContent = "";
+            let headSha: string | null = null;
             if (repoConfig?.includeCheckRuns || session.includeCheckRuns) {
                 try {
                     const { data: prData } = await octokit.rest.pulls.get({
@@ -938,7 +939,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                         repo: session.repoName,
                         pull_number: session.prNumber
                     });
-                    const headSha = prData.head.sha;
+                    headSha = prData.head.sha;
 
                     const checkRuns = await octokit.paginate(octokit.rest.checks.listForRef, {
                         owner: session.repoOwner,
@@ -996,18 +997,21 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
               if (commentWithLine) {
                  try {
-                     const { data: prData } = await octokit.rest.pulls.get({
-                         owner: session.repoOwner,
-                         repo: session.repoName,
-                         pull_number: session.prNumber
-                     });
+                     if (!headSha) {
+                         const { data: prData } = await octokit.rest.pulls.get({
+                             owner: session.repoOwner,
+                             repo: session.repoName,
+                             pull_number: session.prNumber
+                         });
+                         headSha = prData.head.sha;
+                     }
 
                      await octokit.rest.pulls.createReviewComment({
                          owner: session.repoOwner,
                          repo: session.repoName,
                          pull_number: session.prNumber,
                          body: aggregatedBody,
-                         commit_id: prData.head.sha,
+                         commit_id: headSha,
                          path: commentWithLine.path,
                          line: commentWithLine.line,
                          side: commentWithLine.side || 'RIGHT'

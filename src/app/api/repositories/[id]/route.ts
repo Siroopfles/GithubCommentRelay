@@ -90,12 +90,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.julesChatForwardDelay = delay
     }
 
-    if (json.aiSystemPrompt !== undefined) {
-      updateData.aiSystemPrompt = json.aiSystemPrompt === '' ? null : json.aiSystemPrompt
-    }
+    const stringOrNullFields = [
+      'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
+      'branchBlacklist', 'githubToken', 'requiredBots'
+    ];
 
-    if (json.commentTemplate !== undefined) {
-      updateData.commentTemplate = json.commentTemplate === '' ? null : json.commentTemplate
+    for (const field of stringOrNullFields) {
+      if (json[field] !== undefined) {
+        if (json[field] !== null && typeof json[field] !== 'string') {
+          return NextResponse.json({ error: `${field} must be a string or null` }, { status: 400 });
+        }
+        updateData[field] = json[field] === '' ? null : json[field];
+      }
     }
 
     if (json.postAggregatedComments !== undefined) {
@@ -133,21 +139,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    if (json.branchWhitelist !== undefined) {
-      updateData.branchWhitelist = json.branchWhitelist === '' ? null : json.branchWhitelist
-    }
 
-    if (json.branchBlacklist !== undefined) {
-      updateData.branchBlacklist = json.branchBlacklist === '' ? null : json.branchBlacklist
-    }
 
-    if (json.githubToken !== undefined) {
-      updateData.githubToken = json.githubToken === '' ? null : json.githubToken
-    }
 
-    if (json.requiredBots !== undefined) {
-        updateData.requiredBots = json.requiredBots === '' ? null : json.requiredBots;
-    }
 
 
     if (Object.keys(updateData).length === 0 && nextPrLabelRules === undefined) {
