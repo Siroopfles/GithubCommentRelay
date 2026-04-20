@@ -58,6 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       } catch (err) {
         logger.error('SSE Error:', err);
         if (!isClosed) {
+          isClosed = true;
           controller.error(err);
         }
       } finally {
