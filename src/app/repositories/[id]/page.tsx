@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 
 interface BatchSession {
   id: string
@@ -12,6 +12,7 @@ interface BatchSession {
   firstSeenAt: string
   isProcessed: boolean
   isProcessing: boolean
+  includeCheckRuns: boolean
 }
 
 interface ProcessedComment {

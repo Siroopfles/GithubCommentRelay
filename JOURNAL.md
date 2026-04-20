@@ -200,3 +200,21 @@ The user requested adding 50 new ideas to the existing `IDEAS.md` document, buil
 
 - The additions reflect the project's identity as a hub for local AI agents without hosting the LLM directly itself.
 - All ideas were written in Dutch, as requested and previously maintained in the document.
+
+## 2024-xx-xx: Category F - Advanced GitHub Integrations
+- Implemented **Check Runs Mapping**:
+  - `includeCheckRuns` boolean added to `Repository` and `BatchSession` Prisma models.
+  - Worker configured to fetch check runs if enabled.
+  - UI toggles added in Repository settings and individual PR details pages.
+- Implemented **Action Triggers**:
+  - Created `/api/repositories/[id]/pr/[prNumber]/trigger-checks` endpoint to find and re-run failed Check Suites via the GitHub API.
+  - Placed "Restart Checks" button in the PR list view UI.
+- Implemented **Threading & Replies**:
+  - Modified worker to extract `path`, `line`, and `side` from batched review comments.
+  - Tries to create an inline review comment (`octokit.rest.pulls.createReviewComment`) using the aggregated summary if mapping is successful.
+- Implemented **Server-Sent Events (SSE)**:
+  - Setup real-time updates for PR processing states using `/api/repositories/[id]/sse/route.ts` with a `ReadableStream`. Replaced client-side polling interval with a live SSE connection.
+- Implemented **Label Syncing**:
+  - Added `PRLabelRule` Prisma model.
+  - Updated worker to apply/remove specified labels on `processing_start` and `processing_done` events.
+  - Added UI interface within the repo configuration modal to manage these custom label automation rules.

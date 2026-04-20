@@ -8,6 +8,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const json = await request.json()
     const updateData: any = {}
 
+    if (json.prLabelRules !== undefined) {
+      if (!Array.isArray(json.prLabelRules)) {
+        return NextResponse.json({ error: 'prLabelRules must be an array' }, { status: 400 });
+      }
+      // Replace existing rules
+      await prisma.pRLabelRule.deleteMany({ where: { repositoryId: id } });
+      if (json.prLabelRules.length > 0) {
+        await prisma.pRLabelRule.createMany({
+          data: json.prLabelRules.map((rule: any) => ({
+            repositoryId: id,
+            event: rule.event,
+            labelName: rule.labelName
+          }))
+        });
+      }
+    }
+
     if (json.isActive !== undefined) {
       if (typeof json.isActive !== 'boolean') {
         return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 })
@@ -100,6 +117,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 
 
+    if (json.includeCheckRuns !== undefined) {
+      if (typeof json.includeCheckRuns !== 'boolean') {
+        return NextResponse.json({ error: 'includeCheckRuns must be a boolean' }, { status: 400 })
+      }
+      updateData.includeCheckRuns = json.includeCheckRuns
+    }
+
     if (json.batchDelay !== undefined) {
       if (json.batchDelay === null || json.batchDelay === '') {
         updateData.batchDelay = null
@@ -136,6 +160,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  try {
+    const repo = await prisma.repository.findUnique({
+      where: { id },
+      include: { prLabelRules: true }
+    });
+    if (!repo) return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+    return NextResponse.json(repo);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 

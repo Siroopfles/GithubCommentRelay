@@ -735,7 +735,10 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             source: 'issue',
             user: c.user,
             body: c.body,
-            created_at: c.created_at
+            created_at: c.created_at,
+            path: c.path,
+            line: c.line,
+            side: c.side
           })),
           ...reviewComments.map((c: any) => ({
             id: BigInt(c.id),
@@ -743,7 +746,10 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             source: 'review_comment',
             user: c.user,
             body: c.body,
-            created_at: c.created_at
+            created_at: c.created_at,
+            path: c.path,
+            line: c.line,
+            side: c.side
           })),
           ...reviews.filter((r: any) => r.body).map((c: any) => ({
             id: BigInt(c.id),
@@ -923,16 +929,106 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             }
             const octokit = createOctokit(tokenToUse);
 
-            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate);
+
+            let checkRunsContent = "";
+            if (repoConfig?.includeCheckRuns || session.includeCheckRuns) {
+                try {
+                    const { data: prData } = await octokit.rest.pulls.get({
+                        owner: session.repoOwner,
+                        repo: session.repoName,
+                        pull_number: session.prNumber
+                    });
+                    const headSha = prData.head.sha;
+
+                    const { data: checksData } = await octokit.rest.checks.listForRef({
+                        owner: session.repoOwner,
+                        repo: session.repoName,
+                        ref: headSha
+                    });
+
+                    if (checksData.check_runs.length > 0) {
+                        checkRunsContent = "\n\n### CI Check Runs\n";
+                        checksData.check_runs.forEach((run: any) => {
+                            const icon = run.conclusion === 'success' ? '✅' : (run.conclusion === 'failure' ? '❌' : '🔄');
+                            checkRunsContent += `- ${icon} **${run.name}**: ${run.status} (${run.conclusion || 'pending'})\n`;
+                            if (run.output && run.output.summary) {
+                                // Limit summary length
+                                const summaryStr = typeof run.output.summary === 'string' ? run.output.summary : String(run.output.summary);
+                                const summary = summaryStr.substring(0, 500) + (summaryStr.length > 500 ? '...' : '');
+                                checkRunsContent += "  <details><summary>Output Summary</summary>\n\n  ```\n  " + summary + "\n  ```\n  </details>\n";
+                            }
+                        });
+                    }
+                } catch (checkErr) {
+                    logger.error(`Failed to fetch check runs for PR #${session.prNumber}:`, checkErr);
+                }
+            }
+
+            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) + checkRunsContent;
+
 
             if (repoConfig?.postAggregatedComments !== false) {
-              await octokit.rest.issues.createComment({
-                owner: session.repoOwner,
-                repo: session.repoName,
-                issue_number: session.prNumber,
-                body: aggregatedBody
-              })
-              logger.info(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+              // Attempt to parse line number and commit ID to post inline review comment
+              let postedInline = false;
+              let lineToComment: number | null = null;
+              let pathToFile: string | null = null;
+
+              // Basic heuristic: check if any of the batched comments had a path and line
+              // We need to fetch the original comments from github since the DB doesn't store path/line
+              let commentWithLine: any = null;
+              try {
+                  const { data: prReviewComments } = await octokit.rest.pulls.listReviewComments({
+                      owner: session.repoOwner,
+                      repo: session.repoName,
+                      pull_number: session.prNumber,
+                      per_page: 100
+                  });
+                  // Find if any of the comments we are batching have a path and line in GitHub
+                  for (const bc of commentsToBatch) {
+                      const matched = prReviewComments.find((prc: any) => prc.id.toString() === bc.commentId.toString() && prc.path && prc.line);
+                      if (matched) {
+                          commentWithLine = matched;
+                          break;
+                      }
+                  }
+              } catch(e) {
+                 logger.warn('Failed to fetch review comments to find inline path', e);
+              }
+
+              if (commentWithLine) {
+                 try {
+                     const { data: prData } = await octokit.rest.pulls.get({
+                         owner: session.repoOwner,
+                         repo: session.repoName,
+                         pull_number: session.prNumber
+                     });
+
+                     await octokit.rest.pulls.createReviewComment({
+                         owner: session.repoOwner,
+                         repo: session.repoName,
+                         pull_number: session.prNumber,
+                         body: aggregatedBody,
+                         commit_id: prData.head.sha,
+                         path: commentWithLine.path,
+                         line: commentWithLine.line,
+                         side: commentWithLine.side || 'RIGHT'
+                     });
+                     logger.info(`Successfully posted inline aggregated review comment to PR #${session.prNumber}`);
+                     postedInline = true;
+                 } catch (inlineErr) {
+                     logger.warn(`Failed to post inline comment, falling back to issue comment:`, inlineErr);
+                 }
+              }
+
+              if (!postedInline) {
+                  await octokit.rest.issues.createComment({
+                    owner: session.repoOwner,
+                    repo: session.repoName,
+                    issue_number: session.prNumber,
+                    body: aggregatedBody
+                  })
+                  logger.info(`Successfully posted aggregated comment to PR #${session.prNumber}`)
+              }
             } else {
               logger.info(`Skipped posting aggregated comment to PR #${session.prNumber} because postAggregatedComments is disabled`)
             }
@@ -1009,6 +1105,42 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             where: { id: session.id },
             data: { isProcessed: true, isProcessing: false, forceProcess: false }
           })
+
+          // Trigger label sync: processing_done
+          try {
+              const doneRules = await prisma.pRLabelRule.findMany({
+                  where: { repository: { owner: session.repoOwner, name: session.repoName }, event: 'processing_done' }
+              });
+              const repoConfig = await prisma.repository.findFirst({ where: { owner: session.repoOwner, name: session.repoName } });
+              const t = repoConfig?.githubToken || settings?.githubToken;
+              if (t && doneRules.length > 0) {
+                  const octo = createOctokit(t);
+                  await octo.rest.issues.addLabels({
+                      owner: session.repoOwner,
+                      repo: session.repoName,
+                      issue_number: session.prNumber,
+                      labels: doneRules.map((r: any) => r.labelName)
+                  });
+              }
+              const startRules = await prisma.pRLabelRule.findMany({
+                  where: { repository: { owner: session.repoOwner, name: session.repoName }, event: 'processing_start' }
+              });
+              if (t && startRules.length > 0) {
+                 const octo = createOctokit(t);
+                 for (const rule of startRules) {
+                    try {
+                        await octo.rest.issues.removeLabel({
+                            owner: session.repoOwner,
+                            repo: session.repoName,
+                            issue_number: session.prNumber,
+                            name: rule.labelName
+                        });
+                    } catch(e) {}
+                 }
+              }
+          } catch(e) {
+              logger.warn(`Failed to apply processing_done labels to PR #${session.prNumber}`, e);
+          }
         } catch (error) {
           logger.error(`Failed to process batch for PR #${session.prNumber}:`, error)
           // Revert claim on failure so it can be retried
