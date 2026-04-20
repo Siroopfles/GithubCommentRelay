@@ -17,9 +17,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         isClosed = true;
       });
 
+      const encoder = new TextEncoder();
       const sendEvent = (data: any) => {
         if (!isClosed) {
-          controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         }
       };
 
