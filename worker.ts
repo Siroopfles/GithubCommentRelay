@@ -1146,14 +1146,18 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                   }
               });
             } catch (e) {
-              await prisma.aIAgentAction.create({
-                  data: {
-                      repoOwner: session.repoOwner,
-                      repoName: session.repoName,
-                      prNumber: session.prNumber,
-                      isSuccess: false
-                  }
-              });
+              try {
+                await prisma.aIAgentAction.create({
+                    data: {
+                        repoOwner: session.repoOwner,
+                        repoName: session.repoName,
+                        prNumber: session.prNumber,
+                        isSuccess: false
+                    }
+                });
+              } catch (dbErr) {
+                logger.error('Failed to record AI agent action failure:', dbErr);
+              }
               const actionStr = repoConfig?.postAggregatedComments !== false ? "(aggregated comment posted)" : "(aggregated comment posting disabled)";
               logger.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
             }
@@ -1374,7 +1378,7 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null } | null, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null } | null, prisma: PrismaClient, octokit: Octokit, repoConfig: any): Promise<boolean> {
   if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings?.julesApiKey) {
     try {
       const { data: pullRequest } = await octokit.rest.pulls.get({
@@ -1398,6 +1402,7 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
             data: { forwardedToJules: true }
           })
           logger.info(`Forwarded aggregated comment to Jules session ${sessionId}`)
+          return true;
         }
       }
     } catch (e) {
@@ -1405,4 +1410,5 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
       throw e; // Rethrow to let the outer batch processor handle the failure (revert claim for retry)
     }
   }
+  return false;
 }
