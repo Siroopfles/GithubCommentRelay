@@ -820,7 +820,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
               const postedAt = new Date(comment.created_at)
 
               // Derive category
-              let category = 'general';
+              let category: 'general' | 'lint' | 'security' | 'type_error' | 'test_failure' = 'general';
               const body = comment.body;
               if (/\b(eslint|prettier|lint|linting)\b/i.test(body)) {
                 category = 'lint';

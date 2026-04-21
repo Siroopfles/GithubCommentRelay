@@ -55,6 +55,14 @@ model Repository {
   @@unique([owner, name])
 }
 
+enum ProcessedCommentCategory {
+  general
+  lint
+  security
+  type_error
+  test_failure
+}
+
 model TargetReviewer {
   id        String   @id @default(cuid())
   username  String   @unique
@@ -77,7 +85,7 @@ model ProcessedComment {
   postedAt         DateTime
   processedAt      DateTime @default(now())
   forwardedToJules Boolean  @default(false)
-  category         String?  // Derived category: 'lint', 'security', 'type_error', 'general', etc.
+  category         ProcessedCommentCategory?
 
   @@unique([commentId, source])
   @@index([repoOwner, repoName, prNumber, postedAt])

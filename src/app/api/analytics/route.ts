@@ -106,8 +106,8 @@ export async function GET() {
       categoryData,
       rateLimitData,
       metrics: {
-          avgResolutionTimeHours: avgResolutionTimeHours.toFixed(2),
-          aiSuccessRatio: aiSuccessRatio.toFixed(1),
+          avgResolutionTimeHours: Number(avgResolutionTimeHours.toFixed(2)),
+          aiSuccessRatio: Number(aiSuccessRatio.toFixed(1)),
           totalResolved: resolvedSessions.length,
           totalAiActions
       }
