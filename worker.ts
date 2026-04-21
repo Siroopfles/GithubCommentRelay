@@ -1168,14 +1168,17 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           let prResolvedAt: Date | null = null;
           try {
-            const o = createOctokit(repoConfig?.githubToken || settings?.githubToken || '');
-            const prInfo = await o.rest.pulls.get({
-              owner: session.repoOwner,
-              repo: session.repoName,
-              pull_number: session.prNumber,
-            });
-            if (prInfo.data.state === 'closed') {
-                prResolvedAt = prInfo.data.closed_at ? new Date(prInfo.data.closed_at) : new Date();
+            let checkToken = repoConfig?.githubToken || settings?.githubToken;
+            if (checkToken) {
+              const o = createOctokit(checkToken);
+              const prInfo = await o.rest.pulls.get({
+                owner: session.repoOwner,
+                repo: session.repoName,
+                pull_number: session.prNumber,
+              });
+              if (prInfo.data.state === 'closed') {
+                  prResolvedAt = prInfo.data.closed_at ? new Date(prInfo.data.closed_at) : new Date();
+              }
             }
           } catch (e) {
               // Ignore
@@ -1334,6 +1337,24 @@ async function start() {
               where: { createdAt: { lt: cutoffDate } }
           });
           logger.info(`Pruned ${aiActionsPruneResult.count} old AI agent actions.`);
+
+          const unresolvedSessions = await prisma.batchSession.findMany({
+            where: { isProcessed: true, resolved: false }
+          });
+          for (const s of unresolvedSessions) {
+              const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
+              let t = repo?.githubToken || settings?.githubToken;
+              if (!t) continue;
+              try {
+                  const { data: prInfo } = await createOctokit(t).rest.pulls.get({
+                      owner: s.repoOwner, repo: s.repoName, pull_number: s.prNumber
+                  });
+                  if (prInfo.state === 'closed') {
+                      let closeDt = prInfo.closed_at ? new Date(prInfo.closed_at) : new Date();
+                      await prisma.batchSession.update({ where: { id: s.id }, data: { resolved: true, resolvedAt: closeDt }});
+                  }
+              } catch (e) {}
+          }
       } catch (err) {
           logger.error('Failed to run auto-pruning:', err);
       }
