@@ -55,6 +55,14 @@ model Repository {
   @@unique([owner, name])
 }
 
+enum ProcessedCommentCategory {
+  general
+  lint
+  security
+  type_error
+  test_failure
+}
+
 model TargetReviewer {
   id        String   @id @default(cuid())
   username  String   @unique
@@ -77,9 +85,12 @@ model ProcessedComment {
   postedAt         DateTime
   processedAt      DateTime @default(now())
   forwardedToJules Boolean  @default(false)
+  category         ProcessedCommentCategory?
 
   @@unique([commentId, source])
   @@index([repoOwner, repoName, prNumber, postedAt])
+  @@index([postedAt])
+  @@index([category])
 }
 
 model BatchSession {
@@ -92,6 +103,8 @@ model BatchSession {
   isProcessing Boolean  @default(false)
   forceProcess Boolean  @default(false)
   includeCheckRuns Boolean @default(false)
+  resolvedAt   DateTime? // When the PR was closed or merged
+  resolved     Boolean  @default(false)
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }
@@ -157,4 +170,24 @@ model PRLabelRule {
 
   @@index([repositoryId])
   @@unique([repositoryId, event, labelName])
+}
+
+model RateLimitLog {
+  id        String   @id @default(cuid())
+  remaining Int
+  limit     Int
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AIAgentAction {
+  id        String   @id @default(cuid())
+  repoOwner String
+  repoName  String
+  prNumber  Int
+  isSuccess Boolean
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

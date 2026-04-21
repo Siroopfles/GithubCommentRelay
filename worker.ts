@@ -297,6 +297,12 @@ function createOctokit(token: string) {
                       githubRateLimitReset: reset
                     }
                   });
+                  await prisma.rateLimitLog.create({
+                    data: {
+                      remaining: limit,
+                      limit: parseInt(res.headers['x-ratelimit-limit'] || '5000', 10)
+                    }
+                  });
                   cache.lastSavedRemaining = limit;
                   cache.lastSavedAt = now;
                 } catch (dbErr) {
@@ -325,8 +331,17 @@ function createOctokit(token: string) {
                             githubRateLimitReset: reset
                         }
                         });
-                        cache.lastSavedRemaining = limit;
-                        cache.lastSavedAt = Date.now();
+                        const now = Date.now();
+                        if (Math.abs(cache.lastSavedRemaining - limit) >= 10 || limit < 200 || (now - cache.lastSavedAt) > 60000) {
+                           await prisma.rateLimitLog.create({
+                             data: {
+                               remaining: limit,
+                               limit: parseInt(error.response.headers['x-ratelimit-limit'] || '5000', 10)
+                             }
+                           });
+                           cache.lastSavedRemaining = limit;
+                           cache.lastSavedAt = now;
+                        }
                     } catch (dbErr) {
                        logger.error('Failed to update rate limit in DB error branch:', dbErr);
                     }
@@ -804,6 +819,19 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
               const postedAt = new Date(comment.created_at)
 
+              // Derive category
+              let category: 'general' | 'lint' | 'security' | 'type_error' | 'test_failure' = 'general';
+              const body = comment.body;
+              if (/\b(eslint|prettier|lint|linting)\b/i.test(body)) {
+                category = 'lint';
+              } else if (/\b(vulnerab|security|cve)\b/i.test(body)) {
+                category = 'security';
+              } else if (/\b(type\s*error|type\s*mismatch|typescript)\b/i.test(body)) {
+                category = 'type_error';
+              } else if (/\b(test\s*(fail|error)|jest|mocha|vitest)\b/i.test(body)) {
+                category = 'test_failure';
+              }
+
               await prisma.processedComment.create({
                 data: {
                   commentId: comment.id,
@@ -814,7 +842,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                   repoName: repo.name,
                   author: comment.user.login,
                   body: comment.body,
-                  postedAt
+                  postedAt,
+                  category
                 }
               })
 
@@ -1108,7 +1137,27 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
             try {
               await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit, repoConfig)
+              await prisma.aIAgentAction.create({
+                  data: {
+                      repoOwner: session.repoOwner,
+                      repoName: session.repoName,
+                      prNumber: session.prNumber,
+                      isSuccess: true
+                  }
+              });
             } catch (e) {
+              try {
+                await prisma.aIAgentAction.create({
+                    data: {
+                        repoOwner: session.repoOwner,
+                        repoName: session.repoName,
+                        prNumber: session.prNumber,
+                        isSuccess: false
+                    }
+                });
+              } catch (dbErr) {
+                logger.error('Failed to record AI agent action failure:', dbErr);
+              }
               const actionStr = repoConfig?.postAggregatedComments !== false ? "(aggregated comment posted)" : "(aggregated comment posting disabled)";
               logger.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
             }
@@ -1117,9 +1166,27 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           // Mark as fully processed
 
 
+          let prResolvedAt: Date | null = null;
+          try {
+            let checkToken = repoConfig?.githubToken || settings?.githubToken;
+            if (checkToken) {
+              const o = createOctokit(checkToken);
+              const prInfo = await o.rest.pulls.get({
+                owner: session.repoOwner,
+                repo: session.repoName,
+                pull_number: session.prNumber,
+              });
+              if (prInfo.data.state === 'closed') {
+                  prResolvedAt = prInfo.data.closed_at ? new Date(prInfo.data.closed_at) : new Date();
+              }
+            }
+          } catch (e) {
+              // Ignore
+          }
+
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessed: true, isProcessing: false, forceProcess: false }
+            data: { isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
           })
 
           // Trigger label sync: processing_done
@@ -1260,6 +1327,36 @@ async function start() {
               where: { createdAt: { lt: cutoffDate } }
           });
           logger.info(`Pruned ${logResult.count} old auto-merge logs.`);
+
+          const rateLimitPruneResult = await prisma.rateLimitLog.deleteMany({
+              where: { createdAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${rateLimitPruneResult.count} old rate limit logs.`);
+
+          const aiActionsPruneResult = await prisma.aIAgentAction.deleteMany({
+              where: { createdAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${aiActionsPruneResult.count} old AI agent actions.`);
+
+          const unresolvedSessions = await prisma.batchSession.findMany({
+            where: { isProcessed: true, resolved: false },
+            take: 100,
+            orderBy: { firstSeenAt: 'asc' }
+          });
+          for (const s of unresolvedSessions) {
+              const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
+              let t = repo?.githubToken || settings?.githubToken;
+              if (!t) continue;
+              try {
+                  const { data: prInfo } = await createOctokit(t).rest.pulls.get({
+                      owner: s.repoOwner, repo: s.repoName, pull_number: s.prNumber
+                  });
+                  if (prInfo.state === 'closed') {
+                      let closeDt = prInfo.closed_at ? new Date(prInfo.closed_at) : new Date();
+                      await prisma.batchSession.update({ where: { id: s.id }, data: { resolved: true, resolvedAt: closeDt }});
+                  }
+              } catch (e) {}
+          }
       } catch (err) {
           logger.error('Failed to run auto-pruning:', err);
       }
@@ -1304,7 +1401,7 @@ async function start() {
 void start()
 
 
-async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null } | null, prisma: PrismaClient, octokit: Octokit, repoConfig: any) {
+async function forwardCommentsToJules(session: { repoOwner: string, repoName: string, prNumber: number, firstSeenAt: Date }, aggregatedBody: string, settings: { julesApiKey: string | null } | null, prisma: PrismaClient, octokit: Octokit, repoConfig: any): Promise<boolean> {
   if (repoConfig && repoConfig.julesChatForwardMode !== "off" && settings?.julesApiKey) {
     try {
       const { data: pullRequest } = await octokit.rest.pulls.get({
@@ -1328,6 +1425,7 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
             data: { forwardedToJules: true }
           })
           logger.info(`Forwarded aggregated comment to Jules session ${sessionId}`)
+          return true;
         }
       }
     } catch (e) {
@@ -1335,4 +1433,5 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
       throw e; // Rethrow to let the outer batch processor handle the failure (revert claim for retry)
     }
   }
+  return false;
 }

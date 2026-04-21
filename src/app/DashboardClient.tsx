@@ -3,6 +3,7 @@
 import { CheckCircle2, Clock, GitPullRequest, FastForward } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { AnalyticsDashboard } from './components/AnalyticsDashboard'
 
 export function DashboardClient({
   stats,
@@ -15,6 +16,7 @@ export function DashboardClient({
 }) {
   const router = useRouter()
   const [triggering, setTriggering] = useState<Record<string, boolean>>({})
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview')
 
   const handleAggregateNow = async (sessionId: string) => {
     setTriggering(prev => ({ ...prev, [sessionId]: true }))
@@ -40,6 +42,37 @@ export function DashboardClient({
   return (
     <div className="space-y-6 text-black dark:text-gray-100">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8" role="tablist" aria-label="Dashboard sections">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'overview'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Overzicht
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'analytics'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Analytics
+          </button>
+        </nav>
+      </div>
+      {activeTab === 'analytics' ? (
+        <div id="dashboard-analytics-panel" role="tabpanel" aria-labelledby="dashboard-analytics-tab">
+          <AnalyticsDashboard />
+        </div>
+      ) : (
+        <div id="dashboard-overview-panel" role="tabpanel" aria-labelledby="dashboard-overview-tab" className="space-y-8">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -133,6 +166,8 @@ export function DashboardClient({
           </div>
         </div>
       </div>
+      </div>
+      )}
     </div>
   )
 }

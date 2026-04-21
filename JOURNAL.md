@@ -218,3 +218,17 @@ The user requested adding 50 new ideas to the existing `IDEAS.md` document, buil
   - Added `PRLabelRule` Prisma model.
   - Updated worker to apply/remove specified labels on `processing_start` and `processing_done` events.
   - Added UI within the repo configuration modal to manage these custom label automation rules.
+## Session: Analytics, Metrics & Dashboard Inzichten (IDEAS Category G)
+The user requested the implementation of Category G from `IDEAS.md`. This included ideas:
+- 31. Bot-activiteit Heatmap (Kalender)
+- 32. Resolutie-Tijd Tracker
+- 33. Fout-Categorie Dashboards
+- 34. GitHub Rate Limit & API Verbruik Historie
+- 35. AI-Agent Succes Ratio
+
+1. **Schema Updates:** Added `category` to `ProcessedComment`. Added fields to `BatchSession` (`resolved`, `resolvedAt`) to track resolution time. Added new models `RateLimitLog` and `AIAgentAction`.
+2. **Worker Updates:** The worker now attempts to categorize comments based on keywords (`lint`, `security`, `type_error`, `test_failure`). It records GitHub API limit drops and inserts them into `RateLimitLog`. Also queries GitHub PR status to mark batch sessions as `resolved` to track resolution time.
+3. **API endpoint:** Created a new endpoint `GET /api/analytics` to aggregate database stats (heatmap counts, average resolution time, rate limit history, and category breakdown).
+4. **Dashboard:** Added `recharts` for charts. Built a new subcomponent `<AnalyticsDashboard />` embedded in `DashboardClient.tsx`. User can toggle between the 'Overview' (list of active sessions and recent comments) and 'Analytics & Metrics' (charts and KPIs).
+
+All tests and builds pass.
