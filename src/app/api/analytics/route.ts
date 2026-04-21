@@ -39,7 +39,7 @@ export async function GET() {
       },
       where: {
         category: {
-            not: null
+            not: 'general'
         }
       }
     });
