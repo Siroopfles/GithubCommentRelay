@@ -43,8 +43,7 @@ CREATE TABLE "new_BatchSession" (
     "forceProcess" BOOLEAN NOT NULL DEFAULT false,
     "includeCheckRuns" BOOLEAN NOT NULL DEFAULT false,
     "resolvedAt" DATETIME,
-    "resolved" BOOLEAN NOT NULL DEFAULT false,
-    "aiRespondedAt" DATETIME
+    "resolved" BOOLEAN NOT NULL DEFAULT false
 );
 INSERT INTO "new_BatchSession" ("firstSeenAt", "forceProcess", "id", "includeCheckRuns", "isProcessed", "isProcessing", "prNumber", "repoName", "repoOwner") SELECT "firstSeenAt", "forceProcess", "id", "includeCheckRuns", "isProcessed", "isProcessing", "prNumber", "repoName", "repoOwner" FROM "BatchSession";
 DROP TABLE "BatchSession";

@@ -97,7 +97,6 @@ model BatchSession {
   includeCheckRuns Boolean @default(false)
   resolvedAt   DateTime? // When the PR was closed or merged
   resolved     Boolean  @default(false)
-  aiRespondedAt DateTime? // When the AI agent responded
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }

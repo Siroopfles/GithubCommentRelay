@@ -68,7 +68,7 @@ export async function GET() {
     });
 
     const rateLimitData = rateLimitLogsRaw.map(log => ({
-        time: log.createdAt.toLocaleTimeString(),
+        time: log.createdAt.toISOString(),
         remaining: log.remaining,
         limit: log.limit
     }));
