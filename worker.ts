@@ -1339,7 +1339,9 @@ async function start() {
           logger.info(`Pruned ${aiActionsPruneResult.count} old AI agent actions.`);
 
           const unresolvedSessions = await prisma.batchSession.findMany({
-            where: { isProcessed: true, resolved: false }
+            where: { isProcessed: true, resolved: false },
+            take: 100,
+            orderBy: { firstSeenAt: 'asc' }
           });
           for (const s of unresolvedSessions) {
               const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
