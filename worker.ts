@@ -297,6 +297,12 @@ function createOctokit(token: string) {
                       githubRateLimitReset: reset
                     }
                   });
+                  await prisma.rateLimitLog.create({
+                    data: {
+                      remaining: limit,
+                      limit: parseInt(res.headers['x-ratelimit-limit'] || '5000', 10)
+                    }
+                  });
                   cache.lastSavedRemaining = limit;
                   cache.lastSavedAt = now;
                 } catch (dbErr) {
@@ -324,6 +330,12 @@ function createOctokit(token: string) {
                             githubRateLimitRemaining: limit,
                             githubRateLimitReset: reset
                         }
+                        });
+                        await prisma.rateLimitLog.create({
+                           data: {
+                             remaining: limit,
+                             limit: parseInt(error.response.headers['x-ratelimit-limit'] || '5000', 10)
+                           }
                         });
                         cache.lastSavedRemaining = limit;
                         cache.lastSavedAt = Date.now();
@@ -804,6 +816,19 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
               const postedAt = new Date(comment.created_at)
 
+              // Derive category
+              let category = 'general';
+              const lowerBody = comment.body.toLowerCase();
+              if (lowerBody.includes('eslint') || lowerBody.includes('prettier') || lowerBody.includes('lint')) {
+                category = 'lint';
+              } else if (lowerBody.includes('vulnerab') || lowerBody.includes('security') || lowerBody.includes('cve')) {
+                category = 'security';
+              } else if (lowerBody.includes('type') || lowerBody.includes('typescript') || lowerBody.includes('ts error')) {
+                category = 'type_error';
+              } else if (lowerBody.includes('test') || lowerBody.includes('spec') || lowerBody.includes('jest')) {
+                category = 'test_failure';
+              }
+
               await prisma.processedComment.create({
                 data: {
                   commentId: comment.id,
@@ -814,7 +839,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                   repoName: repo.name,
                   author: comment.user.login,
                   body: comment.body,
-                  postedAt
+                  postedAt,
+                  category
                 }
               })
 
@@ -1117,9 +1143,24 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           // Mark as fully processed
 
 
+          let prResolved = false;
+          try {
+            const o = createOctokit(repoConfig?.githubToken || settings?.githubToken || '');
+            const prInfo = await o.rest.pulls.get({
+              owner: session.repoOwner,
+              repo: session.repoName,
+              pull_number: session.prNumber,
+            });
+            if (prInfo.data.state === 'closed') {
+                prResolved = true;
+            }
+          } catch (e) {
+              // Ignore
+          }
+
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessed: true, isProcessing: false, forceProcess: false }
+            data: { isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolved, resolvedAt: prResolved ? new Date() : null }
           })
 
           // Trigger label sync: processing_done

@@ -77,6 +77,7 @@ model ProcessedComment {
   postedAt         DateTime
   processedAt      DateTime @default(now())
   forwardedToJules Boolean  @default(false)
+  category         String?  // Derived category: 'lint', 'security', 'type_error', 'general', etc.
 
   @@unique([commentId, source])
   @@index([repoOwner, repoName, prNumber, postedAt])
@@ -92,6 +93,9 @@ model BatchSession {
   isProcessing Boolean  @default(false)
   forceProcess Boolean  @default(false)
   includeCheckRuns Boolean @default(false)
+  resolvedAt   DateTime? // When the PR was closed or merged
+  resolved     Boolean  @default(false)
+  aiRespondedAt DateTime? // When the AI agent responded
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }
@@ -157,4 +161,20 @@ model PRLabelRule {
 
   @@index([repositoryId])
   @@unique([repositoryId, event, labelName])
+}
+
+model RateLimitLog {
+  id        String   @id @default(cuid())
+  remaining Int
+  limit     Int
+  createdAt DateTime @default(now())
+}
+
+model AIAgentAction {
+  id        String   @id @default(cuid())
+  repoOwner String
+  repoName  String
+  prNumber  Int
+  isSuccess Boolean
+  createdAt DateTime @default(now())
 }
