@@ -46,7 +46,7 @@ CREATE TABLE "new_BatchSession" (
     "resolved" BOOLEAN NOT NULL DEFAULT false,
     "aiRespondedAt" DATETIME
 );
-INSERT INTO "new_BatchSession" ("firstSeenAt", "forceProcess", "id", "isProcessed", "isProcessing", "prNumber", "repoName", "repoOwner") SELECT "firstSeenAt", "forceProcess", "id", "isProcessed", "isProcessing", "prNumber", "repoName", "repoOwner" FROM "BatchSession";
+INSERT INTO "new_BatchSession" ("firstSeenAt", "forceProcess", "id", "includeCheckRuns", "isProcessed", "isProcessing", "prNumber", "repoName", "repoOwner") SELECT "firstSeenAt", "forceProcess", "id", "includeCheckRuns", "isProcessed", "isProcessing", "prNumber", "repoName", "repoOwner" FROM "BatchSession";
 DROP TABLE "BatchSession";
 ALTER TABLE "new_BatchSession" RENAME TO "BatchSession";
 CREATE INDEX "BatchSession_prNumber_repoOwner_repoName_isProcessed_idx" ON "BatchSession"("prNumber", "repoOwner", "repoName", "isProcessed");
@@ -76,7 +76,7 @@ CREATE TABLE "new_Repository" (
     "requiredBots" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO "new_Repository" ("aiSystemPrompt", "autoMergeEnabled", "batchDelay", "branchBlacklist", "branchWhitelist", "commentTemplate", "createdAt", "githubToken", "id", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "maxConcurrentTasks", "mergeStrategy", "name", "owner", "postAggregatedComments", "requireCI", "requiredApprovals", "requiredBots", "taskSourcePath", "taskSourceType") SELECT "aiSystemPrompt", "autoMergeEnabled", "batchDelay", "branchBlacklist", "branchWhitelist", "commentTemplate", "createdAt", "githubToken", "id", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "maxConcurrentTasks", "mergeStrategy", "name", "owner", "postAggregatedComments", "requireCI", "requiredApprovals", "requiredBots", "taskSourcePath", "taskSourceType" FROM "Repository";
+INSERT INTO "new_Repository" ("aiSystemPrompt", "autoMergeEnabled", "batchDelay", "branchBlacklist", "branchWhitelist", "commentTemplate", "createdAt", "githubToken", "id", "includeCheckRuns", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "maxConcurrentTasks", "mergeStrategy", "name", "owner", "postAggregatedComments", "requireCI", "requiredApprovals", "requiredBots", "taskSourcePath", "taskSourceType") SELECT "aiSystemPrompt", "autoMergeEnabled", "batchDelay", "branchBlacklist", "branchWhitelist", "commentTemplate", "createdAt", "githubToken", "id", "includeCheckRuns", "isActive", "julesChatForwardDelay", "julesChatForwardMode", "julesPromptTemplate", "maxConcurrentTasks", "mergeStrategy", "name", "owner", "postAggregatedComments", "requireCI", "requiredApprovals", "requiredBots", "taskSourcePath", "taskSourceType" FROM "Repository";
 DROP TABLE "Repository";
 ALTER TABLE "new_Repository" RENAME TO "Repository";
 CREATE UNIQUE INDEX "Repository_owner_name_key" ON "Repository"("owner", "name");
