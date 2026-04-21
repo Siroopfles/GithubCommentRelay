@@ -30,9 +30,6 @@ export async function GET() {
       const dateStr = date.toISOString().split('T')[0];
       return { date: dateStr, count: heatmapDataMap.get(dateStr) || 0 };
     });
-//
-//
-//
 
     // 2. Fout-Categorie (Error Categories)
     const categoryCounts = await prisma.processedComment.groupBy({
@@ -102,7 +99,6 @@ export async function GET() {
         prisma.aIAgentAction.count(),
         prisma.aIAgentAction.count({ where: { isSuccess: true } })
     ]);
-    //
     const aiSuccessRatio = totalAiActions > 0 ? (successfulActions / totalAiActions) * 100 : 0;
 
     return NextResponse.json({

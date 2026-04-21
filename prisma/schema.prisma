@@ -180,4 +180,6 @@ model AIAgentAction {
   prNumber  Int
   isSuccess Boolean
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
