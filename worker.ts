@@ -331,14 +331,17 @@ function createOctokit(token: string) {
                             githubRateLimitReset: reset
                         }
                         });
-                        await prisma.rateLimitLog.create({
-                           data: {
-                             remaining: limit,
-                             limit: parseInt(error.response.headers['x-ratelimit-limit'] || '5000', 10)
-                           }
-                        });
-                        cache.lastSavedRemaining = limit;
-                        cache.lastSavedAt = Date.now();
+                        const now = Date.now();
+                        if (Math.abs(cache.lastSavedRemaining - limit) >= 10 || limit < 200 || (now - cache.lastSavedAt) > 60000) {
+                           await prisma.rateLimitLog.create({
+                             data: {
+                               remaining: limit,
+                               limit: parseInt(error.response.headers['x-ratelimit-limit'] || '5000', 10)
+                             }
+                           });
+                           cache.lastSavedRemaining = limit;
+                           cache.lastSavedAt = now;
+                        }
                     } catch (dbErr) {
                        logger.error('Failed to update rate limit in DB error branch:', dbErr);
                     }
@@ -818,14 +821,14 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
               // Derive category
               let category = 'general';
-              const lowerBody = comment.body.toLowerCase();
-              if (lowerBody.includes('eslint') || lowerBody.includes('prettier') || lowerBody.includes('lint')) {
+              const body = comment.body;
+              if (/\b(eslint|prettier|lint|linting)\b/i.test(body)) {
                 category = 'lint';
-              } else if (lowerBody.includes('vulnerab') || lowerBody.includes('security') || lowerBody.includes('cve')) {
+              } else if (/\b(vulnerab|security|cve)\b/i.test(body)) {
                 category = 'security';
-              } else if (lowerBody.includes('type') || lowerBody.includes('typescript') || lowerBody.includes('ts error')) {
+              } else if (/\b(type\s*error|type\s*mismatch|typescript)\b/i.test(body)) {
                 category = 'type_error';
-              } else if (lowerBody.includes('test') || lowerBody.includes('spec') || lowerBody.includes('jest')) {
+              } else if (/\b(test\s*(fail|error)|jest|mocha|vitest)\b/i.test(body)) {
                 category = 'test_failure';
               }
 
@@ -1134,7 +1137,23 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
             try {
               await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit, repoConfig)
+              await prisma.aIAgentAction.create({
+                  data: {
+                      repoOwner: session.repoOwner,
+                      repoName: session.repoName,
+                      prNumber: session.prNumber,
+                      isSuccess: true
+                  }
+              });
             } catch (e) {
+              await prisma.aIAgentAction.create({
+                  data: {
+                      repoOwner: session.repoOwner,
+                      repoName: session.repoName,
+                      prNumber: session.prNumber,
+                      isSuccess: false
+                  }
+              });
               const actionStr = repoConfig?.postAggregatedComments !== false ? "(aggregated comment posted)" : "(aggregated comment posting disabled)";
               logger.error(`Failed to forward comments to Jules for PR #${session.prNumber} ${actionStr}:`, e)
             }
@@ -1143,7 +1162,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           // Mark as fully processed
 
 
-          let prResolved = false;
+          let prResolvedAt: Date | null = null;
           try {
             const o = createOctokit(repoConfig?.githubToken || settings?.githubToken || '');
             const prInfo = await o.rest.pulls.get({
@@ -1152,7 +1171,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
               pull_number: session.prNumber,
             });
             if (prInfo.data.state === 'closed') {
-                prResolved = true;
+                prResolvedAt = prInfo.data.closed_at ? new Date(prInfo.data.closed_at) : new Date();
             }
           } catch (e) {
               // Ignore
@@ -1160,7 +1179,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolved, resolvedAt: prResolved ? new Date() : null }
+            data: { isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
           })
 
           // Trigger label sync: processing_done
@@ -1301,6 +1320,16 @@ async function start() {
               where: { createdAt: { lt: cutoffDate } }
           });
           logger.info(`Pruned ${logResult.count} old auto-merge logs.`);
+
+          const rateLimitPruneResult = await prisma.rateLimitLog.deleteMany({
+              where: { createdAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${rateLimitPruneResult.count} old rate limit logs.`);
+
+          const aiActionsPruneResult = await prisma.aIAgentAction.deleteMany({
+              where: { createdAt: { lt: cutoffDate } }
+          });
+          logger.info(`Pruned ${aiActionsPruneResult.count} old AI agent actions.`);
       } catch (err) {
           logger.error('Failed to run auto-pruning:', err);
       }

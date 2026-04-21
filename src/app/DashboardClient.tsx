@@ -44,7 +44,7 @@ export function DashboardClient({
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
 
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex space-x-8" role="tablist" aria-label="Dashboard sections">
           <button
             onClick={() => setActiveTab('overview')}
             className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
@@ -68,7 +68,9 @@ export function DashboardClient({
         </nav>
       </div>
       {activeTab === 'analytics' ? (
-        <AnalyticsDashboard />
+        <div id="dashboard-analytics-panel" role="tabpanel" aria-labelledby="dashboard-analytics-tab">
+          <AnalyticsDashboard />
+        </div>
       ) : (
         <>
 

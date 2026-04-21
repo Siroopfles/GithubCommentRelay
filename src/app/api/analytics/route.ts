@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
@@ -26,9 +24,15 @@ export async function GET() {
       heatmapDataMap.set(dateStr, (heatmapDataMap.get(dateStr) || 0) + 1);
     });
 
-    const heatmapData = Array.from(heatmapDataMap.entries())
-        .map(([date, count]) => ({ date, count }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+    const heatmapData = Array.from({ length: 30 }, (_, offset) => {
+      const date = new Date(thirtyDaysAgo);
+      date.setDate(thirtyDaysAgo.getDate() + offset + 1);
+      const dateStr = date.toISOString().split('T')[0];
+      return { date: dateStr, count: heatmapDataMap.get(dateStr) || 0 };
+    });
+//
+//
+//
 
     // 2. Fout-Categorie (Error Categories)
     const categoryCounts = await prisma.processedComment.groupBy({
@@ -71,6 +75,10 @@ export async function GET() {
 
     // 4. Resolution Time & 5. Success Ratio
     const resolvedSessions = await prisma.batchSession.findMany({
+        select: {
+            firstSeenAt: true,
+            resolvedAt: true
+        },
         where: {
             resolved: true,
             resolvedAt: {
@@ -90,9 +98,12 @@ export async function GET() {
     const avgResolutionTimeMs = resolvedSessions.length > 0 ? totalResolutionTime / resolvedSessions.length : 0;
     const avgResolutionTimeHours = avgResolutionTimeMs / (1000 * 60 * 60);
 
-    const aiActions = await prisma.aIAgentAction.findMany();
-    const successfulActions = aiActions.filter(action => action.isSuccess).length;
-    const aiSuccessRatio = aiActions.length > 0 ? (successfulActions / aiActions.length) * 100 : 0;
+    const [totalAiActions, successfulActions] = await Promise.all([
+        prisma.aIAgentAction.count(),
+        prisma.aIAgentAction.count({ where: { isSuccess: true } })
+    ]);
+    //
+    const aiSuccessRatio = totalAiActions > 0 ? (successfulActions / totalAiActions) * 100 : 0;
 
     return NextResponse.json({
       heatmapData,
@@ -102,11 +113,11 @@ export async function GET() {
           avgResolutionTimeHours: avgResolutionTimeHours.toFixed(2),
           aiSuccessRatio: aiSuccessRatio.toFixed(1),
           totalResolved: resolvedSessions.length,
-          totalAiActions: aiActions.length
+          totalAiActions
       }
     });
   } catch (error: any) {
     console.error('Failed to fetch analytics:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
   }
 }

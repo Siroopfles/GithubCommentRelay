@@ -13,16 +13,25 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 export function AnalyticsDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/analytics')
-      .then(res => res.json())
+      .then(async res => {
+        const payload = await res.json();
+        if (!res.ok) {
+          throw new Error(payload?.error || 'Failed to fetch analytics');
+        }
+        return payload;
+      })
       .then(d => {
         setData(d);
+        setError(null);
         setLoading(false);
       })
       .catch(err => {
         console.error(err);
+        setError('Fout bij ophalen van data');
         setLoading(false);
       });
   }, []);
@@ -31,8 +40,8 @@ export function AnalyticsDashboard() {
     return <div className="p-8 text-center text-gray-500">Laden van analytics...</div>;
   }
 
-  if (!data) {
-    return <div className="p-8 text-center text-red-500">Fout bij ophalen van data</div>;
+  if (error || !data?.metrics) {
+    return <div className="p-8 text-center text-red-500">{error || 'Fout bij ophalen van data'}</div>;
   }
 
   return (

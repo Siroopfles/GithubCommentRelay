@@ -81,6 +81,8 @@ model ProcessedComment {
 
   @@unique([commentId, source])
   @@index([repoOwner, repoName, prNumber, postedAt])
+  @@index([postedAt])
+  @@index([category])
 }
 
 model BatchSession {
@@ -168,6 +170,8 @@ model RateLimitLog {
   remaining Int
   limit     Int
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model AIAgentAction {
