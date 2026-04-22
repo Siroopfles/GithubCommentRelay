@@ -16,6 +16,7 @@ type Task = {
   githubIssueNumber: number | null;
   julesSessionId: string | null;
   prNumber: number | null;
+  dependsOnId?: string | null;
 };
 
 type Repository = {
@@ -75,8 +76,17 @@ export default function TasksPage() {
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
-
     const { source, destination, draggableId } = result;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    const task = tasks.find(t => t.id === draggableId);
+    if (task && task.dependsOnId) {
+       const dependency = tasks.find(t => t.id === task.dependsOnId);
+       if (dependency && dependency.status !== 'done') {
+           alert('Cannot move this task because its dependency is not done.');
+           return;
+       }
+    }
 
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
       return;
@@ -292,6 +302,15 @@ export default function TasksPage() {
                 <textarea {...register('body')} rows={3} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Depends On (Blocker)</label>
+                  <select {...register('dependsOnId')} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100">
+                    <option value="">None</option>
+                    {tasks.filter(t => t.id !== editingTask?.id).map(t => (
+                      <option key={t.id} value={t.id}>{t.title} ({t.status})</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                   <select {...register('status')} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">

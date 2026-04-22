@@ -63,6 +63,30 @@ export async function POST(request: NextRequest) {
         }
     });
 
+    // Auto-promote task based on GitHub activity (Idea 39)
+    if ((event as string) === 'pull_request') {
+        const action = body?.action;
+        let statusToSet = null;
+        if (action === 'opened' || action === 'reopened') {
+            statusToSet = 'in_progress';
+        } else if (action === 'review_requested') {
+            statusToSet = 'in_review';
+        } else if (action === 'closed') {
+            statusToSet = 'done';
+        }
+        if (statusToSet) {
+           const repo = await prisma.repository.findFirst({
+               where: { owner: repoOwner, name: repoName }
+           });
+           if (repo) {
+               await prisma.task.updateMany({
+                   where: { repositoryId: repo.id, prNumber: prNumber },
+                   data: { status: statusToSet }
+               });
+           }
+        }
+    }
+
     return NextResponse.json({ success: true, message: 'Webhook signal created' });
   } catch (error) {
     logger.error('Webhook processing error:', error);

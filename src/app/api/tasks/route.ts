@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const json = await request.json()
-  const { repositoryId, title, body, status, priority, contextFiles } = json
+  const { repositoryId, title, body, status, priority, contextFiles, dependsOnId } = json
 
   if (!repositoryId || !title) {
     return NextResponse.json({ error: 'repositoryId and title are required' }, { status: 400 })
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
         source: 'manual',
         priority: parsedPriority,
         contextFiles: contextFiles ? (typeof contextFiles === 'string' ? contextFiles : JSON.stringify(contextFiles)) : null,
+        dependsOnId: dependsOnId || null,
       }
     })
     return NextResponse.json(task)

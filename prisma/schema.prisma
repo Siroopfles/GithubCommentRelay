@@ -135,6 +135,9 @@ model Task {
   julesSessionId    String?
   prNumber          Int?
   contextFiles      String?    // JSON array of file paths
+  dependsOnId       String?
+  dependsOn         Task?      @relation("TaskDependencies", fields: [dependsOnId], references: [id])
+  dependentTasks    Task[]     @relation("TaskDependencies")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -190,4 +193,11 @@ model AIAgentAction {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model BotAgentMapping {
+  id         String   @id @default(cuid())
+  botSource  String   @unique
+  agentName  String
+  createdAt  DateTime @default(now())
 }

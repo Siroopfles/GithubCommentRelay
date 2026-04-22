@@ -28,6 +28,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (json.contextFiles !== undefined) {
         updateData.contextFiles = typeof json.contextFiles === 'string' ? json.contextFiles : JSON.stringify(json.contextFiles)
     }
+    if (json.dependsOnId !== undefined) updateData.dependsOnId = json.dependsOnId === "" ? null : json.dependsOnId;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
