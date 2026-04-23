@@ -89,9 +89,7 @@ export default function TasksPage() {
        }
     }
 
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return;
-    }
+
 
     // Optimistic UI update
     const sourceColTasks = tasks.filter(t => t.status === source.droppableId).sort((a, b) => b.priority - a.priority);

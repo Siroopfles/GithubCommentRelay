@@ -12,6 +12,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done'].includes(json.status)) {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
       }
+
+      if (['todo', 'in_progress', 'in_review', 'done'].includes(json.status)) {
+         const task = await prisma.task.findUnique({
+           where: { id },
+           select: { dependsOnId: true }
+         });
+         const effectiveDependsOnId = json.dependsOnId !== undefined ? (json.dependsOnId === '' ? null : json.dependsOnId) : task?.dependsOnId;
+
+         if (effectiveDependsOnId) {
+             const dependency = await prisma.task.findUnique({
+                 where: { id: effectiveDependsOnId },
+                 select: { status: true }
+             });
+             if (!dependency || dependency.status !== 'done') {
+                 return NextResponse.json({ error: 'Cannot move to this status because dependency is missing or not done' }, { status: 400 });
+             }
+         }
+      }
+
       updateData.status = json.status
     }
     if (json.priority !== undefined) {
