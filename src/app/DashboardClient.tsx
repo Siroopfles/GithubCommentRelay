@@ -43,7 +43,7 @@ export function DashboardClient({
       const res = await fetch(`/api/batch-sessions/${session.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manualPrompt: promptInputs[session.id] || null })
+        body: JSON.stringify({ manualPrompt: promptInputs[session.id] !== undefined ? (promptInputs[session.id] || null) : (session.manualPrompt || null) })
       })
       if (!res.ok) throw new Error('Failed to save prompt')
       router.refresh()
