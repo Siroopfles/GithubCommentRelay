@@ -33,6 +33,22 @@ if (json.dependsOnId !== undefined) {
         if (!dependency) {
           return NextResponse.json({ error: 'Dependency task does not exist in this repository' }, { status: 400 })
         }
+
+        // Cycle detection
+        let cursor = dependsOnId;
+        const seen = new Set<string>();
+        while (cursor) {
+          if (cursor === id) {
+            return NextResponse.json({ error: 'Dependency cycle detected' }, { status: 400 });
+          }
+          if (seen.has(cursor)) break;
+          seen.add(cursor);
+          const next = await prisma.task.findUnique({
+            where: { id: cursor },
+            select: { dependsOnId: true }
+          });
+          cursor = next?.dependsOnId || null;
+        }
       }
 
       updateData.dependsOnId = dependsOnId

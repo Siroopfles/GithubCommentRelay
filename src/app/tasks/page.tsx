@@ -114,15 +114,17 @@ export default function TasksPage() {
     setTasks(updatedTasks);
 
     try {
-      await fetch(`/api/tasks/${draggableId}`, {
+      const res = await fetch(`/api/tasks/${draggableId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: destination.droppableId,
-          // We'd ideally send the new priority here based on sibling positions,
-          // but for now, moving between columns is the primary function.
         })
       });
+      if (!res.ok) {
+        setTasks(tasks); // Revert
+        alert('Failed to update task status.');
+      }
       // Optionally fetchTasks() to ensure perfect sync
     } catch (e) {
       console.error(e);
@@ -168,6 +170,20 @@ export default function TasksPage() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+
+  const isReachable = (startId: string, targetId: string) => {
+    let currentId: string | null | undefined = startId;
+    const seen = new Set<string>();
+    while (currentId) {
+      if (currentId === targetId) return true;
+      if (seen.has(currentId)) break;
+      seen.add(currentId);
+      const t = tasks.find(t => t.id === currentId);
+      currentId = t?.dependsOnId;
+    }
+    return false;
   };
 
   const openEditModal = (task: Task) => {
@@ -306,7 +322,7 @@ export default function TasksPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Depends On (Blocker)</label>
                   <select {...register('dependsOnId')} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100">
                     <option value="">None</option>
-                    {tasks.filter(t => t.id !== editingTask?.id).map(t => (
+                    {tasks.filter(t => t.id !== editingTask?.id && (!editingTask || !isReachable(t.id, editingTask.id))).map(t => (
                       <option key={t.id} value={t.id}>{t.title} ({t.status})</option>
                     ))}
                   </select>
