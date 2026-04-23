@@ -23,12 +23,13 @@ export function DashboardClient({
   const toggleHighPriority = async (session: any) => {
     setUpdating(prev => ({ ...prev, [session.id]: true }))
     try {
-      await fetch(`/api/batch-sessions/${session.id}`, {
+      const res = await fetch(`/api/batch-sessions/${session.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isHighPriority: !session.isHighPriority })
       })
-      window.location.reload()
+      if (!res.ok) throw new Error('Failed to update priority')
+      router.refresh()
     } catch (e) {
       console.error(e)
     } finally {
@@ -39,12 +40,13 @@ export function DashboardClient({
   const saveManualPrompt = async (session: any) => {
     setUpdating(prev => ({ ...prev, [session.id]: true }))
     try {
-      await fetch(`/api/batch-sessions/${session.id}`, {
+      const res = await fetch(`/api/batch-sessions/${session.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ manualPrompt: promptInputs[session.id] || null })
       })
-      window.location.reload()
+      if (!res.ok) throw new Error('Failed to save prompt')
+      router.refresh()
     } catch (e) {
       console.error(e)
     } finally {

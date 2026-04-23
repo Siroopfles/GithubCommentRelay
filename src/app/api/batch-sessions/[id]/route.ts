@@ -11,6 +11,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (json.isHighPriority !== undefined) updateData.isHighPriority = json.isHighPriority;
     if (json.manualPrompt !== undefined) updateData.manualPrompt = json.manualPrompt;
 
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 });
+    }
+
     const session = await prisma.batchSession.update({
       where: { id },
       data: updateData

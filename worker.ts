@@ -1187,12 +1187,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { manualPrompt: null }
-          });
-
-          await prisma.batchSession.update({
-            where: { id: session.id },
-            data: { isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
+            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
           })
 
           // Trigger label sync: processing_done
