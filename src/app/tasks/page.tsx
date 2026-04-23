@@ -82,8 +82,8 @@ export default function TasksPage() {
     const task = tasks.find(t => t.id === draggableId);
     if (task && task.dependsOnId) {
        const dependency = tasks.find(t => t.id === task.dependsOnId);
-       if (dependency && dependency.status !== 'done') {
-           alert('Cannot move this task because its dependency is not done.');
+       if (!dependency || dependency.status !== 'done') {
+           alert('Cannot move this task because its dependency is missing or not done.');
            return;
        }
     }
@@ -177,6 +177,7 @@ export default function TasksPage() {
     setValue('body', task.body || '');
     setValue('status', task.status);
     setValue('priority', task.priority);
+    setValue('dependsOnId', task.dependsOnId || '');
     setIsModalOpen(true);
   };
 

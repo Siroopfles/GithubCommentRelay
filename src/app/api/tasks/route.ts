@@ -35,6 +35,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (dependsOnId) {
+      const dependency = await prisma.task.findFirst({
+        where: { id: dependsOnId, repositoryId },
+        select: { id: true },
+      })
+
+      if (!dependency) {
+        return NextResponse.json({ error: 'Dependency task does not exist in this repository' }, { status: 400 })
+      }
+    }
+
     const task = await prisma.task.create({
       data: {
         repositoryId,

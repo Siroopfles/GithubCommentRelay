@@ -28,7 +28,35 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (json.contextFiles !== undefined) {
         updateData.contextFiles = typeof json.contextFiles === 'string' ? json.contextFiles : JSON.stringify(json.contextFiles)
     }
-    if (json.dependsOnId !== undefined) updateData.dependsOnId = json.dependsOnId === "" ? null : json.dependsOnId;
+    if (json.dependsOnId !== undefined) {
+      const dependsOnId = json.dependsOnId === '' ? null : json.dependsOnId
+
+      if (dependsOnId === id) {
+        return NextResponse.json({ error: 'Task cannot depend on itself' }, { status: 400 })
+      }
+
+      if (dependsOnId) {
+        const task = await prisma.task.findUnique({
+          where: { id },
+          select: { repositoryId: true },
+        })
+
+        if (!task) {
+          return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+        }
+
+        const dependency = await prisma.task.findFirst({
+          where: { id: dependsOnId, repositoryId: task.repositoryId },
+          select: { id: true },
+        })
+
+        if (!dependency) {
+          return NextResponse.json({ error: 'Dependency task does not exist in this repository' }, { status: 400 })
+        }
+      }
+
+      updateData.dependsOnId = dependsOnId
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })

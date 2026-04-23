@@ -15,7 +15,8 @@ export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [updateSecret, setUpdateSecret] = useState('')
-  const [botMappings, setBotMappings] = useState<any[]>([])
+  type BotAgentMapping = { id: string; botSource: string; agentName: string; createdAt?: string };
+  const [botMappings, setBotMappings] = useState<BotAgentMapping[]>([])
   const [newBotSource, setNewBotSource] = useState('')
   const [newAgentName, setNewAgentName] = useState('')
   const [isLoading, setIsLoading] = useState(true)

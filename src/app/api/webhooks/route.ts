@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, message: 'Ignored event' });
     }
 
-    await prisma.webhookSignal.upsert({
+    if ((event as string) !== 'pull_request') {
+        await prisma.webhookSignal.upsert({
         where: {
             repoOwner_repoName_prNumber: {
                 repoOwner,
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
             prNumber,
         }
     });
+    }
 
     // Auto-promote task based on GitHub activity (Idea 39)
     if ((event as string) === 'pull_request') {
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
             statusToSet = 'in_progress';
         } else if (action === 'review_requested') {
             statusToSet = 'in_review';
-        } else if (action === 'closed') {
+        } else if (action === 'closed' && body?.pull_request?.merged) {
             statusToSet = 'done';
         }
         if (statusToSet) {
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
            });
            if (repo) {
                await prisma.task.updateMany({
-                   where: { repositoryId: repo.id, prNumber: prNumber },
+                   where: { repositoryId: repo.id, prNumber: prNumber, dependsOnId: null },
                    data: { status: statusToSet }
                });
            }
