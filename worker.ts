@@ -1009,7 +1009,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                 }
             }
 
-            const botMappings = await prisma.botAgentMapping.findMany();
+
             const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
