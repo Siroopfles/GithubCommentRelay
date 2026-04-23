@@ -1008,7 +1008,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                 }
             }
 
-            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) + checkRunsContent;
+            const botMappings = await prisma.botAgentMapping.findMany();
+            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -1183,6 +1184,11 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           } catch (e) {
               // Ignore
           }
+
+          await prisma.batchSession.update({
+            where: { id: session.id },
+            data: { manualPrompt: null }
+          });
 
           await prisma.batchSession.update({
             where: { id: session.id },

@@ -1,5 +1,13 @@
-export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null): string {
+export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string}[]): string {
   let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`;
+
+  if (isHighPriority) {
+    aggregatedBody += `🚨 [PRIORITY: HIGH] @ai-agent Please process this PR with high priority.\n\n`;
+  }
+
+  if (manualPrompt) {
+    aggregatedBody += `**Manual Instruction:**\n${manualPrompt}\n\n`;
+  }
 
   if (aiSystemPrompt) {
     aggregatedBody += `${aiSystemPrompt}\n\n---\n\n`;
@@ -72,8 +80,16 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
   // Process sorted and deduplicated comments
   for (const comment of commentsWithTags) {
+    let botName = comment.author;
+    if (botMappings) {
+        const mapping = botMappings.find(m => m.botSource.toLowerCase() === botName.toLowerCase());
+        if (mapping) {
+            botName = mapping.agentName;
+        }
+    }
+
     rawJsonData.push({
-      author: comment.author,
+      author: botName,
       body: comment.body,
       source: comment.source,
       count: comment.count,
@@ -94,18 +110,18 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       // Split and construct to avoid injecting variables within body content replacing themselves
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
-          let pre = parts[0].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
-          let post = parts[1].replace(/\{\{bot_name\}\}/g, comment.author).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+          let pre = parts[0].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+          let post = parts[1].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
           aggregatedBody += `${pre}${displayBody}${post}\n\n---\n\n`;
       } else {
           let formattedComment = commentTemplate
-            .replace(/\{\{bot_name\}\}/g, comment.author)
+            .replace(/\{\{bot_name\}\}/g, botName)
             .replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
           aggregatedBody += `${formattedComment}\n\n${displayBody}\n\n---\n\n`;
       }
 
     } else {
-      aggregatedBody += `#### From **@${comment.author}**`;
+      aggregatedBody += `#### From **@${botName}**`;
       if (comment.actionTag) aggregatedBody += `\n${comment.actionTag}`;
       if (countLabel) aggregatedBody += `${countLabel}`;
       aggregatedBody += `\n`;

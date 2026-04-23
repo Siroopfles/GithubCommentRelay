@@ -11,46 +11,46 @@ datasource db {
 }
 
 model Settings {
-  id              Int      @id @default(1)
-  githubToken     String?
-  pollingInterval Int      @default(60) // In seconds
-  batchDelay      Int      @default(5) // In minutes
-  julesApiKey     String?
-  pruneDays       Int      @default(60)
+  id                       Int       @id @default(1)
+  githubToken              String?
+  pollingInterval          Int       @default(60) // In seconds
+  batchDelay               Int       @default(5) // In minutes
+  julesApiKey              String?
+  pruneDays                Int       @default(60)
   githubRateLimitRemaining Int?
   githubRateLimitReset     DateTime?
   webhookSecret            String?
-  updatedAt       DateTime @updatedAt
+  updatedAt                DateTime  @updatedAt
 }
 
 model Repository {
-  id                    String   @id @default(cuid())
-  owner                 String
-  name                  String
-  isActive              Boolean  @default(true)
-  autoMergeEnabled      Boolean  @default(false)
-  requiredApprovals     Int      @default(1)
-  requireCI             Boolean  @default(true)
-  mergeStrategy         String   @default("merge") // 'merge', 'squash', 'rebase'
-  taskSourceType        String   @default("none") // 'none', 'local_folder', 'github_issues'
-  taskSourcePath        String? // Path to folder if taskSourceType is 'local_folder'
-  maxConcurrentTasks    Int      @default(3) // Limits AI tasks running simultaneously
-  julesPromptTemplate   String? // Template for the prompt
-  julesChatForwardMode  String   @default("off") // 'off', 'always', 'failsafe'
-  julesChatForwardDelay Int      @default(5) // In minutes
-  aiSystemPrompt        String? // Top-level prompt for AI bots
-  commentTemplate       String? // Markdown template for individual bot comments
+  id                     String   @id @default(cuid())
+  owner                  String
+  name                   String
+  isActive               Boolean  @default(true)
+  autoMergeEnabled       Boolean  @default(false)
+  requiredApprovals      Int      @default(1)
+  requireCI              Boolean  @default(true)
+  mergeStrategy          String   @default("merge") // 'merge', 'squash', 'rebase'
+  taskSourceType         String   @default("none") // 'none', 'local_folder', 'github_issues'
+  taskSourcePath         String? // Path to folder if taskSourceType is 'local_folder'
+  maxConcurrentTasks     Int      @default(3) // Limits AI tasks running simultaneously
+  julesPromptTemplate    String? // Template for the prompt
+  julesChatForwardMode   String   @default("off") // 'off', 'always', 'failsafe'
+  julesChatForwardDelay  Int      @default(5) // In minutes
+  aiSystemPrompt         String? // Top-level prompt for AI bots
+  commentTemplate        String? // Markdown template for individual bot comments
   postAggregatedComments Boolean  @default(true)
-  batchDelay            Int?
-  branchWhitelist       String?
-  branchBlacklist       String?
-  includeCheckRuns      Boolean  @default(false)
-  githubToken           String?
-  requiredBots          String?
-  createdAt             DateTime @default(now())
+  batchDelay             Int?
+  branchWhitelist        String?
+  branchBlacklist        String?
+  includeCheckRuns       Boolean  @default(false)
+  githubToken            String?
+  requiredBots           String?
+  createdAt              DateTime @default(now())
 
-  tasks                 Task[]
-  prLabelRules          PRLabelRule[]
+  tasks        Task[]
+  prLabelRules PRLabelRule[]
 
   @@unique([owner, name])
 }
@@ -64,18 +64,18 @@ enum ProcessedCommentCategory {
 }
 
 model TargetReviewer {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  isActive  Boolean  @default(true)
+  id            String   @id @default(cuid())
+  username      String   @unique
+  isActive      Boolean  @default(true)
   noActionRegex String?
-  createdAt DateTime @default(now())
+  createdAt     DateTime @default(now())
 }
 
 model ProcessedComment {
-  id               String   @id @default(cuid())
+  id               String                    @id @default(cuid())
   commentId        BigInt
   nodeId           String?
-  isSkipped        Boolean  @default(false)
+  isSkipped        Boolean                   @default(false)
   source           String
   prNumber         Int
   repoOwner        String
@@ -83,8 +83,8 @@ model ProcessedComment {
   author           String
   body             String
   postedAt         DateTime
-  processedAt      DateTime @default(now())
-  forwardedToJules Boolean  @default(false)
+  processedAt      DateTime                  @default(now())
+  forwardedToJules Boolean                   @default(false)
   category         ProcessedCommentCategory?
 
   @@unique([commentId, source])
@@ -94,17 +94,19 @@ model ProcessedComment {
 }
 
 model BatchSession {
-  id           String   @id @default(cuid())
-  prNumber     Int
-  repoOwner    String
-  repoName     String
-  firstSeenAt  DateTime @default(now())
-  isProcessed  Boolean  @default(false)
-  isProcessing Boolean  @default(false)
-  forceProcess Boolean  @default(false)
-  includeCheckRuns Boolean @default(false)
-  resolvedAt   DateTime? // When the PR was closed or merged
-  resolved     Boolean  @default(false)
+  id               String    @id @default(cuid())
+  prNumber         Int
+  repoOwner        String
+  repoName         String
+  firstSeenAt      DateTime  @default(now())
+  isProcessed      Boolean   @default(false)
+  isProcessing     Boolean   @default(false)
+  forceProcess     Boolean   @default(false)
+  includeCheckRuns Boolean   @default(false)
+  isHighPriority   Boolean   @default(false)
+  manualPrompt     String?
+  resolvedAt       DateTime? // When the PR was closed or merged
+  resolved         Boolean   @default(false)
 
   @@index([prNumber, repoOwner, repoName, isProcessed])
 }
@@ -121,7 +123,6 @@ model AutoMergeLog {
   @@index([repoOwner, repoName, prNumber])
 }
 
-
 model Task {
   id                String     @id @default(cuid())
   repositoryId      String
@@ -129,12 +130,12 @@ model Task {
   title             String
   body              String?
   status            String     @default("backlog") // backlog, todo, in_progress, in_review, blocked, done
-  source            String     @default("manual")  // local_folder, github_issue, manual
-  priority          Int        @default(0)         // Higher number = higher priority
+  source            String     @default("manual") // local_folder, github_issue, manual
+  priority          Int        @default(0) // Higher number = higher priority
   githubIssueNumber Int?
   julesSessionId    String?
   prNumber          Int?
-  contextFiles      String?    // JSON array of file paths
+  contextFiles      String? // JSON array of file paths
   dependsOnId       String?
   dependsOn         Task?      @relation("TaskDependencies", fields: [dependsOnId], references: [id])
   dependentTasks    Task[]     @relation("TaskDependencies")
@@ -143,7 +144,6 @@ model Task {
 
   @@index([repositoryId, status])
 }
-
 
 model WebhookSignal {
   id        String   @id @default(cuid())
@@ -156,23 +156,21 @@ model WebhookSignal {
   @@index([createdAt, repoOwner, repoName])
 }
 
-
-
 enum PRLabelRuleEvent {
   processing_start
   processing_done
 }
 
 model PRLabelRule {
-  id           String     @id @default(cuid())
+  id           String           @id @default(cuid())
   repositoryId String
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   event        PRLabelRuleEvent
   labelName    String
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime         @default(now())
 
-  @@index([repositoryId])
   @@unique([repositoryId, event, labelName])
+  @@index([repositoryId])
 }
 
 model RateLimitLog {
@@ -196,8 +194,8 @@ model AIAgentAction {
 }
 
 model BotAgentMapping {
-  id         String   @id @default(cuid())
-  botSource  String   @unique
-  agentName  String
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  botSource String   @unique
+  agentName String
+  createdAt DateTime @default(now())
 }
