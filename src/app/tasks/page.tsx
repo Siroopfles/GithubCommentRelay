@@ -82,7 +82,8 @@ export default function TasksPage() {
     const task = tasks.find(t => t.id === draggableId);
     if (task && task.dependsOnId) {
        const dependency = tasks.find(t => t.id === task.dependsOnId);
-       if (!dependency || dependency.status !== 'done') {
+       const gatedTargets = ['todo', 'in_progress', 'in_review', 'done'];
+       if ((!dependency || dependency.status !== 'done') && gatedTargets.includes(destination.droppableId)) {
            alert('Cannot move this task because its dependency is missing or not done.');
            return;
        }

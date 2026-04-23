@@ -137,9 +137,13 @@ export default function SettingsPage() {
       const res = await fetch(`/api/bot-agent-mappings/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setBotMappings(botMappings.filter(m => m.id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || 'Failed to delete mapping' });
       }
     } catch (e) {
       console.error(e);
+      setMessage({ type: 'error', text: 'Failed to delete mapping' });
     }
   };
 
