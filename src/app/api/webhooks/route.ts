@@ -81,10 +81,26 @@ export async function POST(request: NextRequest) {
                where: { owner: repoOwner, name: repoName }
            });
            if (repo) {
-               await prisma.task.updateMany({
-                   where: { repositoryId: repo.id, prNumber: prNumber, dependsOnId: null },
-                   data: { status: statusToSet }
+               const tasksToUpdate = await prisma.task.findMany({
+                   where: { repositoryId: repo.id, prNumber: prNumber }
                });
+
+               for (const task of tasksToUpdate) {
+                   if (task.dependsOnId) {
+                       const dependency = await prisma.task.findUnique({
+                           where: { id: task.dependsOnId },
+                           select: { status: true }
+                       });
+                       if (!dependency || dependency.status !== 'done') {
+                           continue; // Skip updating this task because dependency is unmet
+                       }
+                   }
+
+                   await prisma.task.update({
+                       where: { id: task.id },
+                       data: { status: statusToSet }
+                   });
+               }
            }
         }
     }

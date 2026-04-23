@@ -875,6 +875,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
     const now = new Date().getTime()
 
+    const botMappings = await prisma.botAgentMapping.findMany();
     const pendingSessions = await prisma.batchSession.findMany({
       where: { isProcessed: false, isProcessing: false }
     })
