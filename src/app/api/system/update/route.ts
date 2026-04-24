@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       npx prisma migrate deploy && \\
       npx prisma generate && \\
       npm run build && \\
-      pm2 restart ecosystem.config.js
+      pm2 restart all
     `;
 
     const logFile = path.join(process.cwd(), 'system-update.log')
