@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         if (senderType === 'User' && (isPrSync || isComment)) {
             // Parallelize lookups
             // Option 2: Exclude the bot's own username from conflict detection
-            const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+            // Re-using outer settings variable
             const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: repoOwner, name: repoName } } });
             let token = repoConfig?.githubToken || settings?.githubToken;
             let botUsername = null;
@@ -98,9 +98,9 @@ export async function POST(request: NextRequest) {
             }
 
             if (botUsername && senderLogin === botUsername) {
-                // Ignore self-events
-                return NextResponse.json({ success: true, message: 'Webhook signal created (ignored self action)' });
-            }
+                // Ignore self-events for conflict detection, but we MUST NOT return early
+                // because we still want auto-promotion to run below
+            } else {
 
             const [repo, activeSession] = await Promise.all([
                 prisma.repository.findFirst({
@@ -118,13 +118,14 @@ export async function POST(request: NextRequest) {
                 })
             ]);
             if (repo && prNumber) {
-                // If Jules is actively processing (isProcessing = true or just an open session), and a human intervenes
-                if (activeSession) {
-                    await prisma.batchSession.update({
-                        where: { id: activeSession.id },
-                        data: { hasConflict: true }
-                    });
-                    logger.warn(`Conflict Detected in PR #${prNumber}: Human (${senderLogin}) interacted while Jules was active.`);
+                    // If Jules is actively processing (isProcessing = true or just an open session), and a human intervenes
+                    if (activeSession) {
+                        await prisma.batchSession.update({
+                            where: { id: activeSession.id },
+                            data: { hasConflict: true }
+                        });
+                        logger.warn(`Conflict Detected in PR #${prNumber}: Human (${senderLogin}) interacted while Jules was active.`);
+                    }
                 }
             }
         }
