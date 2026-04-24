@@ -1223,7 +1223,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
           let prResolvedAt: Date | null = null;
-          let finalLoopCount = session.loopCount + 1; // Increment for this processing iteration
+          let finalLoopCount = commentsToBatch.length > 0 ? session.loopCount + 1 : session.loopCount; // Increment only if there was processing
           let finalPromptTemplateIdToSave = outerPromptTemplateId;
           // Re-create the vars so they are available at the lower scope. They exist at top level inside try block though, so they should be available.
           let promptVarsObj = JSON.stringify({
