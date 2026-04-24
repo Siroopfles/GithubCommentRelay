@@ -76,13 +76,32 @@ export async function POST(request: NextRequest) {
 
         // Only flag pull_request events if it's a synchronize/opened/reopened action
         const action = body?.action;
-        const isPrSync = event === 'pull_request' && (action === 'synchronize' || action === 'opened' || action === 'reopened');
+        const isPrSync = event === 'pull_request' && (action === 'synchronize');
         const isComment = event !== 'pull_request';
 
         // Check if the actor is a human (not a bot, and not Jules if we could identify Jules's account)
         // Usually GitHub marks apps with [bot], so if type is User, it's likely a human
         if (senderType === 'User' && (isPrSync || isComment)) {
             // Parallelize lookups
+            // Option 2: Exclude the bot's own username from conflict detection
+            const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+            const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: repoOwner, name: repoName } } });
+            let token = repoConfig?.githubToken || settings?.githubToken;
+            let botUsername = null;
+            if (token) {
+               try {
+                  const { Octokit } = await import('octokit');
+                  const octo = new Octokit({ auth: token });
+                  const { data: user } = await octo.rest.users.getAuthenticated();
+                  botUsername = user.login;
+               } catch (e) {}
+            }
+
+            if (botUsername && senderLogin === botUsername) {
+                // Ignore self-events
+                return NextResponse.json({ success: true, message: 'Webhook signal created (ignored self action)' });
+            }
+
             const [repo, activeSession] = await Promise.all([
                 prisma.repository.findFirst({
                     where: { owner: repoOwner, name: repoName }
@@ -93,6 +112,7 @@ export async function POST(request: NextRequest) {
                         repoName,
                         prNumber,
                         isProcessed: false,
+                        // isProcessing: false, // Removed this as we want to know if human interferes WHILE Jules is processing (and rely on token to differentiate)
                         isPaused: false
                     }
                 })

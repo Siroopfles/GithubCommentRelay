@@ -28,6 +28,15 @@ export default function SettingsPage() {
   const { register, handleSubmit, reset } = useForm<SettingsForm>()
 
   useEffect(() => {
+    fetch('/api/bot-agent-mappings')
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) {
+           setBotMappings(data);
+        }
+      })
+      .catch(console.error);
+
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {

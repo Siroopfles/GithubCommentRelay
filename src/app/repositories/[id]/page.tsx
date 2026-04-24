@@ -232,6 +232,8 @@ export default function RepositoryPRsPage() {
                             if (!res.ok) {
                               const { error: msg } = await res.json().catch(() => ({ error: 'Failed to pause Jules' }));
                               setError(msg || 'Failed to pause Jules');
+                            } else {
+                              setPrs(current => current.map(p => p.number === pr.number && p.batch_session ? { ...p, batch_session: { ...p.batch_session, isPaused: true } } : p));
                             }
                           } catch (err) {
                             console.error(err);
@@ -257,6 +259,8 @@ export default function RepositoryPRsPage() {
                             if (!res.ok) {
                               const { error: msg } = await res.json().catch(() => ({ error: 'Failed to resume Jules' }));
                               setError(msg || 'Failed to resume Jules');
+                            } else {
+                              setPrs(current => current.map(p => p.number === pr.number && p.batch_session ? { ...p, batch_session: { ...p.batch_session, isPaused: false } } : p));
                             }
                           } catch (err) {
                             console.error(err);
