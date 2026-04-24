@@ -49,7 +49,7 @@ export function calculateComplexity(
   comments: ProcessedComment[],
   customWeightsJson?: string | null
 ): { score: number; label: "EASY" | "MEDIUM" | "HARD" | "CRITICAL"; breakdown: ComplexityBreakdown } {
-  let weights = defaultWeights;
+  let weights: ComplexityWeights = { ...defaultWeights, keywords: { ...defaultWeights.keywords } };
   if (customWeightsJson) {
     try {
       const custom = JSON.parse(customWeightsJson);

@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         'type': RegressionMatchMode.TYPE,
         'fuzzy': RegressionMatchMode.FUZZY
       };
-      if (!modeMap[json.regressionMatchMode.toLowerCase()]) {
+      if (typeof json.regressionMatchMode !== 'string' || !modeMap[json.regressionMatchMode.toLowerCase()]) {
         return NextResponse.json({ error: 'regressionMatchMode must be one of "exact", "type", "fuzzy"' }, { status: 400 });
       }
       updateData.regressionMatchMode = modeMap[json.regressionMatchMode.toLowerCase()];

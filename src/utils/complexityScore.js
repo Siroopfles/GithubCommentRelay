@@ -26,7 +26,7 @@ exports.defaultWeights = {
     }
 };
 function calculateComplexity(comments, customWeightsJson) {
-    let weights = exports.defaultWeights;
+    let weights = { ...exports.defaultWeights, keywords: { ...exports.defaultWeights.keywords } };
     if (customWeightsJson) {
         try {
             const custom = JSON.parse(customWeightsJson);
