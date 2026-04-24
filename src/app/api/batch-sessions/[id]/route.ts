@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Simplistic mock auth check - in a real app, use next-auth or similar
+// TODO(auth): replace with next-auth session check or signed admin cookie.
 function isAuthenticated(request: NextRequest) {
-  // For a Proxmox local tool, this could check a specific local IP,
-  // or check a basic auth header. For now, we'll allow local access but
-  // structure it so auth can be easily added.
-  return true;
+  const expected = process.env.ADMIN_API_TOKEN;
+  if (!expected) return false; // fail closed when not configured
+  const header = request.headers.get('authorization') ?? '';
+  const provided = header.startsWith('Bearer ') ? header.slice(7) : '';
+  // constant-time compare recommended in real impl
+  return provided.length > 0 && provided === expected;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -47,18 +49,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     let session;
     if (json.isPaused === true) {
       const { isPaused: _ignored, ...rest } = updateData;
-      const res = await prisma.batchSession.updateMany({
-        where: { id, isPaused: false },
-        data: { isPaused: true }, // Only transition the pause state atomically
-      });
-      shouldNotifyPause = res.count === 1;
+      // Use transaction to ensure both the atomic pause transition and the other field updates
+      // either succeed together or fail together, preventing partial states.
+      const result = await prisma.$transaction(async (tx) => {
+        const res = await tx.batchSession.updateMany({
+          where: { id, isPaused: false },
+          data: { isPaused: true },
+        });
 
-      // If there are other fields to update, apply them regardless of the pause transition
-      if (Object.keys(rest).length > 0) {
-        session = await prisma.batchSession.update({ where: { id }, data: rest });
-      } else {
-        session = await prisma.batchSession.findUnique({ where: { id } });
-      }
+        let sess;
+        if (Object.keys(rest).length > 0) {
+          sess = await tx.batchSession.update({ where: { id }, data: rest });
+        } else {
+          sess = await tx.batchSession.findUnique({ where: { id } });
+        }
+
+        return { count: res.count, session: sess };
+      });
+
+      shouldNotifyPause = result.count === 1;
+      session = result.session;
 
       if (!session) {
         return NextResponse.json({ error: 'Session not found' }, { status: 404 });
