@@ -948,6 +948,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         if (claimed.count === 0) continue; // Someone else claimed it
 
         try {
+          let outerPromptTemplateId: string | null = null;
           const aiSystemPrompt = repoConfig?.aiSystemPrompt;
           const commentTemplate = repoConfig?.commentTemplate;
 
@@ -1010,7 +1011,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             }
 
 
-            // A/B Prompt Selection
+
+          // A/B Prompt Selection
           let finalPromptTemplateId: string | null = null;
           try {
             if (repoConfig?.id) {
@@ -1018,6 +1020,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                 if (templates.length > 0) {
                   const activePromptTemplate = templates[Math.floor(Math.random() * templates.length)];
                   finalPromptTemplateId = activePromptTemplate.id;
+                  outerPromptTemplateId = activePromptTemplate.id;
                 }
             }
           } catch(e) {
@@ -1217,7 +1220,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           let prResolvedAt: Date | null = null;
           let finalLoopCount = session.loopCount + 1; // Increment for this processing iteration
-          let finalPromptTemplateId: string | null = null;
+          let finalPromptTemplateIdToSave = outerPromptTemplateId;
           try {
             let checkToken = repoConfig?.githubToken || settings?.githubToken;
             if (checkToken) {
@@ -1237,7 +1240,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt, loopCount: finalLoopCount, lastPromptId: finalPromptTemplateId }
+            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt, loopCount: finalLoopCount, ...(finalPromptTemplateIdToSave ? { lastPromptId: finalPromptTemplateIdToSave } : {}) }
           })
 
           // Trigger label sync: processing_done
