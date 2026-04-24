@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client'
-import { processFailsafeForwarding } from "./patch_failsafe";
 import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
+import { calculateComplexity } from './src/utils/complexityScore'
 import { Octokit } from 'octokit'
 // @ts-ignore
 import cron from 'node-cron'
@@ -948,6 +948,12 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         if (claimed.count === 0) continue; // Someone else claimed it
 
         try {
+          let outerPromptTemplateId: string | null = null;
+          let activePromptTemplateObj: any = null;
+          let complexityLabelOuter = "EASY";
+          let complexityScoreOuter = 0;
+          let finalCommentTemplateOuter: string | null = null;
+          let finalAiSystemPromptOuter: string | null = null;
           const aiSystemPrompt = repoConfig?.aiSystemPrompt;
           const commentTemplate = repoConfig?.commentTemplate;
 
@@ -1010,7 +1016,55 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             }
 
 
-            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
+
+          // A/B Prompt Selection
+          let finalPromptTemplateId: string | null = null;
+          try {
+            if (repoConfig?.id) {
+                const templates = await prisma.promptTemplate.findMany({ where: { repositoryId: repoConfig.id, isActive: true } });
+                if (templates.length > 0) {
+                  const activePromptTemplate = templates[Math.floor(Math.random() * templates.length)];
+                  activePromptTemplateObj = activePromptTemplate;
+                  finalPromptTemplateId = activePromptTemplate.id;
+                  outerPromptTemplateId = activePromptTemplate.id;
+                }
+            }
+          } catch(e) {
+              logger.warn(`Failed to fetch Prompt Templates for repo ${repoConfig?.id}`, e);
+          }
+
+          // Categorie I Failsafes Setup
+
+          try {
+             const complexity = calculateComplexity(commentsToBatch as any, repoConfig?.complexityWeights);
+             complexityLabelOuter = complexity.label;
+             complexityScoreOuter = complexity.score;
+          } catch(e) {
+             logger.warn("Failed to calculate complexity score", e);
+          }
+
+          let finalCommentTemplate = commentTemplate;
+          let finalAiSystemPrompt = aiSystemPrompt;
+
+          // Use the template fetched earlier instead of fetching again
+          if (activePromptTemplateObj) {
+               finalCommentTemplate = activePromptTemplateObj.template;
+               finalAiSystemPrompt = activePromptTemplateObj.systemPrompt || aiSystemPrompt;
+          }
+
+          if (finalCommentTemplate) {
+             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityScore}}/g, `${complexityScoreOuter}`);
+             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityLabel}}/g, complexityLabelOuter);
+          }
+          if (finalAiSystemPrompt) {
+             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityScore}}/g, `${complexityScoreOuter}`);
+             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityLabel}}/g, complexityLabelOuter);
+          }
+
+          finalCommentTemplateOuter = finalCommentTemplate || null;
+          finalAiSystemPromptOuter = finalAiSystemPrompt || null;
+
+          const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -1169,6 +1223,16 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
           let prResolvedAt: Date | null = null;
+          let finalLoopCount = commentsToBatch.length > 0 ? session.loopCount + 1 : session.loopCount; // Increment only if there was processing
+          let finalPromptTemplateIdToSave = outerPromptTemplateId;
+          // Re-create the vars so they are available at the lower scope. They exist at top level inside try block though, so they should be available.
+          let promptVarsObj = JSON.stringify({
+             complexityScore: complexityScoreOuter,
+             complexityLabel: complexityLabelOuter,
+             finalCommentTemplate: finalCommentTemplateOuter,
+             finalAiSystemPrompt: finalAiSystemPromptOuter,
+             manualPrompt: session.manualPrompt
+          });
           try {
             let checkToken = repoConfig?.githubToken || settings?.githubToken;
             if (checkToken) {
@@ -1188,7 +1252,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
+            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt, loopCount: finalLoopCount, lastPromptVars: promptVarsObj, ...(finalPromptTemplateIdToSave ? { lastPromptId: finalPromptTemplateIdToSave } : {}) }
           })
 
           // Trigger label sync: processing_done
@@ -1291,15 +1355,7 @@ async function start() {
     logger.error('Failed to clean up stuck sessions:', err)
   }
 
-  // Setup interval for failsafe forwarding
-  setInterval(async () => {
-    logger.info('Running failsafe forwarding for Jules...')
-    try {
-      await processFailsafeForwarding()
-    } catch (err) {
-      logger.error('Failsafe forwarding task failed:', err)
-    }
-  }, 5 * 60 * 1000) // run every 5 minutes
+
 
   // Setup webhook polling (every 5 seconds)
   setInterval(async () => {
@@ -1364,13 +1420,7 @@ async function start() {
       }
   }, { timezone: 'UTC' });
 
-  // Run failsafe forwarding on boot
-  logger.info('Running failsafe forwarding for Jules on boot...')
-  try {
-    await processFailsafeForwarding()
-  } catch (err) {
-    logger.error('Failsafe forwarding boot task failed:', err)
-  }
+
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
   const interval = settings?.pollingInterval || 60

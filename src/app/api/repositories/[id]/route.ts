@@ -1,4 +1,4 @@
-import { Prisma, PRLabelRuleEvent } from '@prisma/client';
+import { Prisma, PRLabelRuleEvent, RegressionMatchMode } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -102,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const stringOrNullFields = [
       'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
-      'branchBlacklist', 'githubToken', 'requiredBots'
+      'branchBlacklist', 'githubToken', 'requiredBots', 'aiBotUsernames'
     ];
 
     for (const field of stringOrNullFields) {
@@ -112,6 +112,79 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
         updateData[field] = json[field] === '' ? null : json[field];
       }
+    }
+
+
+    if (json.regressionMatchMode !== undefined) {
+      const modeMap: Record<string, RegressionMatchMode> = {
+        'exact': RegressionMatchMode.EXACT,
+        'type': RegressionMatchMode.TYPE,
+        'fuzzy': RegressionMatchMode.FUZZY
+      };
+      const key = typeof json.regressionMatchMode === 'string' ? json.regressionMatchMode.toLowerCase() : '';
+      if (!Object.prototype.hasOwnProperty.call(modeMap, key)) {
+        return NextResponse.json({ error: 'regressionMatchMode must be one of "exact", "type", "fuzzy"' }, { status: 400 });
+      }
+      updateData.regressionMatchMode = modeMap[key];
+    }
+    if (json.complexityWeights !== undefined) {
+      if (json.complexityWeights !== null && json.complexityWeights !== "") {
+         if (typeof json.complexityWeights !== 'string') {
+             return NextResponse.json({ error: 'complexityWeights must be a JSON-encoded string' }, { status: 400 });
+         }
+         try {
+           const parsed = JSON.parse(json.complexityWeights);
+           if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+              return NextResponse.json({ error: 'complexityWeights must be valid JSON object' }, { status: 400 });
+           }
+
+           const validKeys = ['linting', 'typeError', 'security', 'testFailure', 'general', 'unknown', 'stacktraceLinePenalty', 'maxStacktracePenalty', 'fileCountPenalty', 'maxFileCountPenalty', 'maxBaseCategoryPenalty', 'maxKeywordPenalty', 'keywords', 'replaceKeywords'];
+
+           let hasValidKey = false;
+           for (const key of Object.keys(parsed)) {
+               if (validKeys.includes(key)) {
+                   if (key === 'keywords') {
+                       if (typeof parsed.keywords === 'object' && parsed.keywords !== null) {
+                           for (const val of Object.values(parsed.keywords)) {
+                               if (typeof val === 'number' || val === null) {
+                                   hasValidKey = true;
+                               }
+                           }
+                       }
+                   } else if (key === 'replaceKeywords') {
+                       if (typeof parsed.replaceKeywords === 'boolean') {
+                           hasValidKey = true;
+                       }
+                   } else {
+                       if (typeof parsed[key] === 'number') {
+                           hasValidKey = true;
+                       }
+                   }
+               }
+           }
+
+           if (!hasValidKey && Object.keys(parsed).length > 0) {
+               return NextResponse.json({ error: 'complexityWeights has no valid fields or numeric values' }, { status: 400 });
+           }
+         } catch(e) {
+           return NextResponse.json({ error: 'complexityWeights must be valid JSON object' }, { status: 400 });
+         }
+      }
+      updateData.complexityWeights = json.complexityWeights === "" ? null : json.complexityWeights;
+    }
+    if (json.regressionDetection !== undefined) {
+      if (typeof json.regressionDetection !== 'boolean') return NextResponse.json({ error: 'regressionDetection must be a boolean' }, { status: 400 });
+      updateData.regressionDetection = json.regressionDetection;
+    }
+    if (json.infiniteLoopThreshold !== undefined) {
+      const threshold = parseInt(json.infiniteLoopThreshold, 10);
+      if (isNaN(threshold) || threshold < 0) return NextResponse.json({ error: 'infiniteLoopThreshold must be >= 0' }, { status: 400 });
+      updateData.infiniteLoopThreshold = threshold;
+    }
+    if (json.maxDiffLines !== undefined) {
+      const maxDiff = parseInt(json.maxDiffLines, 10);
+      if (isNaN(maxDiff) || maxDiff < 0) return NextResponse.json({ error: 'maxDiffLines must be >= 0' }, { status: 400 });
+      updateData.maxDiffLines = maxDiff;
     }
 
     if (json.postAggregatedComments !== undefined) {
