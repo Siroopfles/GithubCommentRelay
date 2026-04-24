@@ -15,7 +15,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: 'isPaused must be a boolean' }, { status: 400 });
       }
       updateData.isPaused = json.isPaused;
-      if (json.isPaused === false) updateData.loopCount = 0;
+      if (json.isPaused === false) {
+        updateData.loopCount = 0;
+        updateData.hasConflict = false; // Reset conflict flag on resume
+      }
 
       if (json.isPaused === true) {
         const current = await prisma.batchSession.findUnique({ where: { id }, select: { isPaused: true } });

@@ -94,7 +94,9 @@ export async function POST(request: NextRequest) {
                   const octo = new Octokit({ auth: token });
                   const { data: user } = await octo.rest.users.getAuthenticated();
                   botUsername = user.login;
-               } catch (e) {}
+               } catch (e) {
+                  logger.error('Failed to getAuthenticated in webhook conflict detection:', e);
+               }
             }
 
             if (botUsername && senderLogin === botUsername) {

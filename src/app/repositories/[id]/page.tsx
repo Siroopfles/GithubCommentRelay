@@ -264,7 +264,7 @@ export default function RepositoryPRsPage() {
                               const { error: msg } = await res.json().catch(() => ({ error: 'Failed to resume Jules' }));
                               setError(msg || 'Failed to resume Jules');
                             } else {
-                              setPrs(current => current.map(p => p.number === pr.number && p.batch_session ? { ...p, batch_session: { ...p.batch_session, isPaused: false } } : p));
+                              setPrs(current => current.map(p => p.number === pr.number && p.batch_session ? { ...p, batch_session: { ...p.batch_session, isPaused: false, hasConflict: false } } : p));
                             }
                           } catch (err) {
                             console.error(err);
