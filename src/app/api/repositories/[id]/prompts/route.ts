@@ -35,16 +35,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     try {
       const newTemplate = await prisma.promptTemplate.create({
-      data: {
-        repositoryId: id,
-        name,
-        systemPrompt: systemPrompt || null,
-        template,
-        isActive: isActive !== undefined ? isActive : true
-      }
-    });
+        data: {
+          repositoryId: id,
+          name,
+          systemPrompt: systemPrompt || null,
+          template,
+          isActive: isActive !== undefined ? isActive : true
+        }
+      });
 
-    return NextResponse.json(newTemplate);
+      return NextResponse.json(newTemplate);
     } catch (e: any) {
       if (e?.code === 'P2003' || e?.code === 'P2025') {
         return NextResponse.json({ error: 'Repository not found' }, { status: 404 });

@@ -85,7 +85,7 @@ CREATE TABLE "new_Repository" (
     "requiredBots" TEXT,
     "aiBotUsernames" TEXT,
     "regressionDetection" BOOLEAN NOT NULL DEFAULT true,
-    "regressionMatchMode" TEXT NOT NULL DEFAULT 'exact',
+    "regressionMatchMode" TEXT NOT NULL DEFAULT 'EXACT',
     "infiniteLoopThreshold" INTEGER NOT NULL DEFAULT 3,
     "maxDiffLines" INTEGER NOT NULL DEFAULT 500,
     "complexityWeights" TEXT,
