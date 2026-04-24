@@ -77,7 +77,7 @@ export function calculateComplexity(
             for (const [kw, val] of Object.entries(custom.keywords)) {
                if (val === null) {
                    delete weights.keywords[kw];
-               } else if (typeof val === 'number' && Number.isFinite(val)) {
+               } else if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
                    weights.keywords[kw] = val;
                } else {
                    console.warn(`complexityWeights.keywords field '${kw}' is not a finite number, using default if it exists.`);

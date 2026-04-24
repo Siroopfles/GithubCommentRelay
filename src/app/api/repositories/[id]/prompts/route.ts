@@ -49,6 +49,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (e?.code === 'P2003' || e?.code === 'P2025') {
         return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
       }
+      if (e?.code === 'P2002') {
+        return NextResponse.json({ error: 'A prompt template with this name already exists' }, { status: 409 });
+      }
       throw e;
     }
   } catch (error) {

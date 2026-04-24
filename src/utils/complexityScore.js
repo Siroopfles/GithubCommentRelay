@@ -52,7 +52,7 @@ function calculateComplexity(comments, customWeightsJson) {
                         if (val === null) {
                             delete weights.keywords[kw];
                         }
-                        else if (typeof val === 'number' && Number.isFinite(val)) {
+                        else if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
                             weights.keywords[kw] = val;
                         }
                         else {
