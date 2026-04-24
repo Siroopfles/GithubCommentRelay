@@ -1049,7 +1049,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           // Use the template fetched earlier instead of fetching again
           if (activePromptTemplateObj) {
                finalCommentTemplate = activePromptTemplateObj.template;
-               finalAiSystemPrompt = activePromptTemplateObj.systemPrompt;
+               finalAiSystemPrompt = activePromptTemplateObj.systemPrompt || aiSystemPrompt;
           }
 
           if (finalCommentTemplate) {
