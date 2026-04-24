@@ -1061,6 +1061,9 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
              finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityLabel}}/g, complexityLabelOuter);
           }
 
+          finalCommentTemplateOuter = finalCommentTemplate || null;
+          finalAiSystemPromptOuter = finalAiSystemPrompt || null;
+
           const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
