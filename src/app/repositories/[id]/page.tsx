@@ -194,13 +194,17 @@ export default function RepositoryPRsPage() {
                     {pr.author}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {pr.is_batching ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                        <Clock size={14} /> Batching...
-                      </span>
-                    ) : pr.batch_session?.hasConflict ? (
+                    {pr.batch_session?.hasConflict ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300" title="A human interacted with this PR while Jules was active.">
                         ⚠️ Conflict (Human)
+                      </span>
+                    ) : pr.batch_session?.isPaused ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                        ⏸ Paused
+                      </span>
+                    ) : pr.is_batching ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                        <Clock size={14} /> Batching...
                       </span>
                     ) : pr.recent_logs.length > 0 && pr.recent_logs[0].status === 'FAILED' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">

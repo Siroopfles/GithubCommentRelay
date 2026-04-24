@@ -117,13 +117,14 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
           parts[0] = parts[0] + roleInject + actionInject;
-          let pre = parts[0].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
-          let post = parts[1].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+          let pre = parts[0].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, actionTagToAppend + countLabel);
+          let post = parts[1].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, actionTagToAppend + countLabel);
           aggregatedBody += `${pre}${displayBody}${post}\n\n---\n\n`;
       } else {
           let formattedComment = commentTemplate
             .replace(/\{\{bot_name\}\}/g, botName)
-            .replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
+            .replace(/\{\{action_tag\}\}/g, actionTagToAppend + countLabel);
+          formattedComment = roleInject + actionInject + formattedComment;
           aggregatedBody += `${formattedComment}\n\n${displayBody}\n\n---\n\n`;
       }
 

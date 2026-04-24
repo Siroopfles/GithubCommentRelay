@@ -126,7 +126,11 @@ export default function SettingsPage() {
       const res = await fetch('/api/bot-agent-mappings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botSource: newBotSource, agentName: newAgentName, role: newRole })
+        body: JSON.stringify({
+          botSource: newBotSource,
+          agentName: newAgentName,
+          ...(newRole.trim() ? { role: newRole.trim() } : {})
+        })
       });
       if (res.ok) {
         const mapping = await res.json();
