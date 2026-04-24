@@ -4,6 +4,8 @@ ALTER TABLE "BotAgentMapping" ADD COLUMN "role" TEXT;
 -- RedefineTables
 PRAGMA defer_foreign_keys=ON;
 PRAGMA foreign_keys=OFF;
+-- NOTE: Rebuilding the BatchSession table may lock the DB and cause downtime on large datasets.
+-- If you have a large database, schedule a maintenance window.
 CREATE TABLE "new_BatchSession" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "prNumber" INTEGER NOT NULL,

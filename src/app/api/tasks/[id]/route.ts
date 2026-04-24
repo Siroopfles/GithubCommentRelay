@@ -90,8 +90,23 @@ if (json.dependsOnId !== undefined) {
       updateData.title = json.title
     }
     if (json.body !== undefined) updateData.body = json.body
-    if (json.prNumber !== undefined) updateData.prNumber = json.prNumber
-    if (json.julesSessionId !== undefined) updateData.julesSessionId = json.julesSessionId
+    if (json.prNumber !== undefined) {
+      if (json.prNumber === null || json.prNumber === '') {
+        updateData.prNumber = null
+      } else {
+        const pr = typeof json.prNumber === 'number' ? json.prNumber : parseInt(json.prNumber, 10)
+        if (Number.isNaN(pr)) {
+          return NextResponse.json({ error: 'prNumber must be an integer' }, { status: 400 })
+        }
+        updateData.prNumber = pr
+      }
+    }
+    if (json.julesSessionId !== undefined) {
+      if (json.julesSessionId !== null && typeof json.julesSessionId !== 'string') {
+        return NextResponse.json({ error: 'julesSessionId must be a string' }, { status: 400 })
+      }
+      updateData.julesSessionId = json.julesSessionId || null
+    }
     if (json.contextFiles !== undefined) {
         updateData.contextFiles = typeof json.contextFiles === 'string' ? json.contextFiles : JSON.stringify(json.contextFiles)
     }

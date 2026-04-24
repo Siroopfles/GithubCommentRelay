@@ -86,7 +86,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
         const mapping = botMappings.find(m => m.botSource.toLowerCase() === botName.toLowerCase());
         if (mapping) {
             botName = mapping.agentName;
-            botRole = mapping.role || null;
+            botRole = mapping.role ? mapping.role.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE') : null;
         }
     }
 
@@ -113,6 +113,7 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
       // Split and construct to avoid injecting variables within body content replacing themselves
       const roleInject = botRole ? `\n**Persona / Role for Jules:** Please adopt the role of ${botRole} when addressing this specific issue.\n` : '';
       const actionInject = comment.actionTag?.includes('SEC_REVIEW') ? `\n**[SECURITY REVIEW REQUIRED]** Please prioritize reviewing this security vulnerability.\n` : (comment.actionTag?.includes('FIX_ERROR') ? `\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.\n` : '');
+      const actionTagToAppend = actionInject ? '' : comment.actionTag;
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
           parts[0] = parts[0] + roleInject + actionInject;
@@ -138,7 +139,9 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
             aggregatedBody += `\n\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.`;
         }
       }
-      if (comment.actionTag) aggregatedBody += `\n${comment.actionTag}`;
+      if (comment.actionTag && !comment.actionTag.includes('SEC_REVIEW') && !comment.actionTag.includes('FIX_ERROR')) {
+        aggregatedBody += `\n${comment.actionTag}`;
+      };
       if (countLabel) aggregatedBody += `${countLabel}`;
       aggregatedBody += `\n`;
       aggregatedBody += `${displayBody}\n\n---\n\n`;

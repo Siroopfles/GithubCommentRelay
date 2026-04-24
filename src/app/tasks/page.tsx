@@ -196,7 +196,7 @@ export default function TasksPage() {
     setValue('priority', task.priority);
     setValue('dependsOnId', task.dependsOnId || '');
     setValue('julesSessionId', task.julesSessionId || '');
-    setValue('prNumber', task.prNumber || '');
+    setValue('prNumber', task.prNumber ?? '');
     setIsModalOpen(true);
   };
 

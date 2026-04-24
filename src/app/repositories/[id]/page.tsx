@@ -229,15 +229,16 @@ export default function RepositoryPRsPage() {
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ isPaused: true })
                             });
-                            if (res.ok) {
-                               alert('AI processing paused for this PR. Jules has been instructed to stop.');
-                               // Refresh page or optimistic UI update handled by SSE polling mostly
+                            if (!res.ok) {
+                              const { error: msg } = await res.json().catch(() => ({ error: 'Failed to pause Jules' }));
+                              setError(msg || 'Failed to pause Jules');
                             }
-                          } catch(err) {
+                          } catch (err) {
                             console.error(err);
+                            setError(err instanceof Error ? err.message : 'Failed to pause Jules');
                           }
                         }}
-                        className="text-red-600 hover:text-red-900 flex items-center gap-1 bg-red-50 hover:bg-red-100 px-2 py-1 rounded"
+                        className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-200 flex items-center gap-1 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 px-2 py-1 rounded"
                         title="Pauzeer AI"
                       >
                         <XCircle size={14} /> Stop Jules
@@ -253,14 +254,16 @@ export default function RepositoryPRsPage() {
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ isPaused: false })
                             });
-                            if (res.ok) {
-                               alert('AI processing resumed.');
+                            if (!res.ok) {
+                              const { error: msg } = await res.json().catch(() => ({ error: 'Failed to resume Jules' }));
+                              setError(msg || 'Failed to resume Jules');
                             }
-                          } catch(err) {
+                          } catch (err) {
                             console.error(err);
+                            setError(err instanceof Error ? err.message : 'Failed to resume Jules');
                           }
                         }}
-                        className="text-green-600 hover:text-green-900 flex items-center gap-1 bg-green-50 hover:bg-green-100 px-2 py-1 rounded"
+                        className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-200 flex items-center gap-1 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 px-2 py-1 rounded"
                         title="Hervat AI"
                       >
                         <CheckCircle size={14} /> Resume Jules
