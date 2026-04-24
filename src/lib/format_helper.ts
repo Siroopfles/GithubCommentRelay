@@ -1,4 +1,4 @@
-export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string}[]): string {
+export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string, role?: string | null}[]): string {
   let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`;
 
   if (isHighPriority) {
@@ -81,14 +81,17 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
   // Process sorted and deduplicated comments
   for (const comment of commentsWithTags) {
     let botName = comment.author;
+    let botRole: string | null = null;
     if (botMappings) {
         const mapping = botMappings.find(m => m.botSource.toLowerCase() === botName.toLowerCase());
         if (mapping) {
             botName = mapping.agentName;
+            botRole = mapping.role || null;
         }
     }
 
     rawJsonData.push({
+      role: botRole,
       author: botName,
       body: comment.body,
       source: comment.source,
@@ -108,8 +111,11 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
     if (commentTemplate) {
       // Split and construct to avoid injecting variables within body content replacing themselves
+      const roleInject = botRole ? `\n**Persona / Role for Jules:** Please adopt the role of ${botRole} when addressing this specific issue.\n` : '';
+      const actionInject = comment.actionTag?.includes('SEC_REVIEW') ? `\n**[SECURITY REVIEW REQUIRED]** Please prioritize reviewing this security vulnerability.\n` : (comment.actionTag?.includes('FIX_ERROR') ? `\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.\n` : '');
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
+          parts[0] = parts[0] + roleInject + actionInject;
           let pre = parts[0].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
           let post = parts[1].replace(/\{\{bot_name\}\}/g, botName).replace(/\{\{action_tag\}\}/g, comment.actionTag + countLabel);
           aggregatedBody += `${pre}${displayBody}${post}\n\n---\n\n`;
@@ -122,6 +128,16 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
     } else {
       aggregatedBody += `#### From **@${botName}**`;
+      if (botRole) {
+        aggregatedBody += `\n**Persona / Role for Jules:** Please adopt the role of ${botRole} when addressing this specific issue.`;
+      }
+      if (comment.actionTag) {
+        if (comment.actionTag.includes('SEC_REVIEW')) {
+            aggregatedBody += `\n\n**[SECURITY REVIEW REQUIRED]** Please prioritize reviewing this security vulnerability.`;
+        } else if (comment.actionTag.includes('FIX_ERROR')) {
+            aggregatedBody += `\n\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.`;
+        }
+      }
       if (comment.actionTag) aggregatedBody += `\n${comment.actionTag}`;
       if (countLabel) aggregatedBody += `${countLabel}`;
       aggregatedBody += `\n`;

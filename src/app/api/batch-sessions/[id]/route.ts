@@ -15,6 +15,40 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       updateData.isPaused = json.isPaused;
       if (json.isPaused === false) updateData.loopCount = 0;
+
+      // If pausing, try to send a stop message via GitHub comment as a fallback
+      if (json.isPaused === true) {
+        try {
+           const session = await prisma.batchSession.findUnique({ where: { id } });
+           const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+           const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: session?.repoOwner || '', name: session?.repoName || '' } } });
+
+           let token = repoConfig?.githubToken || settings?.githubToken;
+           if (session && token) {
+              const { Octokit } = await import('octokit');
+              const octokit = new Octokit({ auth: token });
+              await octokit.rest.issues.createComment({
+                 owner: session.repoOwner,
+                 repo: session.repoName,
+                 issue_number: session.prNumber,
+                 body: "🛑 **ADMIN OVERRIDE: Agent, STOP.**\n\nA human has intervened and paused automated processing for this Pull Request."
+              });
+
+              // Also record in logs
+              await prisma.autoMergeLog.create({
+                 data: {
+                    repoOwner: session.repoOwner,
+                    repoName: session.repoName,
+                    prNumber: session.prNumber,
+                    status: 'FAILED',
+                    message: 'Admin manually paused AI processing.'
+                 }
+              });
+           }
+        } catch (e) {
+           console.error("Failed to post STOP comment to GitHub:", e);
+        }
+      }
     }
     if (json.manualPrompt !== undefined) {
       if (typeof json.manualPrompt === 'string' && json.manualPrompt.length > 10000) {

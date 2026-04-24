@@ -90,6 +90,8 @@ if (json.dependsOnId !== undefined) {
       updateData.title = json.title
     }
     if (json.body !== undefined) updateData.body = json.body
+    if (json.prNumber !== undefined) updateData.prNumber = json.prNumber
+    if (json.julesSessionId !== undefined) updateData.julesSessionId = json.julesSessionId
     if (json.contextFiles !== undefined) {
         updateData.contextFiles = typeof json.contextFiles === 'string' ? json.contextFiles : JSON.stringify(json.contextFiles)
     }

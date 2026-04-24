@@ -15,10 +15,11 @@ export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [updateSecret, setUpdateSecret] = useState('')
-  type BotAgentMapping = { id: string; botSource: string; agentName: string; createdAt?: string };
+  type BotAgentMapping = { id: string; botSource: string; agentName: string; role?: string; createdAt?: string };
   const [botMappings, setBotMappings] = useState<BotAgentMapping[]>([])
   const [newBotSource, setNewBotSource] = useState('')
   const [newAgentName, setNewAgentName] = useState('')
+  const [newRole, setNewRole] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [hasToken, setHasToken] = useState(false)
@@ -116,13 +117,14 @@ export default function SettingsPage() {
       const res = await fetch('/api/bot-agent-mappings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botSource: newBotSource, agentName: newAgentName })
+        body: JSON.stringify({ botSource: newBotSource, agentName: newAgentName, role: newRole })
       });
       if (res.ok) {
         const mapping = await res.json();
         setBotMappings([...botMappings, mapping]);
         setNewBotSource('');
         setNewAgentName('');
+        setNewRole('');
       } else {
         const data = await res.json();
         setMessage({ type: 'error', text: data.error || 'Failed to add mapping' });
@@ -294,6 +296,10 @@ export default function SettingsPage() {
           <div className="flex-1">
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Agent Name (e.g. @linter-agent)</label>
             <input type="text" value={newAgentName} onChange={e => setNewAgentName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100" />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Role (Optional)</label>
+            <input type="text" value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="e.g. Reviewer" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100" />
           </div>
           <button onClick={handleAddMapping} className="px-4 py-2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 font-medium rounded-md hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors">
             Add

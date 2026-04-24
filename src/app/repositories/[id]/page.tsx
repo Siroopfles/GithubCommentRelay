@@ -13,6 +13,8 @@ interface BatchSession {
   isProcessed: boolean
   isProcessing: boolean
   includeCheckRuns: boolean
+  isPaused?: boolean
+  hasConflict?: boolean
 }
 
 interface ProcessedComment {
@@ -196,6 +198,10 @@ export default function RepositoryPRsPage() {
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                         <Clock size={14} /> Batching...
                       </span>
+                    ) : pr.batch_session?.hasConflict ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300" title="A human interacted with this PR while Jules was active.">
+                        ⚠️ Conflict (Human)
+                      </span>
                     ) : pr.recent_logs.length > 0 && pr.recent_logs[0].status === 'FAILED' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
                         <XCircle size={14} /> Merge Failed
@@ -212,10 +218,57 @@ export default function RepositoryPRsPage() {
                       <span className="font-medium text-gray-900 dark:text-gray-100">{pr.comments_count}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-3">
+                    {pr.batch_session && !pr.batch_session.isPaused && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const res = await fetch(`/api/batch-sessions/${pr.batch_session?.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ isPaused: true })
+                            });
+                            if (res.ok) {
+                               alert('AI processing paused for this PR. Jules has been instructed to stop.');
+                               // Refresh page or optimistic UI update handled by SSE polling mostly
+                            }
+                          } catch(err) {
+                            console.error(err);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-900 flex items-center gap-1 bg-red-50 hover:bg-red-100 px-2 py-1 rounded"
+                        title="Pauzeer AI"
+                      >
+                        <XCircle size={14} /> Stop Jules
+                      </button>
+                    )}
+                    {pr.batch_session && pr.batch_session.isPaused && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const res = await fetch(`/api/batch-sessions/${pr.batch_session?.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ isPaused: false })
+                            });
+                            if (res.ok) {
+                               alert('AI processing resumed.');
+                            }
+                          } catch(err) {
+                            console.error(err);
+                          }
+                        }}
+                        className="text-green-600 hover:text-green-900 flex items-center gap-1 bg-green-50 hover:bg-green-100 px-2 py-1 rounded"
+                        title="Hervat AI"
+                      >
+                        <CheckCircle size={14} /> Resume Jules
+                      </button>
+                    )}
                     <button
                       onClick={() => setExpandedPr(expandedPr === pr.number ? null : pr.number)}
-                      className="text-blue-600 hover:text-blue-900"
+                      className="text-blue-600 hover:text-blue-900 ml-2"
                     >
                       {expandedPr === pr.number ? 'Hide Details' : 'Show Details'}
                     </button>
@@ -225,46 +278,59 @@ export default function RepositoryPRsPage() {
                   <tr>
                     <td colSpan={5} className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Comments List */}
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 border-b pb-2">Locally Processed Bot Comments</h4>
-                          {pr.processed_comments.length > 0 ? (
-                            <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                              {pr.processed_comments.map((comment: ProcessedComment) => (
-                                <div key={comment.id} className="bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700 shadow-sm text-sm">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-semibold text-gray-900 dark:text-gray-100">@{comment.author}</span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(comment.postedAt).toLocaleString()}</span>
-                                  </div>
-                                  <p className="text-gray-600 dark:text-gray-400 line-clamp-3" title={comment.body}>{comment.body}</p>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 italic">No tracked bot comments found for this PR.</p>
-                          )}
-                        </div>
+                        {/* Conversation History (Combined Bot Comments & Jules Logs) */}
+                        <div className="md:col-span-2">
+                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 border-b pb-2 flex justify-between items-center">
+                            <span>Conversation History (Bots vs Jules)</span>
+                          </h4>
+                          {(() => {
+                             const combined = [
+                               ...pr.processed_comments.map((c: any) => ({ ...c, type: 'comment', time: new Date(c.postedAt).getTime() })),
+                               ...pr.recent_logs.map((l: any) => ({ ...l, type: 'log', time: new Date(l.createdAt).getTime() }))
+                             ].sort((a, b) => a.time - b.time);
 
-                        {/* Recent Logs List */}
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 border-b pb-2">Recent Logs</h4>
-                          {pr.recent_logs.length > 0 ? (
-                            <div className="space-y-2">
-                              {pr.recent_logs.map((log: RecentLog) => (
-                                <div key={log.id} className="flex gap-2 items-start text-sm">
-                                  <div className="mt-0.5">
-                                    {log.status === 'SUCCESS' ? <CheckCircle size={14} className="text-green-600" /> : log.status === 'FAILED' ? <XCircle size={14} className="text-red-600" /> : <Clock size={14} className="text-yellow-600" />}
-                                  </div>
-                                  <div>
-                                    <p className="text-gray-900 dark:text-gray-100">{log.message}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(log.createdAt).toLocaleString()}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 italic">No logs available for this PR.</p>
-                          )}
+                             if (combined.length === 0) {
+                               return <p className="text-sm text-gray-500 dark:text-gray-400 italic">No activity recorded for this PR.</p>;
+                             }
+
+                             return (
+                               <div className="space-y-4 max-h-96 overflow-y-auto pr-2 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-300 dark:before:via-gray-600 before:to-transparent">
+                                 {combined.map((item: any, idx: number) => {
+                                    if (item.type === 'comment') {
+                                        return (
+                                          <div key={`c-${item.id}`} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                              <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-gray-800 bg-red-100 dark:bg-red-900/30 text-red-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow">
+                                                 <MessageCircle size={16} />
+                                              </div>
+                                              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+                                                  <div className="flex justify-between items-center mb-1">
+                                                      <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">@{item.author} (CI Bot)</span>
+                                                      <span className="text-xs text-gray-500">{new Date(item.time).toLocaleTimeString()}</span>
+                                                  </div>
+                                                  <p className="text-gray-600 dark:text-gray-400 text-xs line-clamp-3">{item.body}</p>
+                                              </div>
+                                          </div>
+                                        )
+                                    } else {
+                                        return (
+                                          <div key={`l-${item.id}`} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                              <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-gray-800 bg-blue-100 dark:bg-blue-900/30 text-blue-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow">
+                                                 {item.status === 'SUCCESS' ? <CheckCircle size={16} className="text-green-500" /> : (item.status === 'FAILED' ? <XCircle size={16} className="text-red-500" /> : <Clock size={16} />)}
+                                              </div>
+                                              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 shadow-sm">
+                                                  <div className="flex justify-between items-center mb-1">
+                                                      <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Jules Relay Worker</span>
+                                                      <span className="text-xs text-gray-500">{new Date(item.time).toLocaleTimeString()}</span>
+                                                  </div>
+                                                  <p className="text-gray-600 dark:text-gray-400 text-xs">{item.message}</p>
+                                              </div>
+                                          </div>
+                                        )
+                                    }
+                                 })}
+                               </div>
+                             );
+                          })()}
                         </div>
                       </div>
                     </td>

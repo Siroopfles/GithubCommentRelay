@@ -65,6 +65,46 @@ export async function POST(request: NextRequest) {
     });
     }
 
+
+    // Mens vs Jules Conflict Detectie (Idee 50)
+    // If a human adds a commit (pull_request synchronize) or a comment while Jules is processing, flag a conflict
+    if (['pull_request', 'issue_comment', 'pull_request_review_comment'].includes(event)) {
+        let isHumanAction = false;
+        const senderType = body?.sender?.type;
+        const senderLogin = body?.sender?.login;
+
+        // Check if the actor is a human (not a bot, and not Jules if we could identify Jules's account)
+        // Usually GitHub marks apps with [bot], so if type is User, it's likely a human
+        if (senderType === 'User') {
+            // Further filter: only check if this repo is tracked and has active sessions
+            const repo = await prisma.repository.findFirst({
+                where: { owner: repoOwner, name: repoName }
+            });
+            if (repo && prNumber) {
+                // If the user's github token belongs to this sender, it might be the admin, but it's still a human.
+                // We want to detect conflicts if an active BatchSession is running.
+                const activeSession = await prisma.batchSession.findFirst({
+                    where: {
+                        repoOwner,
+                        repoName,
+                        prNumber,
+                        isProcessed: false,
+                        isPaused: false
+                    }
+                });
+
+                // If Jules is actively processing (isProcessing = true or just an open session), and a human intervenes
+                if (activeSession) {
+                    await prisma.batchSession.update({
+                        where: { id: activeSession.id },
+                        data: { hasConflict: true }
+                    });
+                    logger.warn(`Conflict Detected in PR #${prNumber}: Human (${senderLogin}) interacted while Jules was active.`);
+                }
+            }
+        }
+    }
+
     // Auto-promote task based on GitHub activity (Idea 39)
     if ((event as string) === 'pull_request') {
         const action = body?.action;

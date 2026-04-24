@@ -136,7 +136,9 @@ export default function TasksPage() {
     const payload = {
       ...data,
       repositoryId: selectedRepo,
-      priority: parseInt(data.priority || '0', 10)
+      priority: parseInt(data.priority || '0', 10),
+      prNumber: data.prNumber ? parseInt(data.prNumber, 10) : null,
+      julesSessionId: data.julesSessionId || null
     };
 
     const url = editingTask ? `/api/tasks/${editingTask.id}` : '/api/tasks';
@@ -193,6 +195,8 @@ export default function TasksPage() {
     setValue('status', task.status);
     setValue('priority', task.priority);
     setValue('dependsOnId', task.dependsOnId || '');
+    setValue('julesSessionId', task.julesSessionId || '');
+    setValue('prNumber', task.prNumber || '');
     setIsModalOpen(true);
   };
 
@@ -336,6 +340,14 @@ export default function TasksPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
                   <input type="number" {...register('priority')} defaultValue="0" className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PR Number (Optional)</label>
+                  <input type="number" {...register('prNumber')} placeholder="e.g. 123" className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jules Session ID (Optional)</label>
+                  <input type="text" {...register('julesSessionId')} placeholder="e.g. 145503885..." className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">

@@ -13,14 +13,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const json = await request.json();
-    const { botSource, agentName } = json;
+    const { botSource, agentName, role } = json;
 
     if (!botSource || !agentName) {
       return NextResponse.json({ error: 'botSource and agentName are required' }, { status: 400 });
     }
 
     const mapping = await prisma.botAgentMapping.create({
-      data: { botSource, agentName }
+      data: { botSource, agentName, role: role || null }
     });
     return NextResponse.json(mapping);
   } catch (error: any) {

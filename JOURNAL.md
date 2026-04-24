@@ -246,3 +246,37 @@ All tests and builds pass.
 - Added Max Diff Validations: Compares AI commit diff sizes against a defined limit. Emits a warning if an agent goes rogue and rewrites too many lines.
 - Implemented Advanced Complexity Heuristics: Created a customizable algorithm that weights error stacktraces, keywords, and file counts to output an EASY/MEDIUM/HARD/CRITICAL severity label and numerical score per PR.
 - Implemented A/B Testing Prompts: Added a new `PromptTemplate` table. Repository settings now support CRUD for multiple prompts, where the worker will randomly choose an active one per comment cycle. Supports custom variables like `{{botComments}}` and `{{complexityScore}}`.
+
+## Session 2026-04-24 - Categorie J: Team & Multi-Agent Samenwerking
+
+Implemented the features from Categorie J based on a clarified scope where the system acts as a relay bot for the Jules API (without running any internal local AI agents itself).
+
+### Changes Made:
+
+1. **Jules Persona's / Rollen (Idee 46)**:
+   - Expanded `BotAgentMapping` in the Prisma schema with an optional `role` field.
+   - Updated the `/api/bot-agent-mappings` endpoints and the `SettingsPage` to support configuring a specific Persona/Role for each CI tool.
+   - Modified `formatAggregatedBody` in `src/lib/format_helper.ts` to instruct Jules to adopt the assigned Role in its `systemPrompt`.
+
+2. **Jules vs. CI Bot Historie (Idee 47)**:
+   - Enhanced the PR details page (`/repositories/[id]/page.tsx`) with a combined "Conversation History" timeline.
+   - Merged locally tracked Bot comments (CI reports) and recent Jules Relay Worker logs (success, failure, batching status) into a single, chronologically sorted UI timeline.
+
+3. **Beheerder Override / Stop Knop (Idee 48)**:
+   - Added a "Stop Jules" / "Resume Jules" toggle in the PR details UI.
+   - Updated the `BatchSession` model API endpoint (`PATCH /api/batch-sessions/[id]`) to flip `isPaused`.
+   - Crucially, when `isPaused` is set to true, the API now creates a GitHub comment on the PR stating `🛑 ADMIN OVERRIDE: Agent, STOP.` ensuring human intervention is explicitly declared on the repo.
+
+4. **Gerichte Jules Instructies (Idee 49)**:
+   - Updated `format_helper.ts` to transform specific `actionTags` from incoming bot comments into highly visible instructions inside the payload for Jules. E.g. `[SECURITY REVIEW REQUIRED]` or `[ERROR FIX REQUIRED]`.
+
+5. **Mens vs. Jules Conflict Detectie (Idee 50)**:
+   - Added `hasConflict` field to `BatchSession`.
+   - The `/api/webhooks` route now monitors incoming GitHub events for comments or code changes made by human users (i.e., accounts with `type: 'User'`).
+   - If a human acts while Jules is processing (`BatchSession` is open/unprocessed), the `hasConflict` flag is set to true.
+   - This explicitly displays an orange `⚠️ Conflict (Human)` warning in the PR details dashboard.
+
+6. **Taak Koppeling (Bonus)**:
+   - Added `prNumber` and `julesSessionId` fields to the `Task` schema, API, and the Kanban UI so the human admin can directly link tasks to specific GitHub Pull Requests and active Jules Sessions.
+
+All builds and tests passing.
