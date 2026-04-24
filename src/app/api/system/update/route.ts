@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const updateCommand = `
       git fetch origin main && \\
       git reset --hard origin/main && \\
-      npm install && \\
+      npm install --include=dev && \\
       npx prisma migrate deploy && \\
       npm run build && \\
       pm2 restart ecosystem.config.js
