@@ -31,11 +31,30 @@ function calculateComplexity(comments, customWeightsJson) {
         try {
             const custom = JSON.parse(customWeightsJson);
             if (custom && typeof custom === 'object' && !Array.isArray(custom)) {
-                weights = {
-                    ...exports.defaultWeights,
-                    ...custom,
-                    keywords: { ...exports.defaultWeights.keywords, ...(custom?.keywords || {}) },
-                };
+                // Deep validate numeric fields
+                for (const key of Object.keys(exports.defaultWeights)) {
+                    if (key !== 'keywords' && custom[key] !== undefined) {
+                        if (typeof custom[key] === 'number' && Number.isFinite(custom[key])) {
+                            weights[key] = custom[key];
+                        }
+                        else {
+                            console.warn(`complexityWeights field '${key}' is not a finite number, using default.`);
+                        }
+                    }
+                }
+                if (custom.keywords && typeof custom.keywords === 'object' && !Array.isArray(custom.keywords)) {
+                    for (const [kw, val] of Object.entries(custom.keywords)) {
+                        if (typeof val === 'number' && Number.isFinite(val)) {
+                            weights.keywords[kw] = val;
+                        }
+                        else {
+                            console.warn(`complexityWeights.keywords field '${kw}' is not a finite number, using default if it exists.`);
+                        }
+                    }
+                }
+                else if (custom.keywords !== undefined) {
+                    console.warn("complexityWeights.keywords must be an object, using defaults.");
+                }
             }
             else {
                 console.warn("complexityWeights JSON must be an object, falling back to default");
