@@ -1293,11 +1293,7 @@ async function start() {
     logger.error('Failed to clean up stuck sessions:', err)
   }
 
-  // Setup interval for failsafe forwarding
-  setInterval(async () => {
-    logger.info('Running failsafe forwarding for Jules...')
 
-  }, 5 * 60 * 1000) // run every 5 minutes
 
   // Setup webhook polling (every 5 seconds)
   setInterval(async () => {
@@ -1362,8 +1358,6 @@ async function start() {
       }
   }, { timezone: 'UTC' });
 
-  // Run failsafe forwarding on boot
-  logger.info('Running failsafe forwarding for Jules on boot...')
 
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
