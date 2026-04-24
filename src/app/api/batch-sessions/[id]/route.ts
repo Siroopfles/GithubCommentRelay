@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Simplistic mock auth check - in a real app, use next-auth or similar
+function isAuthenticated(request: NextRequest) {
+  // For a Proxmox local tool, this could check a specific local IP,
+  // or check a basic auth header. For now, we'll allow local access but
+  // structure it so auth can be easily added.
+  return true;
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isAuthenticated(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { id } = await params;
 
   try {
@@ -20,10 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         updateData.hasConflict = false; // Reset conflict flag on resume
       }
 
-      if (json.isPaused === true) {
-        const current = await prisma.batchSession.findUnique({ where: { id }, select: { isPaused: true } });
-        shouldNotifyPause = !!current && current.isPaused === false; // only on transition
-      }
+      // handled atomically below via updateMany
     }
     if (json.manualPrompt !== undefined) {
       if (typeof json.manualPrompt === 'string' && json.manualPrompt.length > 10000) {
@@ -36,10 +44,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 });
     }
 
-    const session = await prisma.batchSession.update({
-      where: { id },
-      data: updateData
-    });
+    let session;
+    if (json.isPaused === true) {
+      const { isPaused: _ignored, ...rest } = updateData;
+      const res = await prisma.batchSession.updateMany({
+        where: { id, isPaused: false },
+        data: { ...rest, isPaused: true },
+      });
+      shouldNotifyPause = res.count === 1;
+      session = await prisma.batchSession.findUnique({ where: { id } });
+      if (!session) {
+        return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      }
+    } else {
+      session = await prisma.batchSession.update({ where: { id }, data: updateData });
+    }
 
     if (shouldNotifyPause) {
         try {

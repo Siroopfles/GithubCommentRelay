@@ -21,6 +21,9 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
   const deduplicatedComments: any[] = [];
   const normalize = (str: string) => str.trim().replace(/\s+/g, ' ').toLowerCase();
 
+  const sanitize = (s: string | null | undefined) =>
+    s == null ? s : s.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE');
+
   for (const comment of commentsToBatch) {
     // Simple deduplication based on exact body match or highly similar body
     if (!comment.body || comment.body.trim() === '') continue;
@@ -86,17 +89,17 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
         const mapping = botMappings.find(m => m.botSource.toLowerCase() === botName.toLowerCase());
         if (mapping) {
             botName = mapping.agentName;
-            botRole = mapping.role ? mapping.role.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE') : null;
+            botRole = sanitize(mapping.role) ?? null;
         }
     }
 
     rawJsonData.push({
       role: botRole,
-      author: botName,
-      body: comment.body,
-      source: comment.source,
+      author: sanitize(botName),
+      body: comment.body, // this gets sanitized properly lower down during map
+      source: sanitize(comment.source),
       count: comment.count,
-      actionTag: comment.actionTag
+      actionTag: sanitize(comment.actionTag)
     });
 
     let displayBody = comment.body;
@@ -109,10 +112,18 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
     const countLabel = comment.count > 1 ? `\n**[Reported ${comment.count}x]**` : '';
 
+    const buildRoleInject = (role: string | null) =>
+      role ? `\n**Persona / Role for Jules:** Please adopt the role of ${role} when addressing this specific issue.\n` : '';
+    const buildActionInject = (tag: string | undefined) => {
+      if (tag?.includes('SEC_REVIEW')) return `\n**[SECURITY REVIEW REQUIRED]** Please prioritize reviewing this security vulnerability.\n`;
+      if (tag?.includes('FIX_ERROR')) return `\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.\n`;
+      return '';
+    };
+
     if (commentTemplate) {
       // Split and construct to avoid injecting variables within body content replacing themselves
-      const roleInject = botRole ? `\n**Persona / Role for Jules:** Please adopt the role of ${botRole} when addressing this specific issue.\n` : '';
-      const actionInject = comment.actionTag?.includes('SEC_REVIEW') ? `\n**[SECURITY REVIEW REQUIRED]** Please prioritize reviewing this security vulnerability.\n` : (comment.actionTag?.includes('FIX_ERROR') ? `\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.\n` : '');
+      const roleInject = buildRoleInject(botRole);
+      const actionInject = buildActionInject(comment.actionTag);
       const actionTagToAppend = actionInject ? '' : comment.actionTag;
       const parts = commentTemplate.split('{{body}}');
       if (parts.length > 1) {
@@ -130,19 +141,11 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
     } else {
       aggregatedBody += `#### From **@${botName}**`;
-      if (botRole) {
-        aggregatedBody += `\n**Persona / Role for Jules:** Please adopt the role of ${botRole} when addressing this specific issue.`;
-      }
-      if (comment.actionTag) {
-        if (comment.actionTag.includes('SEC_REVIEW')) {
-            aggregatedBody += `\n\n**[SECURITY REVIEW REQUIRED]** Please prioritize reviewing this security vulnerability.`;
-        } else if (comment.actionTag.includes('FIX_ERROR')) {
-            aggregatedBody += `\n\n**[ERROR FIX REQUIRED]** Please resolve this failing test or error.`;
-        }
-      }
+      aggregatedBody += buildRoleInject(botRole).replace(/\n$/, '');
+      aggregatedBody += buildActionInject(comment.actionTag).replace(/^\n/, '\n').replace(/\n$/, '');
       if (comment.actionTag && !comment.actionTag.includes('SEC_REVIEW') && !comment.actionTag.includes('FIX_ERROR')) {
         aggregatedBody += `\n${comment.actionTag}`;
-      };
+      }
       if (countLabel) aggregatedBody += `${countLabel}`;
       aggregatedBody += `\n`;
       aggregatedBody += `${displayBody}\n\n---\n\n`;

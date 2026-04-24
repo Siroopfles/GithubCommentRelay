@@ -129,7 +129,7 @@ model AutoMergeLog {
   repoOwner String
   repoName  String
   prNumber  Int
-  status    String // 'SUCCESS', 'FAILED'
+  status    String // 'SUCCESS', 'FAILED', 'PAUSED'
   message   String?
   createdAt DateTime @default(now())
 
