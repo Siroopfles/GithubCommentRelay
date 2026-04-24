@@ -3,6 +3,7 @@ import { processFailsafeForwarding } from "./patch_failsafe";
 import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
+import { calculateComplexity } from './src/utils/complexityScore'
 import { Octokit } from 'octokit'
 // @ts-ignore
 import cron from 'node-cron'
@@ -1169,6 +1170,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
           let prResolvedAt: Date | null = null;
+          let finalLoopCount = session.loopCount;
+          let finalPromptTemplateId: string | null = null;
           try {
             let checkToken = repoConfig?.githubToken || settings?.githubToken;
             if (checkToken) {
@@ -1188,7 +1191,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
+            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt, loopCount: finalLoopCount, lastPromptId: finalPromptTemplateId }
           })
 
           // Trigger label sync: processing_done

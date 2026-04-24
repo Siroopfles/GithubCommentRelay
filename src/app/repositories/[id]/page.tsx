@@ -52,6 +52,22 @@ export default function RepositoryPRsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [expandedPr, setExpandedPr] = useState<number | null>(null)
+  const [aiBotUsernames, setAiBotUsernames] = useState('')
+  const [regressionDetection, setRegressionDetection] = useState(true)
+  const [regressionMatchMode, setRegressionMatchMode] = useState('exact')
+  const [infiniteLoopThreshold, setInfiniteLoopThreshold] = useState(3)
+  const [maxDiffLines, setMaxDiffLines] = useState(500)
+  const [complexityWeights, setComplexityWeights] = useState('')
+  const [prompts, setPrompts] = useState<any[]>([])
+  const [newPromptName, setNewPromptName] = useState('')
+  const [newPromptTemplate, setNewPromptTemplate] = useState('')
+
+  const fetchPrompts = async (repoId: string) => {
+    try {
+      const res = await fetch(`/api/repositories/${repoId}/prompts`)
+      if (res.ok) setPrompts(await res.json())
+    } catch (e) { console.error('Failed to fetch prompts', e) }
+  }
 
   useEffect(() => {
     const fetchPRs = async () => {

@@ -239,3 +239,10 @@ All tests and builds pass.
 - **Idea 38: Task Dependencies in Kanban:** Added `dependsOnId` to `Task` model. The UI Kanban prevents dragging a task if its parent dependency is not resolved (status not `done`), and highlights blocked tasks.
 - **Idea 39: Auto-promotion based on GitHub Activity:** Updated the `webhooks` API endpoint to auto-promote Tasks based on PR webhook events (`opened` -> `in_progress`, `review_requested` -> `in_review`, `closed` -> `done`).
 - **Idea 40: Manual Prompt Injection:** Added `manualPrompt` to `BatchSession` and provided a UI field in the Dashboard. The worker injects the prompt and nullifies the database field right after usage.
+
+## 2026-04-24 - Categorie I: Kwaliteitscontrole & Validatie van AI Acties
+- Added AI Regression Detection: Worker now cross references current Bot comments against previous errors from the same PR/Bot. If an AI agent attempts a fix and the same bot error persists, it's flagged as a Regression.
+- Added Infinite Loop Prevention: Prs now pause processing if the AI ping-pongs over a configurable threshold limit (defaults to 3). Unpausing can be triggered from the Dashboard UI.
+- Added Max Diff Validations: Compares AI commit diff sizes against a defined limit. Emits a warning if an agent goes rogue and rewrites too many lines.
+- Implemented Advanced Complexity Heuristics: Created a customizable algorithm that weights error stacktraces, keywords, and file counts to output an EASY/MEDIUM/HARD/CRITICAL severity label and numerical score per PR.
+- Implemented A/B Testing Prompts: Added a new `PromptTemplate` table. Repository settings now support CRUD for multiple prompts, where the worker will randomly choose an active one per comment cycle. Supports custom variables like `{{botComments}}` and `{{complexityScore}}`.

@@ -9,6 +9,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const updateData: any = {};
 
     if (json.isHighPriority !== undefined) updateData.isHighPriority = json.isHighPriority;
+    if (json.isPaused !== undefined) { updateData.isPaused = json.isPaused; if (json.isPaused === false) updateData.loopCount = 0; }
     if (json.manualPrompt !== undefined) {
       if (typeof json.manualPrompt === 'string' && json.manualPrompt.length > 10000) {
         return NextResponse.json({ error: 'Manual prompt is too long (limit: 10,000 characters)' }, { status: 400 });

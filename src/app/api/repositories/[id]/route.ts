@@ -102,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const stringOrNullFields = [
       'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
-      'branchBlacklist', 'githubToken', 'requiredBots'
+      'branchBlacklist', 'githubToken', 'requiredBots', 'aiBotUsernames', 'regressionMatchMode', 'complexityWeights'
     ];
 
     for (const field of stringOrNullFields) {
@@ -112,6 +112,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
         updateData[field] = json[field] === '' ? null : json[field];
       }
+    }
+
+
+    if (json.regressionDetection !== undefined) {
+      if (typeof json.regressionDetection !== 'boolean') return NextResponse.json({ error: 'regressionDetection must be a boolean' }, { status: 400 });
+      updateData.regressionDetection = json.regressionDetection;
+    }
+    if (json.infiniteLoopThreshold !== undefined) {
+      const threshold = parseInt(json.infiniteLoopThreshold, 10);
+      if (isNaN(threshold) || threshold < 0) return NextResponse.json({ error: 'infiniteLoopThreshold must be >= 0' }, { status: 400 });
+      updateData.infiniteLoopThreshold = threshold;
+    }
+    if (json.maxDiffLines !== undefined) {
+      const maxDiff = parseInt(json.maxDiffLines, 10);
+      if (isNaN(maxDiff) || maxDiff < 0) return NextResponse.json({ error: 'maxDiffLines must be >= 0' }, { status: 400 });
+      updateData.maxDiffLines = maxDiff;
     }
 
     if (json.postAggregatedComments !== undefined) {
