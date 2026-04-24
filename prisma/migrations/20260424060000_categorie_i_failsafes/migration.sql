@@ -100,3 +100,4 @@ PRAGMA defer_foreign_keys=OFF;
 
 -- CreateIndex
 CREATE INDEX "PromptTemplate_repositoryId_isActive_idx" ON "PromptTemplate"("repositoryId", "isActive");
+CREATE UNIQUE INDEX "PromptTemplate_repositoryId_name_key" ON "PromptTemplate"("repositoryId", "name");
