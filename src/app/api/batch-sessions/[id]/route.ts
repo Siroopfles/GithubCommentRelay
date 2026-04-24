@@ -49,10 +49,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const { isPaused: _ignored, ...rest } = updateData;
       const res = await prisma.batchSession.updateMany({
         where: { id, isPaused: false },
-        data: { ...rest, isPaused: true },
+        data: { isPaused: true }, // Only transition the pause state atomically
       });
       shouldNotifyPause = res.count === 1;
-      session = await prisma.batchSession.findUnique({ where: { id } });
+
+      // If there are other fields to update, apply them regardless of the pause transition
+      if (Object.keys(rest).length > 0) {
+        session = await prisma.batchSession.update({ where: { id }, data: rest });
+      } else {
+        session = await prisma.batchSession.findUnique({ where: { id } });
+      }
+
       if (!session) {
         return NextResponse.json({ error: 'Session not found' }, { status: 404 });
       }
