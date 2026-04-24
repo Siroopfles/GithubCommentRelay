@@ -129,10 +129,42 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
     if (json.complexityWeights !== undefined) {
       if (json.complexityWeights !== null && json.complexityWeights !== "") {
+         if (typeof json.complexityWeights !== 'string') {
+             return NextResponse.json({ error: 'complexityWeights must be a JSON-encoded string' }, { status: 400 });
+         }
          try {
            const parsed = JSON.parse(json.complexityWeights);
            if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
               return NextResponse.json({ error: 'complexityWeights must be valid JSON object' }, { status: 400 });
+           }
+
+           const validKeys = ['linting', 'typeError', 'security', 'testFailure', 'general', 'unknown', 'stacktraceLinePenalty', 'maxStacktracePenalty', 'fileCountPenalty', 'maxFileCountPenalty', 'maxBaseCategoryPenalty', 'maxKeywordPenalty', 'keywords', 'replaceKeywords'];
+
+           let hasValidKey = false;
+           for (const key of Object.keys(parsed)) {
+               if (validKeys.includes(key)) {
+                   if (key === 'keywords') {
+                       if (typeof parsed.keywords === 'object' && parsed.keywords !== null) {
+                           for (const val of Object.values(parsed.keywords)) {
+                               if (typeof val === 'number' || val === null) {
+                                   hasValidKey = true;
+                               }
+                           }
+                       }
+                   } else if (key === 'replaceKeywords') {
+                       if (typeof parsed.replaceKeywords === 'boolean') {
+                           hasValidKey = true;
+                       }
+                   } else {
+                       if (typeof parsed[key] === 'number') {
+                           hasValidKey = true;
+                       }
+                   }
+               }
+           }
+
+           if (!hasValidKey && Object.keys(parsed).length > 0) {
+               return NextResponse.json({ error: 'complexityWeights has no valid fields or numeric values' }, { status: 400 });
            }
          } catch(e) {
            return NextResponse.json({ error: 'complexityWeights must be valid JSON object' }, { status: 400 });

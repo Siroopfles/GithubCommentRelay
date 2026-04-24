@@ -7,11 +7,13 @@ exports.defaultWeights = {
     typeError: 3,
     security: 8,
     testFailure: 5,
+    general: 0.1,
     unknown: 2,
     stacktraceLinePenalty: 0.5,
     maxStacktracePenalty: 5,
     fileCountPenalty: 1,
     maxFileCountPenalty: 10,
+    maxBaseCategoryPenalty: 15,
     maxKeywordPenalty: 15,
     keywords: {
         "syntaxerror": 1,
@@ -42,9 +44,15 @@ function calculateComplexity(comments, customWeightsJson) {
                         }
                     }
                 }
+                if (custom.replaceKeywords === true) {
+                    weights.keywords = {};
+                }
                 if (custom.keywords && typeof custom.keywords === 'object' && !Array.isArray(custom.keywords)) {
                     for (const [kw, val] of Object.entries(custom.keywords)) {
-                        if (typeof val === 'number' && Number.isFinite(val)) {
+                        if (val === null) {
+                            delete weights.keywords[kw];
+                        }
+                        else if (typeof val === 'number' && Number.isFinite(val)) {
                             weights.keywords[kw] = val;
                         }
                         else {
@@ -52,7 +60,7 @@ function calculateComplexity(comments, customWeightsJson) {
                         }
                     }
                 }
-                else if (custom.keywords !== undefined) {
+                else if (custom.keywords !== undefined && custom.keywords !== null) {
                     console.warn("complexityWeights.keywords must be an object, using defaults.");
                 }
             }
@@ -72,23 +80,21 @@ function calculateComplexity(comments, customWeightsJson) {
         switch (comment.category) {
             case "lint":
                 breakdown.baseCategoryScore += weights.linting;
-                totalScore += weights.linting;
                 break;
             case "type_error":
                 breakdown.baseCategoryScore += weights.typeError;
-                totalScore += weights.typeError;
                 break;
             case "security":
                 breakdown.baseCategoryScore += weights.security;
-                totalScore += weights.security;
                 break;
             case "test_failure":
                 breakdown.baseCategoryScore += weights.testFailure;
-                totalScore += weights.testFailure;
+                break;
+            case "general":
+                breakdown.baseCategoryScore += weights.general;
                 break;
             default:
                 breakdown.baseCategoryScore += weights.unknown;
-                totalScore += weights.unknown;
                 break;
         }
         // 2. Stacktrace length — count only stack-frame-like lines
@@ -116,6 +122,11 @@ function calculateComplexity(comments, customWeightsJson) {
             fileMatches.forEach(f => uniqueFiles.add(f));
         }
     }
+    // Cap base category score
+    if (breakdown.baseCategoryScore > weights.maxBaseCategoryPenalty) {
+        breakdown.baseCategoryScore = weights.maxBaseCategoryPenalty;
+    }
+    totalScore += breakdown.baseCategoryScore;
     // Cap keyword score
     if (breakdown.keywordScore > weights.maxKeywordPenalty) {
         breakdown.keywordScore = weights.maxKeywordPenalty;

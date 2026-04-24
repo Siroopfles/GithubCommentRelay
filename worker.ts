@@ -949,6 +949,11 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
         try {
           let outerPromptTemplateId: string | null = null;
+          let activePromptTemplateObj: any = null;
+          let complexityLabelOuter = "EASY";
+          let complexityScoreOuter = 0;
+          let finalCommentTemplateOuter: string | null = null;
+          let finalAiSystemPromptOuter: string | null = null;
           const aiSystemPrompt = repoConfig?.aiSystemPrompt;
           const commentTemplate = repoConfig?.commentTemplate;
 
@@ -1019,6 +1024,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                 const templates = await prisma.promptTemplate.findMany({ where: { repositoryId: repoConfig.id, isActive: true } });
                 if (templates.length > 0) {
                   const activePromptTemplate = templates[Math.floor(Math.random() * templates.length)];
+                  activePromptTemplateObj = activePromptTemplate;
                   finalPromptTemplateId = activePromptTemplate.id;
                   outerPromptTemplateId = activePromptTemplate.id;
                 }
@@ -1028,12 +1034,11 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           }
 
           // Categorie I Failsafes Setup
-          let complexityLabel = "EASY";
-          let complexityScore = 0;
+
           try {
              const complexity = calculateComplexity(commentsToBatch as any, repoConfig?.complexityWeights);
-             complexityLabel = complexity.label;
-             complexityScore = complexity.score;
+             complexityLabelOuter = complexity.label;
+             complexityScoreOuter = complexity.score;
           } catch(e) {
              logger.warn("Failed to calculate complexity score", e);
           }
@@ -1041,23 +1046,19 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           let finalCommentTemplate = commentTemplate;
           let finalAiSystemPrompt = aiSystemPrompt;
 
-          if (finalPromptTemplateId) {
-             try {
-                const activePrompt = await prisma.promptTemplate.findUnique({ where: { id: finalPromptTemplateId }});
-                if (activePrompt) {
-                   finalCommentTemplate = activePrompt.template;
-                   finalAiSystemPrompt = activePrompt.systemPrompt;
-                }
-             } catch(e) {}
+          // Use the template fetched earlier instead of fetching again
+          if (activePromptTemplateObj) {
+               finalCommentTemplate = activePromptTemplateObj.template;
+               finalAiSystemPrompt = activePromptTemplateObj.systemPrompt;
           }
 
           if (finalCommentTemplate) {
-             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityScore}}/g, `${complexityScore}`);
-             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityLabel}}/g, complexityLabel);
+             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityScore}}/g, `${complexityScoreOuter}`);
+             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityLabel}}/g, complexityLabelOuter);
           }
           if (finalAiSystemPrompt) {
-             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityScore}}/g, `${complexityScore}`);
-             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityLabel}}/g, complexityLabel);
+             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityScore}}/g, `${complexityScoreOuter}`);
+             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityLabel}}/g, complexityLabelOuter);
           }
 
           const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
@@ -1221,6 +1222,14 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           let prResolvedAt: Date | null = null;
           let finalLoopCount = session.loopCount + 1; // Increment for this processing iteration
           let finalPromptTemplateIdToSave = outerPromptTemplateId;
+          // Re-create the vars so they are available at the lower scope. They exist at top level inside try block though, so they should be available.
+          let promptVarsObj = JSON.stringify({
+             complexityScore: complexityScoreOuter,
+             complexityLabel: complexityLabelOuter,
+             finalCommentTemplate: finalCommentTemplateOuter,
+             finalAiSystemPrompt: finalAiSystemPromptOuter,
+             manualPrompt: session.manualPrompt
+          });
           try {
             let checkToken = repoConfig?.githubToken || settings?.githubToken;
             if (checkToken) {
@@ -1240,7 +1249,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt, loopCount: finalLoopCount, ...(finalPromptTemplateIdToSave ? { lastPromptId: finalPromptTemplateIdToSave } : {}) }
+            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt, loopCount: finalLoopCount, lastPromptVars: promptVarsObj, ...(finalPromptTemplateIdToSave ? { lastPromptId: finalPromptTemplateIdToSave } : {}) }
           })
 
           // Trigger label sync: processing_done

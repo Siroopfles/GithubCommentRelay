@@ -222,6 +222,7 @@ model PromptTemplate {
   template     String
   createdAt    DateTime   @default(now())
 
+  @@unique([repositoryId, name])
   @@index([repositoryId, isActive])
 }
 
