@@ -20,11 +20,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const json = await request.json();
     const { name, systemPrompt, template, isActive } = json;
 
-    if (!name || !template) {
-      return NextResponse.json({ error: 'Name and template are required' }, { status: 400 });
+    if (typeof name !== 'string' || name.trim() === '' || typeof template !== 'string' || template === '') {
+      return NextResponse.json({ error: 'Name and template are required strings' }, { status: 400 });
+    }
+    if (systemPrompt !== undefined && systemPrompt !== null && typeof systemPrompt !== 'string') {
+      return NextResponse.json({ error: 'systemPrompt must be a string or null' }, { status: 400 });
+    }
+    if (isActive !== undefined && typeof isActive !== 'boolean') {
+      return NextResponse.json({ error: 'isActive must be a boolean' }, { status: 400 });
+    }
+    if (name.length > 200 || template.length > 10000 || (typeof systemPrompt === 'string' && systemPrompt.length > 10000)) {
+      return NextResponse.json({ error: 'Field too long' }, { status: 400 });
     }
 
-    const newTemplate = await prisma.promptTemplate.create({
+    try {
+      const newTemplate = await prisma.promptTemplate.create({
       data: {
         repositoryId: id,
         name,
@@ -35,7 +45,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
 
     return NextResponse.json(newTemplate);
+    } catch (e: any) {
+      if (e?.code === 'P2003' || e?.code === 'P2025') {
+        return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+      }
+      throw e;
+    }
   } catch (error) {
+    console.error('Prompt list fetch/create error', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

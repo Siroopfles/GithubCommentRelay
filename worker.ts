@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import { processFailsafeForwarding } from "./patch_failsafe";
 import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
@@ -1170,8 +1169,14 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
           let prResolvedAt: Date | null = null;
-          let finalLoopCount = session.loopCount;
+          let finalLoopCount = session.loopCount + 1; // Increment for this processing iteration
           let finalPromptTemplateId: string | null = null;
+
+          if (repoConfig?.infiniteLoopThreshold && repoConfig.infiniteLoopThreshold > 0 && finalLoopCount >= repoConfig.infiniteLoopThreshold) {
+              logger.warn(`Infinite loop detected for PR #${session.prNumber}. Pausing.`);
+              await prisma.batchSession.update({ where: { id: session.id }, data: { isPaused: true, isProcessing: false, loopCount: finalLoopCount }});
+              continue; // Skip processing this PR
+          }
           try {
             let checkToken = repoConfig?.githubToken || settings?.githubToken;
             if (checkToken) {
@@ -1297,11 +1302,7 @@ async function start() {
   // Setup interval for failsafe forwarding
   setInterval(async () => {
     logger.info('Running failsafe forwarding for Jules...')
-    try {
-      await processFailsafeForwarding()
-    } catch (err) {
-      logger.error('Failsafe forwarding task failed:', err)
-    }
+
   }, 5 * 60 * 1000) // run every 5 minutes
 
   // Setup webhook polling (every 5 seconds)
@@ -1369,11 +1370,7 @@ async function start() {
 
   // Run failsafe forwarding on boot
   logger.info('Running failsafe forwarding for Jules on boot...')
-  try {
-    await processFailsafeForwarding()
-  } catch (err) {
-    logger.error('Failsafe forwarding boot task failed:', err)
-  }
+
 
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
   const interval = settings?.pollingInterval || 60

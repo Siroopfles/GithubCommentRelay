@@ -1,4 +1,4 @@
-import { Prisma, PRLabelRuleEvent } from '@prisma/client';
+import { Prisma, PRLabelRuleEvent, RegressionMatchMode } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -102,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const stringOrNullFields = [
       'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
-      'branchBlacklist', 'githubToken', 'requiredBots', 'aiBotUsernames', 'regressionMatchMode', 'complexityWeights'
+      'branchBlacklist', 'githubToken', 'requiredBots', 'aiBotUsernames'
     ];
 
     for (const field of stringOrNullFields) {
@@ -115,6 +115,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
 
+    if (json.regressionMatchMode !== undefined) {
+      const modeMap: Record<string, RegressionMatchMode> = {
+        'exact': RegressionMatchMode.EXACT,
+        'type': RegressionMatchMode.TYPE,
+        'fuzzy': RegressionMatchMode.FUZZY
+      };
+      if (!modeMap[json.regressionMatchMode.toLowerCase()]) {
+        return NextResponse.json({ error: 'regressionMatchMode must be one of "exact", "type", "fuzzy"' }, { status: 400 });
+      }
+      updateData.regressionMatchMode = modeMap[json.regressionMatchMode.toLowerCase()];
+    }
+    if (json.complexityWeights !== undefined) {
+      if (json.complexityWeights !== null && json.complexityWeights !== "") {
+         try {
+           const parsed = JSON.parse(json.complexityWeights);
+           if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+              return NextResponse.json({ error: 'complexityWeights must be valid JSON object' }, { status: 400 });
+           }
+         } catch(e) {
+           return NextResponse.json({ error: 'complexityWeights must be valid JSON object' }, { status: 400 });
+         }
+      }
+      updateData.complexityWeights = json.complexityWeights === "" ? null : json.complexityWeights;
+    }
     if (json.regressionDetection !== undefined) {
       if (typeof json.regressionDetection !== 'boolean') return NextResponse.json({ error: 'regressionDetection must be a boolean' }, { status: 400 });
       updateData.regressionDetection = json.regressionDetection;

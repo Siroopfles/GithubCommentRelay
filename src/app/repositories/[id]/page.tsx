@@ -58,14 +58,15 @@ export default function RepositoryPRsPage() {
   const [infiniteLoopThreshold, setInfiniteLoopThreshold] = useState(3)
   const [maxDiffLines, setMaxDiffLines] = useState(500)
   const [complexityWeights, setComplexityWeights] = useState('')
-  const [prompts, setPrompts] = useState<any[]>([])
+  interface PromptTemplate { id: string; repositoryId: string; name: string; isActive: boolean; systemPrompt: string | null; template: string; createdAt: string; }
+  const [prompts, setPrompts] = useState<PromptTemplate[]>([])
   const [newPromptName, setNewPromptName] = useState('')
   const [newPromptTemplate, setNewPromptTemplate] = useState('')
 
   const fetchPrompts = async (repoId: string) => {
     try {
       const res = await fetch(`/api/repositories/${repoId}/prompts`)
-      if (res.ok) setPrompts(await res.json())
+      if (res.ok) setPrompts((await res.json()) as PromptTemplate[])
     } catch (e) { console.error('Failed to fetch prompts', e) }
   }
 

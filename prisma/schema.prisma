@@ -24,36 +24,36 @@ model Settings {
 }
 
 model Repository {
-  id                     String   @id @default(cuid())
+  id                     String              @id @default(cuid())
   owner                  String
   name                   String
-  isActive               Boolean  @default(true)
-  autoMergeEnabled       Boolean  @default(false)
-  requiredApprovals      Int      @default(1)
-  requireCI              Boolean  @default(true)
-  mergeStrategy          String   @default("merge") // 'merge', 'squash', 'rebase'
-  taskSourceType         String   @default("none") // 'none', 'local_folder', 'github_issues'
+  isActive               Boolean             @default(true)
+  autoMergeEnabled       Boolean             @default(false)
+  requiredApprovals      Int                 @default(1)
+  requireCI              Boolean             @default(true)
+  mergeStrategy          String              @default("merge") // 'merge', 'squash', 'rebase'
+  taskSourceType         String              @default("none") // 'none', 'local_folder', 'github_issues'
   taskSourcePath         String? // Path to folder if taskSourceType is 'local_folder'
-  maxConcurrentTasks     Int      @default(3) // Limits AI tasks running simultaneously
+  maxConcurrentTasks     Int                 @default(3) // Limits AI tasks running simultaneously
   julesPromptTemplate    String? // Template for the prompt
-  julesChatForwardMode   String   @default("off") // 'off', 'always', 'failsafe'
-  julesChatForwardDelay  Int      @default(5) // In minutes
+  julesChatForwardMode   String              @default("off") // 'off', 'always', 'failsafe'
+  julesChatForwardDelay  Int                 @default(5) // In minutes
   aiSystemPrompt         String? // Top-level prompt for AI bots
   commentTemplate        String? // Markdown template for individual bot comments
-  postAggregatedComments Boolean  @default(true)
+  postAggregatedComments Boolean             @default(true)
   batchDelay             Int?
   branchWhitelist        String?
   branchBlacklist        String?
-  includeCheckRuns       Boolean  @default(false)
+  includeCheckRuns       Boolean             @default(false)
   githubToken            String?
   requiredBots           String?
   aiBotUsernames         String? // Comma-separated list of AI agent usernames
-  regressionDetection    Boolean  @default(true)
-  regressionMatchMode    String   @default("exact") // "exact", "type", "fuzzy"
-  infiniteLoopThreshold  Int      @default(3) // 0 to disable
-  maxDiffLines           Int      @default(500) // 0 to disable
+  regressionDetection    Boolean             @default(true)
+  regressionMatchMode    RegressionMatchMode @default(EXACT)
+  infiniteLoopThreshold  Int                 @default(3) // 0 to disable
+  maxDiffLines           Int                 @default(500) // 0 to disable
   complexityWeights      String? // JSON object for custom complexity weighting
-  createdAt              DateTime @default(now())
+  createdAt              DateTime            @default(now())
 
   tasks           Task[]
   prLabelRules    PRLabelRule[]
@@ -223,4 +223,10 @@ model PromptTemplate {
   createdAt    DateTime   @default(now())
 
   @@index([repositoryId, isActive])
+}
+
+enum RegressionMatchMode {
+  EXACT
+  TYPE
+  FUZZY
 }
