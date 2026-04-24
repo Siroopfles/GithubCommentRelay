@@ -91,13 +91,9 @@ function calculateComplexity(comments, customWeightsJson) {
                 totalScore += weights.unknown;
                 break;
         }
-        // 2. Stacktrace length
-        const lines = comment.body.split('\n').length;
-        let stackPenalty = lines * weights.stacktraceLinePenalty;
-        if (stackPenalty > weights.maxStacktracePenalty)
-            stackPenalty = weights.maxStacktracePenalty;
-        breakdown.stacktraceScore += stackPenalty;
-        totalScore += stackPenalty;
+        // 2. Stacktrace length — count only stack-frame-like lines
+        const stackLines = comment.body.split('\n').filter(l => /^\s*at\s+\S+/.test(l) || /^\s*File\s+".+",\s*line\s+\d+/.test(l)).length;
+        breakdown.stacktraceScore += stackLines * weights.stacktraceLinePenalty;
         // 3. Keywords
         const bodyLines = comment.body.split('\n');
         let kwScoreForComment = 0;
@@ -125,6 +121,11 @@ function calculateComplexity(comments, customWeightsJson) {
         breakdown.keywordScore = weights.maxKeywordPenalty;
     }
     totalScore += breakdown.keywordScore;
+    // Cap stacktrace score in aggregate (consistent with keyword/file caps)
+    if (breakdown.stacktraceScore > weights.maxStacktracePenalty) {
+        breakdown.stacktraceScore = weights.maxStacktracePenalty;
+    }
+    totalScore += breakdown.stacktraceScore;
     // 4. File count penalty
     let filePenalty = uniqueFiles.size * weights.fileCountPenalty;
     if (filePenalty > weights.maxFileCountPenalty)

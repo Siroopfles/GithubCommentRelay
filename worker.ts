@@ -1010,7 +1010,54 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
             }
 
 
-            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
+            // A/B Prompt Selection
+          let finalPromptTemplateId: string | null = null;
+          try {
+            if (repoConfig?.id) {
+                const templates = await prisma.promptTemplate.findMany({ where: { repositoryId: repoConfig.id, isActive: true } });
+                if (templates.length > 0) {
+                  const activePromptTemplate = templates[Math.floor(Math.random() * templates.length)];
+                  finalPromptTemplateId = activePromptTemplate.id;
+                }
+            }
+          } catch(e) {
+              logger.warn(`Failed to fetch Prompt Templates for repo ${repoConfig?.id}`, e);
+          }
+
+          // Categorie I Failsafes Setup
+          let complexityLabel = "EASY";
+          let complexityScore = 0;
+          try {
+             const complexity = calculateComplexity(commentsToBatch as any, repoConfig?.complexityWeights);
+             complexityLabel = complexity.label;
+             complexityScore = complexity.score;
+          } catch(e) {
+             logger.warn("Failed to calculate complexity score", e);
+          }
+
+          let finalCommentTemplate = commentTemplate;
+          let finalAiSystemPrompt = aiSystemPrompt;
+
+          if (finalPromptTemplateId) {
+             try {
+                const activePrompt = await prisma.promptTemplate.findUnique({ where: { id: finalPromptTemplateId }});
+                if (activePrompt) {
+                   finalCommentTemplate = activePrompt.template;
+                   finalAiSystemPrompt = activePrompt.systemPrompt;
+                }
+             } catch(e) {}
+          }
+
+          if (finalCommentTemplate) {
+             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityScore}}/g, `${complexityScore}`);
+             finalCommentTemplate = finalCommentTemplate.replace(/{{complexityLabel}}/g, complexityLabel);
+          }
+          if (finalAiSystemPrompt) {
+             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityScore}}/g, `${complexityScore}`);
+             finalAiSystemPrompt = finalAiSystemPrompt.replace(/{{complexityLabel}}/g, complexityLabel);
+          }
+
+          const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
             if (repoConfig?.postAggregatedComments !== false) {

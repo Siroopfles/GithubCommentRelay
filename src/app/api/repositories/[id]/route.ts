@@ -121,10 +121,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         'type': RegressionMatchMode.TYPE,
         'fuzzy': RegressionMatchMode.FUZZY
       };
-      if (typeof json.regressionMatchMode !== 'string' || !modeMap[json.regressionMatchMode.toLowerCase()]) {
+      const key = typeof json.regressionMatchMode === 'string' ? json.regressionMatchMode.toLowerCase() : '';
+      if (!Object.prototype.hasOwnProperty.call(modeMap, key)) {
         return NextResponse.json({ error: 'regressionMatchMode must be one of "exact", "type", "fuzzy"' }, { status: 400 });
       }
-      updateData.regressionMatchMode = modeMap[json.regressionMatchMode.toLowerCase()];
+      updateData.regressionMatchMode = modeMap[key];
     }
     if (json.complexityWeights !== undefined) {
       if (json.complexityWeights !== null && json.complexityWeights !== "") {
