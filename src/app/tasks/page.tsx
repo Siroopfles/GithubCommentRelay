@@ -16,6 +16,7 @@ type Task = {
   githubIssueNumber: number | null;
   julesSessionId: string | null;
   prNumber: number | null;
+  dependsOnId?: string | null;
 };
 
 type Repository = {
@@ -75,12 +76,20 @@ export default function TasksPage() {
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
-
     const { source, destination, draggableId } = result;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    if (source.droppableId === destination.droppableId && source.index === destination.index) {
-      return;
+    const task = tasks.find(t => t.id === draggableId);
+    if (task && task.dependsOnId) {
+       const dependency = tasks.find(t => t.id === task.dependsOnId);
+       const gatedTargets = ['todo', 'in_progress', 'in_review', 'done'];
+       if ((!dependency || dependency.status !== 'done') && gatedTargets.includes(destination.droppableId)) {
+           alert('Cannot move this task because its dependency is missing or not done.');
+           return;
+       }
     }
+
+
 
     // Optimistic UI update
     const sourceColTasks = tasks.filter(t => t.status === source.droppableId).sort((a, b) => b.priority - a.priority);
@@ -105,15 +114,17 @@ export default function TasksPage() {
     setTasks(updatedTasks);
 
     try {
-      await fetch(`/api/tasks/${draggableId}`, {
+      const res = await fetch(`/api/tasks/${draggableId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: destination.droppableId,
-          // We'd ideally send the new priority here based on sibling positions,
-          // but for now, moving between columns is the primary function.
         })
       });
+      if (!res.ok) {
+        setTasks(tasks); // Revert
+        alert('Failed to update task status.');
+      }
       // Optionally fetchTasks() to ensure perfect sync
     } catch (e) {
       console.error(e);
@@ -161,12 +172,27 @@ export default function TasksPage() {
     }
   };
 
+
+  const isReachable = (startId: string, targetId: string) => {
+    let currentId: string | null | undefined = startId;
+    const seen = new Set<string>();
+    while (currentId) {
+      if (currentId === targetId) return true;
+      if (seen.has(currentId)) break;
+      seen.add(currentId);
+      const t = tasks.find(t => t.id === currentId);
+      currentId = t?.dependsOnId;
+    }
+    return false;
+  };
+
   const openEditModal = (task: Task) => {
     setEditingTask(task);
     setValue('title', task.title);
     setValue('body', task.body || '');
     setValue('status', task.status);
     setValue('priority', task.priority);
+    setValue('dependsOnId', task.dependsOnId || '');
     setIsModalOpen(true);
   };
 
@@ -292,6 +318,15 @@ export default function TasksPage() {
                 <textarea {...register('body')} rows={3} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Depends On (Blocker)</label>
+                  <select {...register('dependsOnId')} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100">
+                    <option value="">None</option>
+                    {tasks.filter(t => t.id !== editingTask?.id && (!editingTask || !isReachable(t.id, editingTask.id))).map(t => (
+                      <option key={t.id} value={t.id}>{t.title} ({t.status})</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                   <select {...register('status')} className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">

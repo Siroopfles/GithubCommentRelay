@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const json = await request.json()
-  const { repositoryId, title, body, status, priority, contextFiles } = json
+  const { repositoryId, title, body, status, priority, contextFiles, dependsOnId } = json
 
   if (!repositoryId || !title) {
     return NextResponse.json({ error: 'repositoryId and title are required' }, { status: 400 })
@@ -35,6 +35,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (dependsOnId) {
+      const dependency = await prisma.task.findFirst({
+        where: { id: dependsOnId, repositoryId },
+        select: { id: true },
+      })
+
+      if (!dependency) {
+        return NextResponse.json({ error: 'Dependency task does not exist in this repository' }, { status: 400 })
+      }
+    }
+
     const task = await prisma.task.create({
       data: {
         repositoryId,
@@ -44,6 +55,7 @@ export async function POST(request: Request) {
         source: 'manual',
         priority: parsedPriority,
         contextFiles: contextFiles ? (typeof contextFiles === 'string' ? contextFiles : JSON.stringify(contextFiles)) : null,
+        dependsOnId: dependsOnId || null,
       }
     })
     return NextResponse.json(task)

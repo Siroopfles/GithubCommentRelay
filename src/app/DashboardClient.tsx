@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Clock, GitPullRequest, FastForward } from 'lucide-react'
+import { CheckCircle2, Clock, GitPullRequest, FastForward, AlertTriangle, MessageSquare } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { AnalyticsDashboard } from './components/AnalyticsDashboard'
@@ -16,7 +16,43 @@ export function DashboardClient({
 }) {
   const router = useRouter()
   const [triggering, setTriggering] = useState<Record<string, boolean>>({})
+  const [updating, setUpdating] = useState<Record<string, boolean>>({})
+  const [promptInputs, setPromptInputs] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview')
+
+  const toggleHighPriority = async (session: any) => {
+    setUpdating(prev => ({ ...prev, [session.id]: true }))
+    try {
+      const res = await fetch(`/api/batch-sessions/${session.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isHighPriority: !session.isHighPriority })
+      })
+      if (!res.ok) throw new Error('Failed to update priority')
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setUpdating(prev => ({ ...prev, [session.id]: false }))
+    }
+  }
+
+  const saveManualPrompt = async (session: any) => {
+    setUpdating(prev => ({ ...prev, [session.id]: true }))
+    try {
+      const res = await fetch(`/api/batch-sessions/${session.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manualPrompt: promptInputs[session.id] !== undefined ? (promptInputs[session.id] || null) : (session.manualPrompt || null) })
+      })
+      if (!res.ok) throw new Error('Failed to save prompt')
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setUpdating(prev => ({ ...prev, [session.id]: false }))
+    }
+  }
 
   const handleAggregateNow = async (sessionId: string) => {
     setTriggering(prev => ({ ...prev, [sessionId]: true }))
@@ -122,6 +158,24 @@ export function DashboardClient({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium rounded-full">Waiting</span>
+                      <div className="flex flex-col gap-2 mr-4">
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                           <input type="checkbox" checked={session.isHighPriority} onChange={() => toggleHighPriority(session)} disabled={updating[session.id]} className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" />
+                           <AlertTriangle size={14} className={session.isHighPriority ? "text-red-500" : "text-gray-400"} /> High Priority
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                placeholder="Manual prompt injection..."
+                                defaultValue={session.manualPrompt || ""}
+                                onChange={(e) => setPromptInputs(prev => ({ ...prev, [session.id]: e.target.value }))}
+                                className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md text-black dark:text-gray-100 w-48"
+                            />
+                            <button onClick={() => saveManualPrompt(session)} disabled={updating[session.id]} className="p-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded text-gray-700 dark:text-gray-300" title="Save prompt">
+                                <MessageSquare size={14} />
+                            </button>
+                        </div>
+                      </div>
                       <button
                         onClick={() => handleAggregateNow(session.id)}
                         disabled={triggering[session.id]}

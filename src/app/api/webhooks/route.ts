@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, message: 'Ignored event' });
     }
 
-    await prisma.webhookSignal.upsert({
+    if ((event as string) !== 'pull_request') {
+        await prisma.webhookSignal.upsert({
         where: {
             repoOwner_repoName_prNumber: {
                 repoOwner,
@@ -62,6 +63,47 @@ export async function POST(request: NextRequest) {
             prNumber,
         }
     });
+    }
+
+    // Auto-promote task based on GitHub activity (Idea 39)
+    if ((event as string) === 'pull_request') {
+        const action = body?.action;
+        let statusToSet = null;
+        if (action === 'opened' || action === 'reopened') {
+            statusToSet = 'in_progress';
+        } else if (action === 'review_requested') {
+            statusToSet = 'in_review';
+        } else if (action === 'closed' && body?.pull_request?.merged) {
+            statusToSet = 'done';
+        }
+        if (statusToSet) {
+           const repo = await prisma.repository.findFirst({
+               where: { owner: repoOwner, name: repoName }
+           });
+           if (repo) {
+               const tasksToUpdate = await prisma.task.findMany({
+                   where: { repositoryId: repo.id, prNumber: prNumber }
+               });
+
+               for (const task of tasksToUpdate) {
+                   if (task.dependsOnId) {
+                       const dependency = await prisma.task.findUnique({
+                           where: { id: task.dependsOnId },
+                           select: { status: true }
+                       });
+                       if (!dependency || dependency.status !== 'done') {
+                           continue; // Skip updating this task because dependency is unmet
+                       }
+                   }
+
+                   await prisma.task.update({
+                       where: { id: task.id },
+                       data: { status: statusToSet }
+                   });
+               }
+           }
+        }
+    }
 
     return NextResponse.json({ success: true, message: 'Webhook signal created' });
   } catch (error) {

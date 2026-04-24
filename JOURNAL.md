@@ -232,3 +232,10 @@ The user requested the implementation of Category G from `IDEAS.md`. This includ
 4. **Dashboard:** Added `recharts` for charts. Built a new subcomponent `<AnalyticsDashboard />` embedded in `DashboardClient.tsx`. User can toggle between the 'Overview' (list of active sessions and recent comments) and 'Analytics & Metrics' (charts and KPIs).
 
 All tests and builds pass.
+
+## 2026-04-22: Implemented Category H Ideas (AI-Agent Workflow & Task Management)
+- **Idea 36: Priority Queues for PRs:** Added `isHighPriority` to `BatchSession` and integrated UI toggle in the Dashboard. The worker now injects a `🚨 [PRIORITY: HIGH]` flag if true.
+- **Idea 37: Agent-Specific Routing:** Created the `BotAgentMapping` model. Settings page has a UI to manage bot to agent mappings. The worker automatically swaps bot names for agent tags in the Markdown output.
+- **Idea 38: Task Dependencies in Kanban:** Added `dependsOnId` to `Task` model. The UI Kanban prevents dragging a task if its parent dependency is not resolved (status not `done`), and highlights blocked tasks.
+- **Idea 39: Auto-promotion based on GitHub Activity:** Updated the `webhooks` API endpoint to auto-promote Tasks based on PR webhook events (`opened` -> `in_progress`, `review_requested` -> `in_review`, `closed` -> `done`).
+- **Idea 40: Manual Prompt Injection:** Added `manualPrompt` to `BatchSession` and provided a UI field in the Dashboard. The worker injects the prompt and nullifies the database field right after usage.

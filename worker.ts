@@ -875,6 +875,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
     const now = new Date().getTime()
 
+    const botMappings = await prisma.botAgentMapping.findMany();
     const pendingSessions = await prisma.batchSession.findMany({
       where: { isProcessed: false, isProcessing: false }
     })
@@ -1008,7 +1009,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                 }
             }
 
-            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate) + checkRunsContent;
+
+            const aggregatedBody = formatAggregatedBody(commentsToBatch, aiSystemPrompt, commentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -1186,7 +1188,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
           await prisma.batchSession.update({
             where: { id: session.id },
-            data: { isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
+            data: { manualPrompt: null, isProcessed: true, isProcessing: false, forceProcess: false, resolved: prResolvedAt !== null, resolvedAt: prResolvedAt }
           })
 
           // Trigger label sync: processing_done
