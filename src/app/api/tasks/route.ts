@@ -22,7 +22,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const json = await request.json()
-  const { repositoryId, title, body, status, priority, contextFiles, dependsOnId } = json
+  const { repositoryId, title, body, status, priority, contextFiles, dependsOnId, prNumber, julesSessionId } = json
+
+  let parsedPrNumber: number | null = null
+  if (prNumber !== undefined && prNumber !== null && prNumber !== '') {
+    const n = typeof prNumber === 'number' ? prNumber : parseInt(prNumber, 10)
+    if (Number.isNaN(n)) {
+      return NextResponse.json({ error: 'prNumber must be an integer' }, { status: 400 })
+    }
+    parsedPrNumber = n
+  }
 
   if (!repositoryId || !title) {
     return NextResponse.json({ error: 'repositoryId and title are required' }, { status: 400 })
@@ -56,6 +65,8 @@ export async function POST(request: Request) {
         priority: parsedPriority,
         contextFiles: contextFiles ? (typeof contextFiles === 'string' ? contextFiles : JSON.stringify(contextFiles)) : null,
         dependsOnId: dependsOnId || null,
+        prNumber: parsedPrNumber,
+        julesSessionId: typeof julesSessionId === 'string' && julesSessionId ? julesSessionId : null,
       }
     })
     return NextResponse.json(task)

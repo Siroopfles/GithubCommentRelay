@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
         prNumber = body.issue.number;
     } else if ((event === 'pull_request_review_comment' || event === 'pull_request_review') && body?.pull_request?.number) {
         prNumber = body.pull_request.number;
+    } else if (event === 'pull_request' && body?.pull_request?.number) {
+        prNumber = body.pull_request.number;
     } else {
         return NextResponse.json({ success: true, message: 'Ignored event' });
     }
@@ -63,6 +65,72 @@ export async function POST(request: NextRequest) {
             prNumber,
         }
     });
+    }
+
+
+    // Mens vs Jules Conflict Detectie (Idee 50)
+    // If a human adds a commit (pull_request synchronize) or a comment while Jules is processing, flag a conflict
+    if (event && ['pull_request', 'issue_comment', 'pull_request_review_comment', 'pull_request_review'].includes(event)) {
+        const senderType = body?.sender?.type;
+        const senderLogin = body?.sender?.login;
+
+        // Only flag pull_request events if it's a synchronize/opened/reopened action
+        const action = body?.action;
+        const isPrSync = event === 'pull_request' && (action === 'synchronize');
+        const isComment = event !== 'pull_request';
+
+        // Check if the actor is a human (not a bot, and not Jules if we could identify Jules's account)
+        // Usually GitHub marks apps with [bot], so if type is User, it's likely a human
+        if (senderType === 'User' && (isPrSync || isComment)) {
+            // Parallelize lookups
+            // Option 2: Exclude the bot's own username from conflict detection
+            // Re-using outer settings variable
+            const repoConfig = await prisma.repository.findUnique({ where: { owner_name: { owner: repoOwner, name: repoName } } });
+            let token = repoConfig?.githubToken || settings?.githubToken;
+            let botUsername = null;
+            if (token) {
+               try {
+                  const { Octokit } = await import('octokit');
+                  const octo = new Octokit({ auth: token });
+                  const { data: user } = await octo.rest.users.getAuthenticated();
+                  botUsername = user.login;
+               } catch (e) {
+                  logger.error('Failed to getAuthenticated in webhook conflict detection:', e);
+               }
+            }
+
+            if (botUsername && senderLogin === botUsername) {
+                // Ignore self-events for conflict detection, but we MUST NOT return early
+                // because we still want auto-promotion to run below
+            } else {
+
+            const [repo, activeSession] = await Promise.all([
+                prisma.repository.findFirst({
+                    where: { owner: repoOwner, name: repoName }
+                }),
+                prisma.batchSession.findFirst({
+                    where: {
+                        repoOwner,
+                        repoName,
+                        prNumber,
+                        isProcessed: false,
+                        // isProcessing: false, // Removed this as we want to know if human interferes WHILE Jules is processing (and rely on token to differentiate)
+                        isPaused: false
+                    }
+                })
+            ]);
+            if (repo && prNumber) {
+                    // If Jules is actively processing (isProcessing = true or just an open session), and a human intervenes
+                    if (activeSession) {
+                        await prisma.batchSession.update({
+                            where: { id: activeSession.id },
+                            data: { hasConflict: true }
+                        });
+                        logger.warn(`Conflict Detected in PR #${prNumber}: Human (${senderLogin}) interacted while Jules was active.`);
+                    }
+                }
+            }
+        }
     }
 
     // Auto-promote task based on GitHub activity (Idea 39)

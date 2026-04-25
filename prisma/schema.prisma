@@ -116,6 +116,7 @@ model BatchSession {
   resolvedAt       DateTime? // When the PR was closed or merged
   resolved         Boolean   @default(false)
   isPaused         Boolean   @default(false)
+  hasConflict      Boolean   @default(false)
   loopCount        Int       @default(0)
   lastPromptId     String? // To track which prompt template was used
   lastPromptVars   String? // To track variables used in last prompt
@@ -128,7 +129,7 @@ model AutoMergeLog {
   repoOwner String
   repoName  String
   prNumber  Int
-  status    String // 'SUCCESS', 'FAILED'
+  status    String // 'SUCCESS', 'FAILED', 'PAUSED'
   message   String?
   createdAt DateTime @default(now())
 
@@ -209,6 +210,7 @@ model BotAgentMapping {
   id        String   @id @default(cuid())
   botSource String   @unique
   agentName String
+  role      String?
   createdAt DateTime @default(now())
 }
 

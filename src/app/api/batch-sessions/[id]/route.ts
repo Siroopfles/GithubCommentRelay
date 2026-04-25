@@ -1,7 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// TODO: Replace with next-auth session or signed admin cookie before this
+// endpoint is reachable from anything other than localhost.
+// Tracking issue: https://github.com/Siroopfles/GithubCommentRelay/issues/<NEW_ISSUE>
+//
+// Two-tier auth:
+//  1. If ADMIN_SECRET env var is set → require "Authorization: Bearer <secret>".
+//  2. Otherwise → accept only localhost-originating requests (Proxmox local deployment).
+function isAuthenticated(request: NextRequest): boolean {
+  const adminSecret = process.env.ADMIN_SECRET;
+
+  if (adminSecret) {
+    // Tier 1: shared-secret header check.
+    const authHeader = request.headers.get('authorization');
+    return authHeader === `Bearer ${adminSecret}`;
+  }
+
+  // Tier 2: localhost-only gate when no secret is configured.
+  // Next.js App Router exposes the originating IP via these headers.
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIp = request.headers.get('x-real-ip');
+  const ip = forwarded ? forwarded.split(',')[0].trim() : realIp ?? '';
+
+  // Empty string = no proxy headers set (direct Next.js dev server on Proxmox).
+  const isLocalIp = ip === '127.0.0.1' || ip === '::1' || ip === '';
+
+  // Belt-and-suspenders: also accept when Host is localhost.
+  const host = request.headers.get('host') ?? '';
+  const isLocalHost = host.startsWith('localhost:') || host.startsWith('127.0.0.1:');
+
+  return isLocalIp || isLocalHost;
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isAuthenticated(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { id } = await params;
 
   try {
@@ -9,12 +44,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const updateData: any = {};
 
     if (json.isHighPriority !== undefined) updateData.isHighPriority = json.isHighPriority;
+    let shouldNotifyPause = false;
     if (json.isPaused !== undefined) {
       if (typeof json.isPaused !== 'boolean') {
         return NextResponse.json({ error: 'isPaused must be a boolean' }, { status: 400 });
       }
       updateData.isPaused = json.isPaused;
-      if (json.isPaused === false) updateData.loopCount = 0;
+      if (json.isPaused === false) {
+        updateData.loopCount = 0;
+        updateData.hasConflict = false; // Reset conflict flag on resume
+      }
+
+      // handled atomically below via updateMany
     }
     if (json.manualPrompt !== undefined) {
       if (typeof json.manualPrompt === 'string' && json.manualPrompt.length > 10000) {
@@ -27,10 +68,71 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 });
     }
 
-    const session = await prisma.batchSession.update({
-      where: { id },
-      data: updateData
-    });
+    let session;
+    if (json.isPaused === true) {
+      const { isPaused: _ignored, ...rest } = updateData;
+      // Use transaction to ensure both the atomic pause transition and the other field updates
+      // either succeed together or fail together, preventing partial states.
+      const result = await prisma.$transaction(async (tx) => {
+        const res = await tx.batchSession.updateMany({
+          where: { id, isPaused: false },
+          data: { isPaused: true },
+        });
+
+        let sess;
+        if (Object.keys(rest).length > 0) {
+          sess = await tx.batchSession.update({ where: { id }, data: rest });
+        } else {
+          sess = await tx.batchSession.findUnique({ where: { id } });
+        }
+
+        return { count: res.count, session: sess };
+      });
+
+      shouldNotifyPause = result.count === 1;
+      session = result.session;
+
+      if (!session) {
+        return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      }
+    } else {
+      session = await prisma.batchSession.update({ where: { id }, data: updateData });
+    }
+
+    if (shouldNotifyPause) {
+        try {
+           const [settings, repoConfig] = await Promise.all([
+              prisma.settings.findUnique({ where: { id: 1 } }),
+              prisma.repository.findUnique({ where: { owner_name: { owner: session.repoOwner, name: session.repoName } } })
+           ]);
+
+           let token = repoConfig?.githubToken || settings?.githubToken;
+           if (token) {
+              const { Octokit } = await import('octokit');
+              const octokit = new Octokit({ auth: token });
+              await octokit.rest.issues.createComment({
+                 owner: session.repoOwner,
+                 repo: session.repoName,
+                 issue_number: session.prNumber,
+                 body: "🛑 **ADMIN OVERRIDE: Agent, STOP.**\n\nA human has intervened and paused automated processing for this Pull Request."
+              });
+
+              // Also record in logs
+              await prisma.autoMergeLog.create({
+                 data: {
+                    repoOwner: session.repoOwner,
+                    repoName: session.repoName,
+                    prNumber: session.prNumber,
+                    status: 'PAUSED', // Custom non-FAILED status
+                    message: 'Admin manually paused AI processing.'
+                 }
+              });
+           }
+        } catch (e) {
+           console.error("Failed to post STOP comment to GitHub:", e);
+        }
+    }
+
     return NextResponse.json(session);
   } catch (error: any) {
     if (error.code === 'P2025') {
