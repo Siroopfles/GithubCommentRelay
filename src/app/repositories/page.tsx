@@ -191,7 +191,7 @@ const updateData = {
       branchWhitelist: repo.branchWhitelist,
       branchBlacklist: repo.branchBlacklist,
       requiredBots: repo.requiredBots,
-      githubToken: data.githubToken !== undefined ? (data.githubToken === '' ? null : data.githubToken) : (repo.hasGithubToken ? undefined : null)
+      githubToken: data.githubToken ? data.githubToken : undefined
     };
 
     try {
