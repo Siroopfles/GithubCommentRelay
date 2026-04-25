@@ -54,30 +54,31 @@ const [showModal, setShowModal] = useState(false)
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
   }
 
-  const handleCreateRule = async () => {
+const handleCreateRule = async () => {
     setIsLoading(true);
     const regexPattern = escapeRegex(selectedText);
-
-    if (ruleType === "reviewer") {
-      // Find or create reviewer and append regex
+    try {
       const res = await fetch('/api/reviewers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: reviewerName,
-          noActionRegex: regexPattern // This currently overwrites, in a real scenario we might append to existing
-        })
+        body: JSON.stringify({ username: reviewerName, noActionRegex: regexPattern }),
       });
-    } else {
-       // Just as an example, if you wanted to update bot mappings
-       alert(`Would create Bot Rule for ${botSource} ignoring: ${regexPattern}`);
-    }
 
-    setIsLoading(false);
-    setShowModal(false);
-    setShowTooltip(false);
-    setSelectedText("");
-    window.getSelection()?.removeAllRanges();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      setShowModal(false);
+      setShowTooltip(false);
+      setSelectedText("");
+      window.getSelection()?.removeAllRanges();
+    } catch (e) {
+      console.error('Failed to save rule', e);
+      alert(`Failed to save rule: ${(e as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (

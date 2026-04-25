@@ -100,6 +100,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.julesChatForwardDelay = delay
     }
 
+    // Add owner and name explicitly if they're present
+    if (json.owner !== undefined) updateData.owner = json.owner;
+    if (json.name !== undefined) updateData.name = json.name;
+
     const stringOrNullFields = [
       'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
       'branchBlacklist', 'githubToken', 'requiredBots', 'aiBotUsernames'
