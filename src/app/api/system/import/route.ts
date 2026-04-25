@@ -23,13 +23,17 @@ try {
     };
 
     await prisma.$transaction(async (tx) => {
-      // 1. Settings
+// 1. Settings
       if (importSettings && data.settings) {
-         const { id, updatedAt, githubToken, julesApiKey, webhookSecret, ...safeSettings } = data.settings;
+         const whitelistedSettings = {
+             pollingInterval: data.settings.pollingInterval,
+             batchDelay: data.settings.batchDelay,
+             pruneDays: data.settings.pruneDays
+         };
          await tx.settings.upsert({
            where: { id: 1 },
-           update: safeSettings,
-           create: { id: 1, ...safeSettings }
+           update: whitelistedSettings,
+           create: { id: 1, ...whitelistedSettings }
          });
          results.settings.updated = 1;
       }
@@ -136,15 +140,12 @@ try {
 
             const existing = await tx.repository.findUnique({ where: { owner_name: { owner: repo.owner, name: repo.name } } });
 
-            if (existing) {
+if (existing) {
                if (forceOverwrite) {
-                  // When overwriting, we first delete existing relations so we don't duplicate
-                  if (promptTemplates && promptTemplates.length > 0) {
-                      await tx.promptTemplate.deleteMany({ where: { repositoryId: existing.id } });
-                  }
-                  if (prLabelRules && prLabelRules.length > 0) {
-                      await tx.pRLabelRule.deleteMany({ where: { repositoryId: existing.id } });
-                  }
+                  // Always clear nested relations on overwrite so the import is authoritative.
+                  await tx.promptTemplate.deleteMany({ where: { repositoryId: existing.id } });
+                  await tx.pRLabelRule.deleteMany({ where: { repositoryId: existing.id } });
+
                   await tx.repository.update({
                     where: { id: existing.id },
                     data: { ...safeRepoData, ...nestedWrites }

@@ -15,19 +15,21 @@ type Repo = {
   requiredApprovals: number
   requireCI: boolean
   mergeStrategy: 'merge' | 'squash' | 'rebase'
-    taskSourceType: string
-    taskSourcePath?: string
-    maxConcurrentTasks: number
-  julesPromptTemplate?: string
-    julesChatForwardMode: string
-    julesChatForwardDelay: number
-    postAggregatedComments: boolean
-    batchDelay?: number | null
-    branchWhitelist?: string | null
-    branchBlacklist?: string | null
-    hasGithubToken?: boolean
-    githubToken?: string | null // Used only for submitting new tokens
-    requiredBots?: string | null
+  taskSourceType: string
+  taskSourcePath?: string | null
+  julesPromptTemplate?: string | null
+  julesChatForwardMode: string
+  julesChatForwardDelay: number
+  aiSystemPrompt?: string | null
+  commentTemplate?: string | null
+  postAggregatedComments: boolean
+  batchDelay?: number | null
+  branchWhitelist?: string | null
+  branchBlacklist?: string | null
+  githubToken?: string | null
+  hasGithubToken?: boolean
+  maxConcurrentTasks: number
+  requiredBots?: string | null
 }
 
 export default function RepositoriesPage() {
@@ -162,38 +164,50 @@ export default function RepositoriesPage() {
     setEditingId(null)
   }
 
-  const onSaveEdit = async (data: Repo) => {
+const onSaveEdit = async (data: Repo) => {
+    if (!editingId) return
+    const repo = repos.find(r => r.id === editingId)
+    if (!repo) return
+
+    const updateData = {
+      owner: data.owner,
+      name: data.name,
+      groupName: data.groupName,
+      isActive: data.isActive,
+      autoMergeEnabled: repo.autoMergeEnabled,
+      requiredApprovals: repo.requiredApprovals,
+      requireCI: repo.requireCI,
+      mergeStrategy: repo.mergeStrategy,
+      taskSourceType: repo.taskSourceType,
+      taskSourcePath: repo.taskSourcePath,
+      maxConcurrentTasks: repo.maxConcurrentTasks,
+      julesPromptTemplate: repo.julesPromptTemplate,
+      julesChatForwardMode: repo.julesChatForwardMode,
+      julesChatForwardDelay: repo.julesChatForwardDelay,
+      aiSystemPrompt: repo.aiSystemPrompt,
+      commentTemplate: repo.commentTemplate,
+      postAggregatedComments: repo.postAggregatedComments,
+      batchDelay: repo.batchDelay,
+      branchWhitelist: repo.branchWhitelist,
+      branchBlacklist: repo.branchBlacklist,
+      requiredBots: repo.requiredBots,
+      githubToken: repo.hasGithubToken ? undefined : null
+    };
+
     try {
-      const res = await fetch(`/api/repositories/${data.id}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/repositories/${editingId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          autoMergeEnabled: data.autoMergeEnabled,
-          requiredApprovals: data.requiredApprovals,
-          requireCI: data.requireCI,
-          mergeStrategy: data.mergeStrategy,
-          taskSourceType: data.taskSourceType,
-          taskSourcePath: data.taskSourcePath,
-          maxConcurrentTasks: data.maxConcurrentTasks,
-          julesPromptTemplate: data.julesPromptTemplate,
-          julesChatForwardMode: data.julesChatForwardMode,
-          julesChatForwardDelay: data.julesChatForwardDelay,
-          postAggregatedComments: data.postAggregatedComments,
-          batchDelay: data.batchDelay,
-          branchWhitelist: data.branchWhitelist,
-          branchBlacklist: data.branchBlacklist,
-          ...(data.githubToken ? { githubToken: data.githubToken } : {}),
-          requiredBots: data.requiredBots
-        })
-      })
+        body: JSON.stringify(updateData)
+      });
       if (res.ok) {
-        setEditingId(null)
-        fetchRepos()
+        setEditingId(null);
+        fetchRepos();
       } else {
-        console.error('Failed to update repo:', await res.text())
+        console.error('Failed to update repository');
       }
     } catch (e) {
-      console.error('Network error:', e)
+      console.error('Network error:', e);
     }
   }
 
