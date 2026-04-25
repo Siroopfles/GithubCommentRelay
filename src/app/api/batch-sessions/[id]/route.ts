@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Simplistic mock auth check - in a real app, use next-auth or similar
-function isAuthenticated(request: NextRequest) {
-  // For a Proxmox local tool, this could check a specific local IP,
-  // or check a basic auth header. For now, we'll allow local access but
-  // structure it so auth can be easily added.
-  return true;
+// Auth check for admin operations (pause/resume/update batch sessions).
+// TODO: Replace with next-auth session or signed admin cookie before exposing
+// this endpoint outside localhost. Tracking: implement proper auth mechanism
+// (e.g. next-auth, signed admin cookie, or shared-secret header with matching
+// client-side fetcher) when this service is no longer Proxmox-local-only.
+function isAuthenticated(request: NextRequest): boolean {
+  const adminToken = process.env.ADMIN_API_TOKEN;
+  if (!adminToken) {
+    // No token configured: running in local/dev mode, allow all requests.
+    // WARNING: Set ADMIN_API_TOKEN in production to restrict access to this endpoint.
+    return true;
+  }
+  const authHeader = request.headers.get('Authorization');
+  return authHeader === `Bearer ${adminToken}`;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAuthenticated(request)) {
+
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
