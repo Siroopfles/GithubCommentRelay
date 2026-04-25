@@ -24,3 +24,47 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Compact Mode Styles */
+.compact-mode table {
+  font-size: 0.875rem; /* text-sm */
+}
+
+.compact-mode th,
+.compact-mode td {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+}
+
+.compact-mode .card {
+  padding: 1rem !important;
+}
+
+.compact-mode h1 {
+  font-size: 1.5rem !important; /* text-2xl */
+  margin-bottom: 1rem !important;
+}
+
+.compact-mode h2 {
+  font-size: 1.25rem !important; /* text-xl */
+  margin-bottom: 0.75rem !important;
+}
+
+.compact-mode .gap-6 {
+  gap: 1rem !important;
+}
+
+.compact-mode .mb-6,
+.compact-mode .my-6 {
+  margin-bottom: 1rem !important;
+}
+
+.compact-mode .p-6 {
+  padding: 1rem !important;
+}
+
+.compact-mode .space-y-6 > * + * {
+  margin-top: 1rem !important;
+}

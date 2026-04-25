@@ -87,19 +87,39 @@ export async function POST(request: NextRequest) {
       updateData.githubToken = data.githubToken === '' ? null : data.githubToken;
     }
 
-    const settings = await prisma.settings.upsert({
-      where: { id: 1 },
-      update: updateData,
-      create: {
-        id: 1,
-        githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
-        pollingInterval: data.pollingInterval,
-        batchDelay: data.batchDelay,
-        pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
-        julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey,
-        webhookSecret: data.webhookSecret === "" || data.webhookSecret === undefined ? null : data.webhookSecret
+    const redact = (obj: any) => {
+      const SENSITIVE = ['githubToken', 'julesApiKey', 'webhookSecret'];
+      const out: Record<string, any> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = SENSITIVE.includes(k)
+          ? (v == null || v === '' ? null : '[REDACTED]')
+          : v;
       }
-    })
+      return out;
+    };
+
+    const [auditLog, settings] = await prisma.$transaction([
+      prisma.auditLog.create({
+        data: {
+          action: 'UPDATE_SETTINGS',
+          entity: 'Settings',
+          details: JSON.stringify(redact(updateData)),
+        },
+      }),
+      prisma.settings.upsert({
+        where: { id: 1 },
+        update: updateData,
+        create: {
+          id: 1,
+          githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
+          pollingInterval: data.pollingInterval,
+          batchDelay: data.batchDelay,
+          pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
+          julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey,
+          webhookSecret: data.webhookSecret === "" || data.webhookSecret === undefined ? null : data.webhookSecret
+        }
+      })
+    ]);
 
     return NextResponse.json({
       hasGithubToken: !!settings.githubToken,

@@ -25,6 +25,30 @@ export default function SettingsPage() {
   const [hasToken, setHasToken] = useState(false)
   const [hasJulesKey, setHasJulesKey] = useState(false)
   const [hasWebhookSecret, setHasWebhookSecret] = useState(false)
+
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importOptions, setImportOptions] = useState({
+    forceOverwrite: false,
+    importSettings: true,
+    importRepos: true,
+    importReviewers: true,
+    importBots: true,
+  });
+  const [importMessage, setImportMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  type AuditLog = { id: string; action: string; entity: string | null; details: string | null; createdAt: string };
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [activeTab, setActiveTab] = useState<'general' | 'audit'>('general');
+
+  useEffect(() => {
+    if (activeTab === 'audit') {
+      fetch('/api/system/audit').then(res => res.json()).then(data => {
+        if (Array.isArray(data)) setAuditLogs(data);
+      });
+    }
+  }, [activeTab]);
+
+
   const { register, handleSubmit, reset } = useForm<SettingsForm>()
 
   useEffect(() => {
@@ -61,6 +85,63 @@ export default function SettingsPage() {
         setIsLoading(false)
       })
   }, [reset])
+
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/system/export');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Export failed (${res.status})`);
+      }
+      const data = await res.json();
+      if (!data?.version || !data?.data) throw new Error('Unexpected export payload shape');
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `github-bot-config-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to export configuration: ${(e as Error).message}`);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    try {
+      const text = await importFile.text();
+      let payload;
+      try { payload = JSON.parse(text); }
+      catch { setImportMessage({ type: 'error', text: 'Failed to parse file as JSON.' }); return; }
+
+      if (!payload.version || !payload.data) {
+        setImportMessage({ type: 'error', text: 'Invalid import file format.' });
+        return;
+      }
+
+      const res = await fetch('/api/system/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload, options: importOptions })
+      });
+
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.success) {
+        setImportMessage({ type: 'success', text: 'Import successful! Reloading page...' });
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        setImportMessage({ type: 'error', text: result?.error || `Import failed (HTTP ${res.status})` });
+      }
+    } catch (e) {
+      setImportMessage({ type: 'error', text: `Import error: ${(e as Error).message}` });
+    }
+  };
 
   const onSubmit = async (data: SettingsForm) => {
     setMessage(null)

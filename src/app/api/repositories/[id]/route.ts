@@ -100,6 +100,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.julesChatForwardDelay = delay
     }
 
+    // Add owner and name explicitly if they're present
+// Add owner and name explicitly if they're present with validation
+    if (json.owner !== undefined) {
+      if (typeof json.owner !== 'string' || json.owner.trim() === '') {
+        return NextResponse.json({ error: 'owner must be a non-empty string' }, { status: 400 });
+      }
+      updateData.owner = json.owner.trim();
+    }
+if (json.name !== undefined) {
+      if (typeof json.name !== 'string' || json.name.trim() === '') {
+        return NextResponse.json({ error: 'name must be a non-empty string' }, { status: 400 });
+      }
+      updateData.name = json.name.trim();
+    }
+
+    if (json.groupName !== undefined) {
+      if (json.groupName !== null && typeof json.groupName !== 'string') {
+        return NextResponse.json({ error: 'groupName must be a string or null' }, { status: 400 });
+      }
+      const trimmed = typeof json.groupName === 'string' ? json.groupName.trim() : json.groupName;
+      updateData.groupName = trimmed === '' ? 'Default' : trimmed;
+    }
+
     const stringOrNullFields = [
       'aiSystemPrompt', 'commentTemplate', 'branchWhitelist',
       'branchBlacklist', 'githubToken', 'requiredBots', 'aiBotUsernames'
@@ -252,8 +275,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { githubToken, ...safeRepo } = repo;
     return NextResponse.json({ ...safeRepo, hasGithubToken: !!githubToken })
   } catch (error: unknown) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json({ error: 'A repository with this owner/name already exists' }, { status: 409 });
     }
     console.error('Repository update error', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
