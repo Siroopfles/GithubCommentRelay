@@ -19,7 +19,6 @@ export default function ChatFilterBuilder() {
   const [showTooltip, setShowTooltip] = useState(false)
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
 const [showModal, setShowModal] = useState(false)
-  const ruleType = "reviewer";
     const [botSource, setBotSource] = useState("")
   const [reviewerName, setReviewerName] = useState("")
   const [isLoading, setIsLoading] = useState(false)

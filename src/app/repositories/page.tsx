@@ -169,7 +169,7 @@ const onSaveEdit = async (data: Repo) => {
     const repo = repos.find(r => r.id === editingId)
     if (!repo) return
 
-    const updateData = {
+const updateData = {
       owner: data.owner,
       name: data.name,
       groupName: data.groupName,
@@ -191,7 +191,7 @@ const onSaveEdit = async (data: Repo) => {
       branchWhitelist: repo.branchWhitelist,
       branchBlacklist: repo.branchBlacklist,
       requiredBots: repo.requiredBots,
-      githubToken: repo.hasGithubToken ? undefined : null
+      githubToken: data.githubToken !== undefined ? (data.githubToken === '' ? null : data.githubToken) : (repo.hasGithubToken ? undefined : null)
     };
 
     try {
@@ -377,11 +377,16 @@ const onSaveEdit = async (data: Repo) => {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Repository Name</label>
                                     <input {...registerEdit('name', { required: true })} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" />
                                   </div>
-                                  <div>
+<div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group / Folder</label>
                                     <input {...registerEdit('groupName')} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" placeholder="e.g. Work, Open Source" />
                                   </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GitHub Token (Leave empty to keep)</label>
+                                    <input {...registerEdit('githubToken')} type="password" placeholder="ghp_..." className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" />
+                                  </div>
                                   <div className="flex items-center mt-6">
+
                                       <label className="flex items-center cursor-pointer">
                                         <input type="checkbox" {...registerEdit('isActive')} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                                         <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Active</span>
