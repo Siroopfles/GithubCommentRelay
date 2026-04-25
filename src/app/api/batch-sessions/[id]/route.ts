@@ -1,18 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// TODO: Implement proper authentication mechanism (e.g., next-auth, signed admin cookie,
-// or shared-secret Authorization header) in production to secure admin endpoints like this one.
-// Tracking Issue: #123 (Auth Implementation)
-function isAuthenticated(request: NextRequest) {
-  // Allow local access for Proxmox deployment.
-  const host = request.headers.get('host') || '';
-  if (host.includes('localhost') || host.includes('127.0.0.1')) {
-     return true;
+// TODO: Replace with next-auth session or signed admin cookie before this
+// endpoint is reachable from anything other than localhost.
+// Tracking issue: https://github.com/Siroopfles/GithubCommentRelay/issues/<NEW_ISSUE>
+//
+// Two-tier auth:
+//  1. If ADMIN_SECRET env var is set → require "Authorization: Bearer <secret>".
+//  2. Otherwise → accept only localhost-originating requests (Proxmox local deployment).
+function isAuthenticated(request: NextRequest): boolean {
+  const adminSecret = process.env.ADMIN_SECRET;
+
+  if (adminSecret) {
+    // Tier 1: shared-secret header check.
+    const authHeader = request.headers.get('authorization');
+    return authHeader === `Bearer ${adminSecret}`;
   }
 
-  // Fail closed by default if no valid credential/local access is present
-  return false;
+  // Tier 2: localhost-only gate when no secret is configured.
+  // Next.js App Router exposes the originating IP via these headers.
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIp = request.headers.get('x-real-ip');
+  const ip = forwarded ? forwarded.split(',')[0].trim() : realIp ?? '';
+
+  // Empty string = no proxy headers set (direct Next.js dev server on Proxmox).
+  const isLocalIp = ip === '127.0.0.1' || ip === '::1' || ip === '';
+
+  // Belt-and-suspenders: also accept when Host is localhost.
+  const host = request.headers.get('host') ?? '';
+  const isLocalHost = host.startsWith('localhost:') || host.startsWith('127.0.0.1:');
+
+  return isLocalIp || isLocalHost;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
