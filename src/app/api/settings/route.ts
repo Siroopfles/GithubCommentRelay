@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
       updateData.githubToken = data.githubToken === '' ? null : data.githubToken;
     }
 
+    await prisma.auditLog.create({ data: { action: 'UPDATE_SETTINGS', entity: 'Settings', details: JSON.stringify(updateData) } });
     const settings = await prisma.settings.upsert({
       where: { id: 1 },
       update: updateData,

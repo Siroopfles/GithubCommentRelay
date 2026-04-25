@@ -53,6 +53,7 @@ model Repository {
   infiniteLoopThreshold  Int                 @default(3) // 0 to disable
   maxDiffLines           Int                 @default(500) // 0 to disable
   complexityWeights      String? // JSON object for custom complexity weighting
+  groupName              String?             @default("Default")
   createdAt              DateTime            @default(now())
 
   tasks           Task[]
@@ -232,4 +233,14 @@ enum RegressionMatchMode {
   EXACT
   TYPE
   FUZZY
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
+  entity    String?  // e.g., "Settings", "Repository"
+  details   String?  // JSON stringified details
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
