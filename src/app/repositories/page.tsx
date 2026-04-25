@@ -207,9 +207,13 @@ export default function RepositoriesPage() {
             <label htmlFor="owner" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Owner (User / Org)</label>
             <input id="owner" {...register('owner', {required: true})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. microsoft" />
           </div>
-          <div className="flex-1">
+<div className="flex-1">
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Repository Name</label>
             <input id="name" {...register('name', {required: true})} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. vscode" />
+          </div>
+          <div className="flex-1">
+            <label htmlFor="groupName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Group / Folder</label>
+            <input id="groupName" {...register('groupName')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. Default" />
           </div>
         </div>
 
@@ -347,6 +351,36 @@ export default function RepositoriesPage() {
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {groupRepos.map(repo => (
+                        editingId === repo.id ? (
+                          <tr key={repo.id}>
+                            <td colSpan={6} className="px-6 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Owner (User / Org)</label>
+                                    <input {...registerEdit('owner', { required: true })} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Repository Name</label>
+                                    <input {...registerEdit('name', { required: true })} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group / Folder</label>
+                                    <input {...registerEdit('groupName')} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" placeholder="e.g. Work, Open Source" />
+                                  </div>
+                                  <div className="flex items-center mt-6">
+                                      <label className="flex items-center cursor-pointer">
+                                        <input type="checkbox" {...registerEdit('isActive')} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                        <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Active</span>
+                                      </label>
+                                  </div>
+                                </div>
+                                <div className="mt-4 flex justify-end gap-2">
+                                  <button onClick={cancelEdit} className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+                                  <button onClick={handleSubmitEdit(onSaveEdit)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"><Save size={18}/> Save Changes</button>
+                                </div>
+                            </td>
+                          </tr>
+                        ) : (
                         <tr key={repo.id}>
                           <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
                             {repo.owner}/{repo.name}
@@ -374,7 +408,7 @@ export default function RepositoriesPage() {
                             <Link href={`/repositories/${repo.id}`} className="text-gray-600 hover:text-gray-900"><Settings size={18}/></Link>
                           </td>
                         </tr>
-                      ))}
+                      ) ) )}
                     </tbody>
                   </table>
                 )}

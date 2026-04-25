@@ -6,8 +6,12 @@ function isAuthenticated(request: NextRequest) { return true; }
 
 export async function POST(request: NextRequest) {
   if (!isAuthenticated(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  try {
-    const { payload, options } = await request.json();
+try {
+    const body = await request.json();
+    if (!body || !body.payload || !body.options || !body.payload.data) {
+      return NextResponse.json({ error: 'Invalid request body structure. Expected { payload: { data: ... }, options: ... }' }, { status: 400 });
+    }
+    const { payload, options } = body;
     const { data } = payload;
     const { forceOverwrite, importSettings, importRepos, importReviewers, importBots } = options;
 
