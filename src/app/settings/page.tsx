@@ -90,7 +90,13 @@ export default function SettingsPage() {
   const handleExport = async () => {
     try {
       const res = await fetch('/api/system/export');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Export failed (${res.status})`);
+      }
       const data = await res.json();
+      if (!data?.version || !data?.data) throw new Error('Unexpected export payload shape');
+
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -102,7 +108,7 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
-      alert('Failed to export configuration');
+      alert(`Failed to export configuration: ${(e as Error).message}`);
     }
   };
 
@@ -110,7 +116,9 @@ export default function SettingsPage() {
     if (!importFile) return;
     try {
       const text = await importFile.text();
-      const payload = JSON.parse(text);
+      let payload;
+      try { payload = JSON.parse(text); }
+      catch { setImportMessage({ type: 'error', text: 'Failed to parse file as JSON.' }); return; }
 
       if (!payload.version || !payload.data) {
         setImportMessage({ type: 'error', text: 'Invalid import file format.' });
@@ -123,15 +131,15 @@ export default function SettingsPage() {
         body: JSON.stringify({ payload, options: importOptions })
       });
 
-      const result = await res.json();
-      if (result.success) {
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.success) {
         setImportMessage({ type: 'success', text: 'Import successful! Reloading page...' });
         setTimeout(() => window.location.reload(), 2000);
       } else {
-        setImportMessage({ type: 'error', text: result.error || 'Import failed' });
+        setImportMessage({ type: 'error', text: result?.error || `Import failed (HTTP ${res.status})` });
       }
     } catch (e) {
-      setImportMessage({ type: 'error', text: 'Failed to read or parse file.' });
+      setImportMessage({ type: 'error', text: `Import error: ${(e as Error).message}` });
     }
   };
 

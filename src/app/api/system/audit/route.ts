@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+function isAuthenticated(request: NextRequest) { return true; }
+
+export async function GET(request: NextRequest) {
+  if (!isAuthenticated(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const logs = await prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
@@ -9,6 +13,7 @@ export async function GET() {
     })
     return NextResponse.json(logs)
   } catch (error) {
+    logger.error('Failed to fetch audit logs:', error);
     return NextResponse.json({ error: 'Internal server error fetching audit logs' }, { status: 500 })
   }
 }

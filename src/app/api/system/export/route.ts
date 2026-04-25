@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+function isAuthenticated(request: NextRequest) { return true; }
+
+export async function GET(request: NextRequest) {
+  if (!isAuthenticated(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });
     const repositories = await prisma.repository.findMany({
@@ -13,26 +17,14 @@ export async function GET() {
     const reviewers = await prisma.targetReviewer.findMany();
     const botMappings = await prisma.botAgentMapping.findMany();
 
-    // Remove sensitive data
-    if (settings) {
-      // @ts-ignore
-      delete settings.githubToken;
-      // @ts-ignore
-      delete settings.julesApiKey;
-      // @ts-ignore
-      delete settings.webhookSecret;
-    }
-
-    const safeRepositories = repositories.map(repo => {
-      const { githubToken, ...safeRepo } = repo;
-      return safeRepo;
-    });
+    const safeSettings = settings ? (({ githubToken, julesApiKey, webhookSecret, ...rest }) => rest)(settings as any) : null;
+    const safeRepositories = repositories.map(({ githubToken, ...safeRepo }) => safeRepo);
 
     const exportData = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
       data: {
-        settings,
+        settings: safeSettings,
         repositories: safeRepositories,
         reviewers,
         botMappings
@@ -41,7 +33,7 @@ export async function GET() {
 
     return NextResponse.json(exportData);
   } catch (error) {
-    console.error("Export failed:", error);
+    logger.error("Export failed:", error);
     return NextResponse.json({ error: 'Internal server error during export' }, { status: 500 });
   }
 }

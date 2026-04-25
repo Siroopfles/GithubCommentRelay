@@ -18,9 +18,9 @@ export default function ChatFilterBuilder() {
   const [selectedText, setSelectedText] = useState("")
   const [showTooltip, setShowTooltip] = useState(false)
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
-  const [showModal, setShowModal] = useState(false)
-  const [ruleType, setRuleType] = useState<"bot_mapping" | "reviewer">("reviewer")
-  const [botSource, setBotSource] = useState("")
+const [showModal, setShowModal] = useState(false)
+  const ruleType = "reviewer";
+    const [botSource, setBotSource] = useState("")
   const [reviewerName, setReviewerName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
@@ -37,8 +37,11 @@ export default function ChatFilterBuilder() {
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 3) {
       setSelectedText(selection.toString().trim());
-      // Adjust popup position
-      setTooltipPos({ x: e.clientX, y: e.clientY - 40 });
+      // Adjust popup position with bounds checking
+      const y = Math.max(8, e.clientY - 40);
+      const halfTooltipWidth = 100; // approximation
+      const x = Math.min(Math.max(halfTooltipWidth, e.clientX), window.innerWidth - halfTooltipWidth);
+      setTooltipPos({ x, y });
       setBotSource(source);
       setReviewerName(author);
       setShowTooltip(true);
