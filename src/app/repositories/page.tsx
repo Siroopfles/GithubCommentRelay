@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { Trash2, Edit2, X, Save, Eye, Settings } from 'lucide-react'
@@ -95,16 +95,23 @@ export default function RepositoriesPage() {
   }, [])
 
 
-  // Group repositories by groupName
-  const groupedRepos = repos.reduce((acc, repo) => {
-    const group = repo.groupName || 'Default';
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(repo);
-    return acc;
-  }, {} as Record<string, Repo[]>);
+  // Group repositories by groupName (alphabetical, "Default" first)
+  const groupedRepos = useMemo(() => {
+    const map = repos.reduce((acc, repo) => {
+      const group = repo.groupName || 'Default';
+      (acc[group] ||= []).push(repo);
+      return acc;
+    }, {} as Record<string, Repo[]>);
+    return Object.fromEntries(
+      Object.entries(map).sort(([a], [b]) =>
+        a === 'Default' ? -1 : b === 'Default' ? 1 : a.localeCompare(b)
+      )
+    );
+  }, [repos]);
 
   const toggleGroup = (group: string) => {
-    setExpandedGroups(prev => ({ ...prev, [group]: prev[group] === undefined ? false : !prev[group] }));
+    // expanded-by-default: undefined and true both mean expanded
+    setExpandedGroups(prev => ({ ...prev, [group]: prev[group] === false }));
   };
 
   const onSubmit = async (data: any) => {
@@ -325,6 +332,8 @@ const updateData: Record<string, unknown> = {
               <div key={groupName} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 <button
                   onClick={() => toggleGroup(groupName)}
+                  type="button"
+                  aria-expanded={isExpanded}
                   className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-6 py-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -351,6 +360,7 @@ const updateData: Record<string, unknown> = {
                         editingId === repo.id ? (
                           <tr key={repo.id}>
                             <td colSpan={6} className="px-6 py-4">
+                              <form onSubmit={handleSubmitEdit(onSaveEdit)}>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Owner (User / Org)</label>
@@ -377,9 +387,10 @@ const updateData: Record<string, unknown> = {
                                   </div>
                                 </div>
                                 <div className="mt-4 flex justify-end gap-2">
-                                  <button onClick={cancelEdit} className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button>
-                                  <button onClick={handleSubmitEdit(onSaveEdit)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"><Save size={18}/> Save Changes</button>
+                                  <button type="button" onClick={cancelEdit} className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+                                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"><Save size={18}/> Save Changes</button>
                                 </div>
+                              </form>
                             </td>
                           </tr>
                         ) : (
@@ -405,9 +416,9 @@ const updateData: Record<string, unknown> = {
                             {repo.julesChatForwardMode}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                            <button onClick={() => startEdit(repo)} className="text-blue-600 hover:text-blue-900"><Edit2 size={18}/></button>
-                            <button onClick={() => deleteRepo(repo.id)} className="text-red-600 hover:text-red-900"><Trash2 size={18}/></button>
-                            <Link href={`/repositories/${repo.id}`} className="text-gray-600 hover:text-gray-900"><Settings size={18}/></Link>
+                            <button onClick={() => startEdit(repo)} aria-label={`Edit ${repo.owner}/${repo.name}`} type="button" className="text-blue-600 hover:text-blue-900"><Edit2 size={18}/></button>
+                            <button onClick={() => deleteRepo(repo.id)} aria-label={`Delete ${repo.owner}/${repo.name}`} type="button" className="text-red-600 hover:text-red-900"><Trash2 size={18}/></button>
+                            <Link href={`/repositories/${repo.id}`} aria-label={`Settings for ${repo.owner}/${repo.name}`} className="text-gray-600 hover:text-gray-900"><Settings size={18}/></Link>
                           </td>
                         </tr>
                       ) ) )}
