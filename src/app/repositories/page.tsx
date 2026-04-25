@@ -196,7 +196,7 @@ const onSaveEdit = async (data: Repo) => {
 
     try {
       const res = await fetch(`/api/repositories/${editingId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
