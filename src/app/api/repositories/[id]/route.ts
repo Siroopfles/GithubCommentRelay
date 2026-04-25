@@ -108,11 +108,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       updateData.owner = json.owner.trim();
     }
-    if (json.name !== undefined) {
+if (json.name !== undefined) {
       if (typeof json.name !== 'string' || json.name.trim() === '') {
         return NextResponse.json({ error: 'name must be a non-empty string' }, { status: 400 });
       }
       updateData.name = json.name.trim();
+    }
+
+    if (json.groupName !== undefined) {
+      if (json.groupName !== null && typeof json.groupName !== 'string') {
+        return NextResponse.json({ error: 'groupName must be a string or null' }, { status: 400 });
+      }
+      const trimmed = typeof json.groupName === 'string' ? json.groupName.trim() : json.groupName;
+      updateData.groupName = trimmed === '' ? 'Default' : trimmed;
     }
 
     const stringOrNullFields = [

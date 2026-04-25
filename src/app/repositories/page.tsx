@@ -169,30 +169,13 @@ const onSaveEdit = async (data: Repo) => {
     const repo = repos.find(r => r.id === editingId)
     if (!repo) return
 
-const updateData = {
+const updateData: Record<string, unknown> = {
       owner: data.owner,
       name: data.name,
       groupName: data.groupName,
       isActive: data.isActive,
-      autoMergeEnabled: repo.autoMergeEnabled,
-      requiredApprovals: repo.requiredApprovals,
-      requireCI: repo.requireCI,
-      mergeStrategy: repo.mergeStrategy,
-      taskSourceType: repo.taskSourceType,
-      taskSourcePath: repo.taskSourcePath,
-      maxConcurrentTasks: repo.maxConcurrentTasks,
-      julesPromptTemplate: repo.julesPromptTemplate,
-      julesChatForwardMode: repo.julesChatForwardMode,
-      julesChatForwardDelay: repo.julesChatForwardDelay,
-      aiSystemPrompt: repo.aiSystemPrompt,
-      commentTemplate: repo.commentTemplate,
-      postAggregatedComments: repo.postAggregatedComments,
-      batchDelay: repo.batchDelay,
-      branchWhitelist: repo.branchWhitelist,
-      branchBlacklist: repo.branchBlacklist,
-      requiredBots: repo.requiredBots,
-      githubToken: data.githubToken ? data.githubToken : undefined
     };
+    if (data.githubToken) updateData.githubToken = data.githubToken;
 
     try {
       const res = await fetch(`/api/repositories/${editingId}`, {
