@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { formatAggregatedBody } from "./src/lib/format_helper";
-import { createSession, sendMessage } from "./src/lib/julesApi";
+import { createSession, sendMessage, getSession } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { calculateComplexity } from './src/utils/complexityScore'
 import { Octokit } from 'octokit'
@@ -1344,6 +1344,66 @@ async function processWebhooks() {
     }
 }
 
+
+async function syncJulesSessions(settings: any) {
+  if (!settings?.julesApiKey) return;
+
+  try {
+    const tasks = await prisma.task.findMany({
+      where: {
+        julesSessionId: { not: null },
+        julesSessionState: {
+          notIn: ['COMPLETED', 'FAILED']
+        }
+      }
+    });
+
+    if (tasks.length === 0) return;
+
+    logger.info(`Syncing ${tasks.length} active Jules sessions...`);
+
+    for (const task of tasks) {
+      if (!task.julesSessionId) continue;
+
+      try {
+        const session = await getSession(settings.julesApiKey, task.julesSessionId);
+
+        let prUrl = task.julesSessionPrUrl;
+        let prNumber = task.prNumber;
+
+        if (session.outputs && session.outputs.length > 0) {
+            for (const output of session.outputs) {
+                if (output.pullRequest && output.pullRequest.url) {
+                    prUrl = output.pullRequest.url;
+                    const match = prUrl ? prUrl.match(/\/pull\/(\d+)/) : null;
+                    if (match) {
+                        prNumber = parseInt(match[1], 10);
+                    }
+                }
+            }
+        }
+
+        await prisma.task.update({
+          where: { id: task.id },
+          data: {
+            julesSessionState: session.state,
+            julesSessionUrl: session.url || task.julesSessionUrl,
+            julesSessionPrUrl: prUrl,
+            prNumber: prNumber,
+            status: session.state === 'COMPLETED' ? 'in_review' : 'in_progress'
+          }
+        });
+
+        logger.info(`Synced Jules session for task ${task.id}: state=${session.state}`);
+      } catch (err: any) {
+        logger.error(`Failed to sync task ${task.id}:`, err);
+      }
+    }
+  } catch (error: any) {
+    logger.error('Failed to sync Jules sessions:', error);
+  }
+}
+
 async function start() {
   logger.info('Cleaning up any stuck processing sessions from previous runs...')
   try {
@@ -1432,9 +1492,11 @@ async function start() {
     try {
       cron.schedule(cronExpression, () => {
         void processRepositories()
+        void syncJulesSessions(settings)
       })
       // Trigger immediate first run for consistency
       void processRepositories()
+        void syncJulesSessions(settings)
     } catch (err) {
       logger.error('Failed to schedule cron job:', err)
     }
@@ -1443,10 +1505,12 @@ async function start() {
     // This correctly handles larger polling intervals without node-cron second-field limitations.
     setInterval(() => {
       void processRepositories()
+        void syncJulesSessions(settings)
     }, interval * 1000)
 
     // Trigger immediate first run
     void processRepositories()
+        void syncJulesSessions(settings)
   }
 }
 

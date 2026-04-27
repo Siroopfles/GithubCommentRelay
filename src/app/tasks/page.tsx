@@ -15,6 +15,9 @@ type Task = {
   priority: number;
   githubIssueNumber: number | null;
   julesSessionId: string | null;
+  julesSessionUrl: string | null;
+  julesSessionState: string | null;
+  julesSessionPrUrl: string | null;
   prNumber: number | null;
   dependsOnId?: string | null;
 };
@@ -43,6 +46,10 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const { register, handleSubmit, reset, setValue } = useForm();
+  const [dispatchTaskId, setDispatchTaskId] = useState<string | null>(null);
+  const [dispatchBranch, setDispatchBranch] = useState<string>('main');
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
+
 
   useEffect(() => {
     fetch('/api/repositories')
@@ -269,7 +276,16 @@ export default function TasksPage() {
                                       {task.title}
                                     </h4>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => openEditModal(task)} className="text-gray-400 hover:text-blue-500"><Edit2 size={14}/></button>
+
+                            <button
+                              onClick={() => setDispatchTaskId(task.id)}
+                              className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
+                              title="Dispatch to Jules API"
+                            >
+                              Dispatch
+                            </button>
+                            <button
+ onClick={() => openEditModal(task)} className="text-gray-400 hover:text-blue-500"><Edit2 size={14}/></button>
                                       <button onClick={() => deleteTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
                                     </div>
                                   </div>

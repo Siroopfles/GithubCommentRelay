@@ -296,3 +296,11 @@ All builds and tests passing.
 - Integreren van AI LLM verzoeken met de geëxporteerde prompt structuren en het uittesten van Categorie J of de andere openstaande ideeën.
 
 ---
+
+## 2026-04-26: Integrated Jules API
+* Updated Prisma Schema to store Jules Session fields on the Task model (julesSessionState, julesSessionUrl, julesSessionPrUrl, julesSessionCreatedAt).
+* Enhanced `src/lib/julesApi.ts` to implement API endpoints for `getSession`, `listActivities`, `approvePlan`, matching Jules REST API specification.
+* Created Next.js API Routes under `src/app/api/jules` to bridge frontend application with Jules API.
+* Added auto-sync task to `worker.ts` that polls active Jules sessions via `getSession` and extracts Pull Request links/numbers from the final Output.
+* Updated Task Management UI (`src/app/tasks/page.tsx`) with a "Dispatch to Jules" modal feature. Users can now easily start a session for a task on a specified branch.
+* Built the Jules Dashboard (`src/app/jules/page.tsx`) providing an intuitive way to view all Jules sessions, their states, detailed log activity (Terminal outputs, agent messages, plan steps), and interface components to send messages and approve generated plans.
