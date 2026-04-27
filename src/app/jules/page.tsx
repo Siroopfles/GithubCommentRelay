@@ -35,7 +35,7 @@ function JulesDashboardContent() {
   const fetchTasks = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/jules/sessions?status=active');
+      const res = await fetch('/api/jules/sessions?status=all');
       if (res.ok) {
          const allJulesTasks = await res.json();
          setTasks(allJulesTasks);

@@ -61,19 +61,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
-    // Only support fetching active sessions for now
-    if (status !== 'active') {
-       return NextResponse.json({ error: 'Unsupported status filter' }, { status: 400 })
-    }
+    let queryCondition: any = { julesSessionId: { not: null } };
 
-    const tasks = await prisma.task.findMany({
-      where: {
+    if (status === 'active') {
+      queryCondition = {
         julesSessionId: { not: null },
         OR: [
           { julesSessionState: null },
           { julesSessionState: { notIn: ['COMPLETED', 'FAILED'] } }
         ]
-      },
+      };
+    } else if (status !== 'all' && status) {
+       return NextResponse.json({ error: 'Unsupported status filter' }, { status: 400 });
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: queryCondition,
       include: {
         repository: true
       }

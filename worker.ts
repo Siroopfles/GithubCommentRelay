@@ -1507,7 +1507,7 @@ async function start() {
       })
       // Trigger immediate first run for consistency
       void processRepositories()
-        void syncJulesSessions()
+      void syncJulesSessions()
     } catch (err) {
       logger.error('Failed to schedule cron job:', err)
     }
@@ -1516,7 +1516,7 @@ async function start() {
     // This correctly handles larger polling intervals without node-cron second-field limitations.
     setInterval(() => {
       void processRepositories()
-        void syncJulesSessions()
+      void syncJulesSessions()
     }, interval * 1000)
 
     // Trigger immediate first run
