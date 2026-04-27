@@ -1353,9 +1353,10 @@ async function syncJulesSessions() {
     const tasks = await prisma.task.findMany({
       where: {
         julesSessionId: { not: null },
-        julesSessionState: {
-          notIn: ['COMPLETED', 'FAILED']
-        }
+        OR: [
+          { julesSessionState: null },
+          { julesSessionState: { notIn: ['COMPLETED', 'FAILED'] } }
+        ]
       }
     });
 

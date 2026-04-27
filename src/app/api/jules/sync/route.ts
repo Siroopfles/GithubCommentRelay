@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
     const tasks = await prisma.task.findMany({
       where: {
         julesSessionId: { not: null },
-        julesSessionState: {
-          notIn: ['COMPLETED', 'FAILED']
-        }
+        OR: [
+          { julesSessionState: null },
+          { julesSessionState: { notIn: ['COMPLETED', 'FAILED'] } }
+        ]
       }
     })
 
