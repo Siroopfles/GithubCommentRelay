@@ -1385,6 +1385,15 @@ async function syncJulesSessions() {
             }
         }
 
+        const nextStatus =
+          task.status === 'done' || task.status === 'blocked'
+            ? task.status
+            : session.state === 'COMPLETED'
+              ? 'in_review'
+              : session.state === 'FAILED'
+                ? 'blocked'
+                : 'in_progress';
+
         await prisma.task.update({
           where: { id: task.id },
           data: {
@@ -1392,7 +1401,7 @@ async function syncJulesSessions() {
             julesSessionUrl: session.url || task.julesSessionUrl,
             julesSessionPrUrl: prUrl,
             prNumber: prNumber,
-            status: session.state === 'COMPLETED' ? 'in_review' : session.state === 'FAILED' ? 'blocked' : 'in_progress'
+            status: nextStatus
           }
         });
 

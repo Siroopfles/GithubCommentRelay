@@ -54,3 +54,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || 'Failed to create Jules session' }, { status: 500 })
   }
 }
+
+
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+
+    // Only support fetching active sessions for now
+    if (status !== 'active') {
+       return NextResponse.json({ error: 'Unsupported status filter' }, { status: 400 })
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        julesSessionId: { not: null },
+        OR: [
+          { julesSessionState: null },
+          { julesSessionState: { notIn: ['COMPLETED', 'FAILED'] } }
+        ]
+      },
+      include: {
+        repository: true
+      }
+    })
+
+    const formattedTasks = tasks.map(t => ({
+       ...t,
+       repoOwner: t.repository.owner,
+       repoName: t.repository.name
+    }));
+
+    return NextResponse.json(formattedTasks)
+  } catch (error: any) {
+    console.error('Failed to list Jules sessions:', error)
+    return NextResponse.json({ error: error.message || 'Failed to list Jules sessions' }, { status: 500 })
+  }
+}
