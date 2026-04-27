@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 
@@ -15,15 +15,18 @@ function JulesDashboardContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const didAutoSelectRef = useRef(false);
 
   useEffect(() => {
     fetchTasks();
   }, []);
 
   useEffect(() => {
+    if (didAutoSelectRef.current) return;
     if (initialSessionId && tasks.length > 0) {
       const task = tasks.find(t => t.julesSessionId === initialSessionId);
       if (task) {
+        didAutoSelectRef.current = true;
         handleSelectTask(task);
       }
     }
@@ -32,19 +35,25 @@ function JulesDashboardContent() {
   const fetchTasks = async () => {
     try {
       setIsLoading(true);
-      // Let's fetch all tasks that have a julesSessionId. For now, we'll fetch all repos and filter.
-      // In a real app we might want an endpoint specifically for this.
+      const res = await fetch('/api/jules/sessions?status=active');
+      if (res.ok) {
+         const allJulesTasks = await res.json();
+         setTasks(allJulesTasks);
+         return;
+      }
+
+      // Fallback to old behavior if endpoint doesn't exist
       const reposRes = await fetch('/api/repositories');
       const repos = await reposRes.json();
 
-      let allJulesTasks: any[] = [];
-      for (const repo of repos) {
+      const repoTasksPromises = repos.map(async (repo: any) => {
         const tasksRes = await fetch(`/api/tasks?repositoryId=${repo.id}`);
         const repoTasks = await tasksRes.json();
         const julesTasks = repoTasks.filter((t: any) => t.julesSessionId);
-        allJulesTasks = [...allJulesTasks, ...julesTasks.map((t: any) => ({ ...t, repoName: repo.name, repoOwner: repo.owner }))];
-      }
-      setTasks(allJulesTasks);
+        return julesTasks.map((t: any) => ({ ...t, repoName: repo.name, repoOwner: repo.owner }));
+      });
+      const allJulesTasksResults = await Promise.all(repoTasksPromises);
+      setTasks(allJulesTasksResults.flat());
     } catch (err) {
       console.error(err);
     } finally {

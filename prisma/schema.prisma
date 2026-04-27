@@ -161,6 +161,7 @@ model Task {
   updatedAt         DateTime   @updatedAt
 
   @@index([repositoryId, status])
+  @@index([julesSessionState])
 }
 
 model WebhookSignal {

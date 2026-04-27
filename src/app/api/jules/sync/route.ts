@@ -1,9 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/julesApi'
 
-export async function POST() {
+
+export async function POST(request: NextRequest) {
   try {
+    // Basic auth check if no session mechanism is present
+    const authHeader = request.headers.get('authorization');
+    // For now we just implement the signature change as requested
+
     const settings = await prisma.settings.findFirst()
     if (!settings?.julesApiKey) {
       return NextResponse.json({ error: 'Jules API key is not configured' }, { status: 400 })
@@ -48,7 +53,7 @@ export async function POST() {
             julesSessionUrl: session.url || task.julesSessionUrl,
             julesSessionPrUrl: prUrl,
             prNumber: prNumber,
-            status: session.state === 'COMPLETED' ? 'in_review' : 'in_progress'
+            status: session.state === 'COMPLETED' ? 'in_review' : session.state === 'FAILED' ? 'blocked' : 'in_progress'
           }
         })
         results.push({ id: task.id, status: 'success', state: session.state })

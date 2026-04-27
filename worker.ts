@@ -237,7 +237,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                     }
 
                     // Call imported createSession
-                    const res = await createSession(settings.julesApiKey, prompt, `github.com/${repoConfig.owner}/${repoConfig.name}`, 'refs/heads/main');
+                    const res = await createSession(settings.julesApiKey, prompt, `github.com/${repoConfig.owner}/${repoConfig.name}`, 'main');
 
                     if (res && res.name) {
                         const sessionIdMatch = res.name.match(/sessions\/(\d+)/);
@@ -592,7 +592,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                         if (!isScheduled) {
                           taskTitle = actualIssue.title;
                           taskBody = actualIssue.body || '';
-                          sourceRevision = `refs/heads/${actualIssue.number}-fix`;
+                          sourceRevision = `${actualIssue.number}-fix`;
 
                           // Mark as scheduled immediately
                           let labelSuccess = false;
@@ -634,7 +634,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                          settings.julesApiKey,
                          prompt,
                          `github.com/${repo.owner}/${repo.name}`,
-                         sourceRevision || 'refs/heads/main'
+                         sourceRevision || 'main'
                        );
                        logger.info(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
 
@@ -1345,7 +1345,8 @@ async function processWebhooks() {
 }
 
 
-async function syncJulesSessions(settings: any) {
+async function syncJulesSessions() {
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   if (!settings?.julesApiKey) return;
 
   try {
@@ -1390,7 +1391,7 @@ async function syncJulesSessions(settings: any) {
             julesSessionUrl: session.url || task.julesSessionUrl,
             julesSessionPrUrl: prUrl,
             prNumber: prNumber,
-            status: session.state === 'COMPLETED' ? 'in_review' : 'in_progress'
+            status: session.state === 'COMPLETED' ? 'in_review' : session.state === 'FAILED' ? 'blocked' : 'in_progress'
           }
         });
 
@@ -1492,11 +1493,11 @@ async function start() {
     try {
       cron.schedule(cronExpression, () => {
         void processRepositories()
-        void syncJulesSessions(settings)
+        void syncJulesSessions()
       })
       // Trigger immediate first run for consistency
       void processRepositories()
-        void syncJulesSessions(settings)
+        void syncJulesSessions()
     } catch (err) {
       logger.error('Failed to schedule cron job:', err)
     }
@@ -1505,12 +1506,12 @@ async function start() {
     // This correctly handles larger polling intervals without node-cron second-field limitations.
     setInterval(() => {
       void processRepositories()
-        void syncJulesSessions(settings)
+        void syncJulesSessions()
     }, interval * 1000)
 
     // Trigger immediate first run
     void processRepositories()
-        void syncJulesSessions(settings)
+        void syncJulesSessions()
   }
 }
 

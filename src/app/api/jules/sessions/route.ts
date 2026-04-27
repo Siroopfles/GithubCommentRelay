@@ -20,6 +20,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
+    if (task.julesSessionId && !['COMPLETED', 'FAILED'].includes(task.julesSessionState ?? '')) {
+      if (!json.force) {
+        return NextResponse.json(
+          { error: 'Task already has an active Jules session', sessionId: task.julesSessionId },
+          { status: 409 }
+        )
+      }
+    }
+
     const settings = await prisma.settings.findFirst()
     if (!settings?.julesApiKey) {
       return NextResponse.json({ error: 'Jules API key is not configured' }, { status: 400 })
