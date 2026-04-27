@@ -1385,13 +1385,14 @@ async function syncJulesSessions() {
             }
         }
 
+        const hasReviewArtifact = prNumber != null || !!prUrl || task.prNumber != null;
         const nextStatus =
           task.status === 'done' || task.status === 'blocked'
             ? task.status
-            : session.state === 'COMPLETED'
-              ? 'in_review'
-              : session.state === 'FAILED'
-                ? 'blocked'
+            : session.state === 'FAILED'
+              ? 'blocked'
+              : hasReviewArtifact || session.state === 'COMPLETED'
+                ? 'in_review'
                 : 'in_progress';
 
         await prisma.task.update({

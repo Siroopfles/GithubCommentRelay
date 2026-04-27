@@ -133,17 +133,19 @@ function JulesDashboardContent() {
           ) : (
             <div className="space-y-2">
               {tasks.map(task => (
-                <div
+                <button
+                  type="button"
                   key={task.id}
                   onClick={() => handleSelectTask(task)}
-                  className={`p-3 rounded-lg cursor-pointer border ${selectedTask?.id === task.id ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                  aria-pressed={selectedTask?.id === task.id}
+                  className={`w-full text-left p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${selectedTask?.id === task.id ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                 >
                   <div className="font-medium text-sm text-gray-900 dark:text-white">{task.title}</div>
                   <div className="text-xs text-gray-500 mt-1 flex justify-between">
                     <span>{task.repoOwner}/{task.repoName}</span>
                     <span className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">{task.julesSessionState || 'Unknown'}</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

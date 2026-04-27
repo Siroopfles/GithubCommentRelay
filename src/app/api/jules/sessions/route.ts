@@ -77,15 +77,29 @@ export async function GET(request: NextRequest) {
 
     const tasks = await prisma.task.findMany({
       where: queryCondition,
-      include: {
-        repository: true
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        julesSessionId: true,
+        julesSessionState: true,
+        julesSessionUrl: true,
+        julesSessionPrUrl: true,
+        julesSessionCreatedAt: true,
+        prNumber: true,
+        repository: {
+          select: {
+            owner: true,
+            name: true
+          }
+        }
       }
     })
 
-    const formattedTasks = tasks.map(t => ({
-       ...t,
-       repoOwner: t.repository.owner,
-       repoName: t.repository.name
+    const formattedTasks = tasks.map(({ repository, ...task }) => ({
+      ...task,
+      repoOwner: repository.owner,
+      repoName: repository.name
     }));
 
     return NextResponse.json(formattedTasks)
