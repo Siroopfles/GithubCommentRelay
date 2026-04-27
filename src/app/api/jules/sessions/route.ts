@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
       data: {
-        julesSessionId: session.name,
+        julesSessionId: session.name ? session.name.split('/').pop() : null,
         julesSessionState: session.state || 'QUEUED',
         julesSessionUrl: session.url || null,
         julesSessionCreatedAt: new Date(),

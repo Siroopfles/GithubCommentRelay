@@ -237,7 +237,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                     }
 
                     // Call imported createSession
-                    const res = await createSession(settings.julesApiKey, prompt, `github.com/${repoConfig.owner}/${repoConfig.name}`, 'main');
+                    const res = await createSession(settings.julesApiKey, prompt, `sources/github.com/${repoConfig.owner}/${repoConfig.name}`, 'main');
 
                     if (res && res.name) {
                         const sessionIdMatch = res.name.match(/sessions\/(\d+)/);
@@ -633,7 +633,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                        const sessionResponse = await createSession(
                          settings.julesApiKey,
                          prompt,
-                         `github.com/${repo.owner}/${repo.name}`,
+                         `sources/github.com/${repo.owner}/${repo.name}`,
                          sourceRevision || 'main'
                        );
                        logger.info(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
@@ -644,7 +644,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                          const taskId = taskIdMatch ? taskIdMatch[1] : sessionResponse.id;
 
                          // We saved the issue number in sourceRevision e.g. "refs/heads/123-fix"
-                         const issueNumMatch = sourceRevision.match(/refs\/heads\/(\d+)-fix/);
+                         const issueNumMatch = sourceRevision.match(/(\d+)-fix/);
                          if (taskId && issueNumMatch) {
                            const issueNumber = parseInt(issueNumMatch[1], 10);
                            const julesLink = `https://jules.google.com/task/${taskId}`;
