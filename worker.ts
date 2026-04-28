@@ -8,6 +8,70 @@ import { Octokit } from 'octokit'
 import cron from 'node-cron'
 import { logger } from './src/lib/logger'
 
+function stripUnnecessaryLogs(text: string): string {
+  if (!text) return text;
+  let cleaned = text;
+  // Remove base64 strings commonly found in images/logs (very basic heuristic)
+  cleaned = cleaned.replace(/data:image\/[^;]+;base64,[a-zA-Z0-9+/]+={0,2}/g, '[IMAGE REMOVED]');
+  // Remove long hex/base64 strings that look like tokens or massive hashes (longer than 100 chars)
+  cleaned = cleaned.replace(/[a-zA-Z0-9+/]{100,}/g, '[LONG STRING REMOVED]');
+  // Strip out repetitive npm install warnings (if present in CI outputs)
+  cleaned = cleaned.replace(/npm WARN.*\n/g, '');
+  return cleaned;
+}
+
+import { LRUCache } from 'lru-cache';
+
+const eTagCache = new LRUCache<string, string>({
+  max: 500,
+  ttl: 1000 * 60 * 60 * 24, // 24 hours
+});
+
+const responseCache = new LRUCache<string, any>({
+  max: 500,
+  ttl: 1000 * 60 * 60 * 24, // 24 hours
+});
+
+async function octokitGetWithCache(octokit: Octokit, route: string, params: any) {
+  const cacheKey = `${route}:${JSON.stringify(params)}`;
+  const etag = eTagCache.get(cacheKey);
+  const headers = etag ? { 'If-None-Match': etag } : {};
+
+  try {
+    const response = await octokit.request(route, { ...params, headers });
+
+    if (response.headers.etag) {
+      eTagCache.set(cacheKey, response.headers.etag);
+      responseCache.set(cacheKey, response.data);
+    }
+
+    return { data: response.data, status: response.status, cached: false };
+  } catch (error: any) {
+    if (error.status === 304) {
+      return { data: responseCache.get(cacheKey), status: 304, cached: true };
+    }
+    throw error;
+  }
+}
+
+
+const settingsCache = new LRUCache<number, any>({
+  max: 10,
+  ttl: 1000 * 60 * 5, // 5 minutes TTL
+});
+
+async function getCachedSettings(): Promise<any> {
+  if (settingsCache.has(1)) {
+    return settingsCache.get(1);
+  }
+  const settings = await getCachedSettings();
+  if (settings) {
+    settingsCache.set(1, settings);
+  }
+  return settings;
+}
+
+
 
 let isRunning = false;
 
@@ -364,7 +428,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
   logger.info(`[${new Date().toISOString()}] Starting polling cycle...`)
 
   try {
-    const settings = await prisma.settings.findUnique({ where: { id: 1 } })
+    const settings = await getCachedSettings()
     const repos = await prisma.repository.findMany({ where: { isActive: true } });
     const hasAnyToken = settings?.githubToken || repos.some(r => !!r.githubToken);
     if (!hasAnyToken) {
@@ -394,11 +458,11 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
 
-    for (const repo of repos) {
+    await Promise.all(repos.map(async (repo) => {
       const tokenToUse = repo.githubToken || settings?.githubToken;
       if (!tokenToUse) {
         logger.info(`Skipping ${repo.owner}/${repo.name}: No GitHub token available (local or global).`);
-        continue;
+        return;
       }
       const octokit = createOctokit(tokenToUse);
       let currentUser;
@@ -407,12 +471,13 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         currentUser = data;
       } catch (e) {
         logger.info(`Skipping ${repo.owner}/${repo.name}: Failed to authenticate with provided token.`);
-        continue;
+        return;
       }
 
       logger.info(`Checking ${repo.owner}/${repo.name}...`)
 
-      const { data: prs } = await octokit.rest.pulls.list({
+      const { data: prs, cached: prsCached } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/pulls', {
+
         owner: repo.owner,
         repo: repo.name,
         state: 'open',
@@ -421,7 +486,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         per_page: 20
       })
 
-      for (const pr of prs) {
+      if (prsCached && prs.length > 0) { logger.info(`Skipping ${repo.owner}/${repo.name}: PR list not modified (304).`); return; }
+      for (const pr of prs || []) {
         // Evaluate Branch Whitelist/Blacklist
         const targetBranch = pr.base?.ref;
         if (targetBranch) {
@@ -720,7 +786,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         if (reviewers.length === 0) continue; // Skip comment aggregation if no target reviewers
 
         // Fetch Issue Comments
-        const { data: issueComments } = await octokit.rest.issues.listComments({
+        const { data: issueComments } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
           owner: repo.owner,
           repo: repo.name,
           issue_number: pr.number,
@@ -728,7 +794,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         })
 
         // Fetch Pull Request Review Comments
-        const { data: reviewComments } = await octokit.rest.pulls.listReviewComments({
+        const { data: reviewComments } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
           owner: repo.owner,
           repo: repo.name,
           pull_number: pr.number,
@@ -736,7 +802,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         })
 
         // Fetch Pull Request Reviews (some bots leave bodies in reviews instead of comments)
-        const { data: reviews } = await octokit.rest.pulls.listReviews({
+        const { data: reviews } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
           owner: repo.owner,
           repo: repo.name,
           pull_number: pr.number,
@@ -871,7 +937,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           }
         }
       }
-    }
+    }));
 
     const now = new Date().getTime()
 
@@ -1064,7 +1130,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           finalCommentTemplateOuter = finalCommentTemplate || null;
           finalAiSystemPromptOuter = finalAiSystemPrompt || null;
 
-          const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
+          let aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
+          aggregatedBody = stripUnnecessaryLogs(aggregatedBody);
 
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -1346,7 +1413,7 @@ async function processWebhooks() {
 
 
 async function syncJulesSessions() {
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const settings = await getCachedSettings();
   if (!settings?.julesApiKey) return;
 
   try {
@@ -1438,7 +1505,7 @@ async function start() {
   cron.schedule('0 0 * * *', async () => {
       logger.info('Running database auto-pruning...');
       try {
-          const currentSettings = await prisma.settings.findUnique({ where: { id: 1 } });
+          const currentSettings = await getCachedSettings();
           const pruneDays = currentSettings?.pruneDays ?? 60;
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - pruneDays);
@@ -1474,7 +1541,7 @@ async function start() {
             orderBy: { firstSeenAt: 'asc' }
           });
           for (const s of unresolvedSessions) {
-              const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
+              const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } }, select: { githubToken: true } });
               let t = repo?.githubToken || settings?.githubToken;
               if (!t) continue;
               try {
@@ -1494,7 +1561,7 @@ async function start() {
 
 
 
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } })
+  const settings = await getCachedSettings()
   const interval = settings?.pollingInterval || 60
 
   logger.info(`Starting worker with polling interval: ${interval}s`)

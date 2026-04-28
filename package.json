@@ -13,6 +13,7 @@
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-slot": "^1.2.4",
     "dotenv": "^17.4.2",
+    "lru-cache": "^11.3.5",
     "lucide-react": "^1.8.0",
     "next": "16.2.3",
     "node-cron": "^4.2.1",
