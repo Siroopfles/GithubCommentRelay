@@ -148,6 +148,10 @@ model Task {
   priority          Int        @default(0) // Higher number = higher priority
   githubIssueNumber Int?
   julesSessionId    String?
+  julesSessionState String?
+  julesSessionUrl   String?
+  julesSessionPrUrl String?
+  julesSessionCreatedAt DateTime?
   prNumber          Int?
   contextFiles      String? // JSON array of file paths
   dependsOnId       String?
@@ -157,6 +161,7 @@ model Task {
   updatedAt         DateTime   @updatedAt
 
   @@index([repositoryId, status])
+  @@index([julesSessionState])
 }
 
 model WebhookSignal {

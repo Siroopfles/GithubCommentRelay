@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { formatAggregatedBody } from "./src/lib/format_helper";
-import { createSession, sendMessage } from "./src/lib/julesApi";
+import { createSession, sendMessage, getSession } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
 import { calculateComplexity } from './src/utils/complexityScore'
 import { Octokit } from 'octokit'
@@ -237,7 +237,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
                     }
 
                     // Call imported createSession
-                    const res = await createSession(settings.julesApiKey, prompt, `github.com/${repoConfig.owner}/${repoConfig.name}`, 'refs/heads/main');
+                    const res = await createSession(settings.julesApiKey, prompt, `sources/github.com/${repoConfig.owner}/${repoConfig.name}`, 'main');
 
                     if (res && res.name) {
                         const sessionIdMatch = res.name.match(/sessions\/(\d+)/);
@@ -592,7 +592,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                         if (!isScheduled) {
                           taskTitle = actualIssue.title;
                           taskBody = actualIssue.body || '';
-                          sourceRevision = `refs/heads/${actualIssue.number}-fix`;
+                          sourceRevision = `${actualIssue.number}-fix`;
 
                           // Mark as scheduled immediately
                           let labelSuccess = false;
@@ -633,8 +633,8 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                        const sessionResponse = await createSession(
                          settings.julesApiKey,
                          prompt,
-                         `github.com/${repo.owner}/${repo.name}`,
-                         sourceRevision || 'refs/heads/main'
+                         `sources/github.com/${repo.owner}/${repo.name}`,
+                         sourceRevision || 'main'
                        );
                        logger.info(`Successfully started Jules session for ${repo.owner}/${repo.name}`);
 
@@ -644,7 +644,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                          const taskId = taskIdMatch ? taskIdMatch[1] : sessionResponse.id;
 
                          // We saved the issue number in sourceRevision e.g. "refs/heads/123-fix"
-                         const issueNumMatch = sourceRevision.match(/refs\/heads\/(\d+)-fix/);
+                         const issueNumMatch = sourceRevision.match(/(\d+)-fix/);
                          if (taskId && issueNumMatch) {
                            const issueNumber = parseInt(issueNumMatch[1], 10);
                            const julesLink = `https://jules.google.com/task/${taskId}`;
@@ -1344,6 +1344,78 @@ async function processWebhooks() {
     }
 }
 
+
+async function syncJulesSessions() {
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.julesApiKey) return;
+
+  try {
+    const tasks = await prisma.task.findMany({
+      where: {
+        julesSessionId: { not: null },
+        OR: [
+          { julesSessionState: null },
+          { julesSessionState: { notIn: ['COMPLETED', 'FAILED'] } }
+        ]
+      }
+    });
+
+    if (tasks.length === 0) return;
+
+    logger.info(`Syncing ${tasks.length} active Jules sessions...`);
+
+    for (const task of tasks) {
+      if (!task.julesSessionId) continue;
+
+      try {
+        const session = await getSession(settings.julesApiKey, task.julesSessionId);
+
+        let prUrl = task.julesSessionPrUrl;
+        let prNumber = task.prNumber;
+
+        if (session.outputs && session.outputs.length > 0) {
+            for (const output of session.outputs) {
+                if (output.pullRequest && output.pullRequest.url) {
+                    prUrl = output.pullRequest.url;
+                    const match = prUrl ? prUrl.match(/\/pull\/(\d+)/) : null;
+                    if (match) {
+                        prNumber = parseInt(match[1], 10);
+                    }
+                }
+            }
+        }
+
+        const hasReviewArtifact = prNumber != null || !!prUrl || task.prNumber != null;
+        const nextStatus =
+          task.status === 'done' || task.status === 'blocked'
+            ? task.status
+            : session.state === 'FAILED'
+              ? 'blocked'
+              : hasReviewArtifact || session.state === 'COMPLETED'
+                ? 'in_review'
+                : 'in_progress';
+
+        await prisma.task.update({
+          where: { id: task.id },
+          data: {
+            julesSessionState: session.state,
+            julesSessionUrl: session.url || task.julesSessionUrl,
+            julesSessionPrUrl: prUrl,
+            prNumber: prNumber,
+            status: nextStatus
+          }
+        });
+
+        logger.info(`Synced Jules session for task ${task.id}: state=${session.state}`);
+      } catch (err: any) {
+        logger.error(`Failed to sync task ${task.id}:`, err);
+      }
+    }
+  } catch (error: any) {
+    logger.error('Failed to sync Jules sessions:', error);
+  }
+}
+
 async function start() {
   logger.info('Cleaning up any stuck processing sessions from previous runs...')
   try {
@@ -1432,9 +1504,11 @@ async function start() {
     try {
       cron.schedule(cronExpression, () => {
         void processRepositories()
+        void syncJulesSessions()
       })
       // Trigger immediate first run for consistency
       void processRepositories()
+      void syncJulesSessions()
     } catch (err) {
       logger.error('Failed to schedule cron job:', err)
     }
@@ -1443,10 +1517,12 @@ async function start() {
     // This correctly handles larger polling intervals without node-cron second-field limitations.
     setInterval(() => {
       void processRepositories()
+      void syncJulesSessions()
     }, interval * 1000)
 
     // Trigger immediate first run
     void processRepositories()
+        void syncJulesSessions()
   }
 }
 

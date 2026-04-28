@@ -4,14 +4,16 @@ export async function createSession(apiKey: string, prompt: string, source: stri
   const body: any = { prompt };
 
   if (source) {
-    body.sourceContext = { source };
-    if (revision) {
-      body.sourceContext.revision = revision;
-    }
+    body.sourceContext = {
+      source,
+      githubRepoContext: {
+        startingBranch: revision || "main"
+      }
+    };
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   let res;
   try {
@@ -40,23 +42,95 @@ export async function createSession(apiKey: string, prompt: string, source: stri
   return res.json();
 }
 
-export async function sendMessage(apiKey: string, sessionId: string, message: string) {
-  if (!/^\d+$/.test(sessionId)) {
-    throw new Error('sessionId must be a numeric string');
+export async function getSession(apiKey: string, sessionId: string) {
+  if (!/^\d+$/.test(sessionId) && !sessionId.startsWith('sessions/')) {
+    throw new Error('sessionId must be a numeric string or start with sessions/');
   }
 
+  const name = sessionId.startsWith('sessions/') ? sessionId : `sessions/${sessionId}`;
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   let res;
   try {
-    res = await fetch(`${JULES_API_BASE}/sessions/${sessionId}:sendMessage`, {
+    res = await fetch(`${JULES_API_BASE}/${name}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      },
+      signal: controller.signal
+    });
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Jules API Error getting session: Request timed out');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    throw new Error(`Jules API Error getting session: ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+export async function listActivities(apiKey: string, sessionId: string) {
+  if (!/^\d+$/.test(sessionId) && !sessionId.startsWith('sessions/')) {
+    throw new Error('sessionId must be a numeric string or start with sessions/');
+  }
+
+  const name = sessionId.startsWith('sessions/') ? sessionId : `sessions/${sessionId}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let res;
+  try {
+    res = await fetch(`${JULES_API_BASE}/${name}/activities`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      },
+      signal: controller.signal
+    });
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Jules API Error listing activities: Request timed out');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    throw new Error(`Jules API Error listing activities: ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+export async function sendMessage(apiKey: string, sessionId: string, message: string) {
+  if (!/^\d+$/.test(sessionId) && !sessionId.startsWith('sessions/')) {
+    throw new Error('sessionId must be a numeric string or start with sessions/');
+  }
+
+  const name = sessionId.startsWith('sessions/') ? sessionId : `sessions/${sessionId}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let res;
+  try {
+    res = await fetch(`${JULES_API_BASE}/${name}:sendMessage`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({ prompt: message }),
+      body: JSON.stringify({ userMessage: message }),
       signal: controller.signal
     });
   } catch (error: any) {
@@ -70,6 +144,43 @@ export async function sendMessage(apiKey: string, sessionId: string, message: st
 
   if (!res.ok) {
     throw new Error(`Jules API Error sending message: ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+export async function approvePlan(apiKey: string, sessionId: string) {
+  if (!/^\d+$/.test(sessionId) && !sessionId.startsWith('sessions/')) {
+    throw new Error('sessionId must be a numeric string or start with sessions/');
+  }
+
+  const name = sessionId.startsWith('sessions/') ? sessionId : `sessions/${sessionId}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let res;
+  try {
+    res = await fetch(`${JULES_API_BASE}/${name}:approvePlan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({}),
+      signal: controller.signal
+    });
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error('Jules API Error approving plan: Request timed out');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    throw new Error(`Jules API Error approving plan: ${await res.text()}`);
   }
 
   return res.json();
