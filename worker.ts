@@ -8,76 +8,270 @@ import { Octokit } from 'octokit'
 import cron from 'node-cron'
 import { logger } from './src/lib/logger'
 
-function stripUnnecessaryLogs(text: string): string {
-  if (!text) return text;
-  let cleaned = text;
-  // Remove base64 strings commonly found in images/logs (very basic heuristic)
-  cleaned = cleaned.replace(/data:image\/[^;]+;base64,[a-zA-Z0-9+/]+={0,2}/g, '[IMAGE REMOVED]');
-  // Remove long hex/base64 strings that look like tokens or massive hashes (longer than 100 chars)
-  cleaned = cleaned.replace(/[a-zA-Z0-9+/]{100,}/g, '[LONG STRING REMOVED]');
-  // Strip out repetitive npm install warnings (if present in CI outputs)
-  cleaned = cleaned.replace(/npm WARN.*\n/g, '');
-  return cleaned;
-}
 
-import { LRUCache } from 'lru-cache';
+let isRunning = false;
 
-const eTagCache = new LRUCache<string, string>({
-  max: 500,
-  ttl: 1000 * 60 * 60 * 24, // 24 hours
-});
 
-const responseCache = new LRUCache<string, any>({
-  max: 500,
-  ttl: 1000 * 60 * 60 * 24, // 24 hours
-});
 
-async function octokitGetWithCache(octokit: Octokit, route: string, params: any) {
-  const cacheKey = `${route}:${JSON.stringify(params)}`;
-  const etag = eTagCache.get(cacheKey);
-  const headers = etag ? { 'If-None-Match': etag } : {};
 
+
+async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any) {
   try {
-    const response = await octokit.request(route, { ...params, headers });
+    // 1. Sync tasks from local folder if applicable
+    if (repoConfig.taskSourceType === 'local_folder' && repoConfig.taskSourcePath) {
+      const fs = require('fs');
+      const path = require('path');
 
-    if (response.headers.etag) {
-      eTagCache.set(cacheKey, response.headers.etag);
-      responseCache.set(cacheKey, response.data);
+      if (fs.existsSync(repoConfig.taskSourcePath)) {
+        const files = fs.readdirSync(repoConfig.taskSourcePath);
+        for (const file of files) {
+          if (file.endsWith('.md') || file.endsWith('.json')) {
+            const filePath = path.join(repoConfig.taskSourcePath, file);
+            const content = fs.readFileSync(filePath, 'utf8');
+            let title = file;
+            let body = content;
+            let priority = 0;
+            let contextFiles: string | null = null;
+
+            // Simple frontmatter parsing
+            if (content.startsWith('---')) {
+              const parts = content.split('---');
+              if (parts.length >= 3) {
+                const fm = parts[1];
+                body = parts.slice(2).join('---').trim();
+                const titleMatch = fm.match(/title:\s*(.*)/);
+                if (titleMatch) title = titleMatch[1].trim();
+                const prioMatch = fm.match(/priority:\s*(\d+)/);
+                if (prioMatch) priority = parseInt(prioMatch[1], 10);
+                const ctxMatch = fm.match(/contextFiles:\s*\[(.*)\]/);
+                if (ctxMatch) {
+                    try {
+                        contextFiles = JSON.stringify(ctxMatch[1].split(',').map((s: string) => s.trim().replace(/['"]/g, '')));
+                    } catch (e) {}
+                }
+              }
+            }
+
+            // Extract issue number prefix if present
+            const issueMatch = file.match(/^(\d+)-/);
+            const issueNum = issueMatch ? parseInt(issueMatch[1], 10) : null;
+
+            // Check if exists
+            const existing = await prisma.task.findFirst({
+              where: { repositoryId: repoConfig.id, title }
+            });
+
+            if (!existing) {
+              await prisma.task.create({
+                data: {
+                  repositoryId: repoConfig.id,
+                  title,
+                  body,
+                  status: 'backlog',
+                  source: 'local_folder',
+                  priority,
+                  githubIssueNumber: issueNum,
+                  contextFiles
+                }
+              });
+              logger.info(`Imported task from file: ${title}`);
+            }
+          }
+        }
+      }
     }
 
-    return { data: response.data, status: response.status, cached: false };
-  } catch (error: any) {
-    if (error.status === 304) {
-      return { data: responseCache.get(cacheKey), status: 304, cached: true };
+    // 2. Sync from GitHub Issues
+    if (repoConfig.taskSourceType === 'github_issues') {
+       try {
+           const issues = await octokit.paginate(octokit.rest.issues.listForRepo, {
+               owner: repoConfig.owner,
+               repo: repoConfig.name,
+               state: 'open',
+               per_page: 100
+           });
+
+           for (const issue of issues) {
+               if (issue.pull_request) continue; // Skip PRs
+
+               const hasJulesLabel = issue.labels.some((l: any) => l.name === 'jules' || l.name === 'jules-scheduled');
+
+               if (!hasJulesLabel) {
+                   const existing = await prisma.task.findFirst({
+                       where: { repositoryId: repoConfig.id, githubIssueNumber: issue.number }
+                   });
+
+                   if (!existing && repoConfig.taskSourceType === 'github_issues') {
+                       await prisma.task.create({
+                           data: {
+                               repositoryId: repoConfig.id,
+                               title: issue.title,
+                               body: issue.body || '',
+                               status: 'backlog',
+                               source: 'github_issue',
+                               githubIssueNumber: issue.number,
+                           }
+                       });
+                       logger.info(`Imported task from issue #${issue.number}`);
+                   }
+               }
+           }
+       } catch (e) {
+           logger.error(`Failed to sync issues for ${repoConfig.name}: `, e);
+       }
     }
-    throw error;
+
+    // 3. Process Tasks (Kanban flow)
+    const maxConcurrent = repoConfig.maxConcurrentTasks ?? 3;
+
+    // Auto-promote backlog to todo if todo is empty
+    const todoTasksCount = await prisma.task.count({
+        where: { repositoryId: repoConfig.id, status: 'todo' }
+    });
+
+    if (todoTasksCount === 0 && maxConcurrent > 0) {
+        const topBacklog = await prisma.task.findFirst({
+            where: { repositoryId: repoConfig.id, status: 'backlog' },
+            orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }]
+        });
+        if (topBacklog) {
+            await prisma.task.update({
+                where: { id: topBacklog.id },
+                data: { status: 'todo' }
+            });
+            logger.info(`Promoted task ${topBacklog.title} from backlog to todo`);
+        }
+    }
+
+    // Check PR status for 'in_progress' and 'in_review' tasks
+    const trackingTasks = await prisma.task.findMany({
+        where: { repositoryId: repoConfig.id, status: { in: ['in_progress', 'in_review'] } }
+    });
+
+    let cachedPulls: any[] | null = null;
+
+    for (const t of trackingTasks) {
+        if (t.prNumber) {
+            try {
+                const pr = await octokit.rest.pulls.get({
+                    owner: repoConfig.owner,
+                    repo: repoConfig.name,
+                    pull_number: t.prNumber
+                });
+
+                if (pr.data.merged) {
+                    await prisma.task.update({ where: { id: t.id }, data: { status: 'done' } });
+                    logger.info(`Task ${t.title} marked as done (PR merged)`);
+                } else if (pr.data.state === 'closed') {
+                    await prisma.task.update({ where: { id: t.id }, data: { status: 'blocked' } });
+                    logger.info(`Task ${t.title} blocked (PR closed without merge)`);
+                } else if (t.status === 'in_progress') {
+                    await prisma.task.update({ where: { id: t.id }, data: { status: 'in_review' } });
+                }
+            } catch (e) {
+                logger.error(`Failed to check PR status for task ${t.title}`);
+            }
+        } else {
+            // Find PR by issue number or julesSessionId
+            try {
+                if (!cachedPulls) {
+                    const pulls = await octokit.paginate(octokit.rest.pulls.list, {
+                        owner: repoConfig.owner,
+                        repo: repoConfig.name,
+                        state: 'open'
+                    });
+                    cachedPulls = pulls;
+                }
+
+                for (const pr of cachedPulls!) {
+                    const bodyMatch = (t.githubIssueNumber !== null && pr.body?.includes(`Fixes #${t.githubIssueNumber}`)) ||
+                                      (t.julesSessionId && pr.body?.includes(`task/${t.julesSessionId}`));
+                    if (bodyMatch) {
+                        await prisma.task.update({
+                            where: { id: t.id },
+                            data: { prNumber: pr.number, status: 'in_review' }
+                        });
+                        logger.info(`Linked task ${t.title} to PR #${pr.number}`);
+                        break;
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+
+    // Start new tasks if we have capacity
+    const currentActiveTasks = await prisma.task.count({
+        where: { repositoryId: repoConfig.id, status: { in: ['in_progress', 'in_review'] } }
+    });
+    if (currentActiveTasks < maxConcurrent) {
+        const nextTask = await prisma.task.findFirst({
+            where: { repositoryId: repoConfig.id, status: 'todo' },
+            orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }]
+        });
+
+        if (nextTask) {
+            logger.info(`Starting task: ${nextTask.title}`);
+
+            if (nextTask.githubIssueNumber) {
+                // Add jules label to trigger external GitHub App
+                try {
+                    await octokit.rest.issues.addLabels({
+                        owner: repoConfig.owner,
+                        repo: repoConfig.name,
+                        issue_number: nextTask.githubIssueNumber,
+                        labels: ['jules']
+                    });
+                    await prisma.task.update({
+                        where: { id: nextTask.id },
+                        data: { status: 'in_progress' }
+                    });
+                } catch (e) {
+                    logger.error(`Failed to add label to issue #${nextTask.githubIssueNumber}`);
+                }
+            } else if (settings?.julesApiKey) {
+                // Use Jules API natively
+                try {
+                    let prompt = (repoConfig.julesPromptTemplate || "Start with the next task: {{task_title}}. Details: {{task_body}}.")
+                      .replace(/\{\{task_title\}\}/g, nextTask.title)
+                      .replace(/\{\{task_body\}\}/g, nextTask.body || '');
+
+                    if (nextTask.contextFiles) {
+                        prompt += `\n\nPlease review these files for context: ${nextTask.contextFiles}`;
+                    }
+
+                    // Call imported createSession
+                    const res = await createSession(settings.julesApiKey, prompt, `sources/github.com/${repoConfig.owner}/${repoConfig.name}`, 'main');
+
+                    if (res && res.name) {
+                        const sessionIdMatch = res.name.match(/sessions\/(\d+)/);
+                        const sessionId = sessionIdMatch ? sessionIdMatch[1] : res.name;
+
+                        await prisma.task.update({
+                            where: { id: nextTask.id },
+                            data: { status: 'in_progress', julesSessionId: sessionId }
+                        });
+                    }
+                } catch (e) {
+                    logger.error(`Failed to start task natively via Jules API`);
+                    await prisma.task.update({
+                        where: { id: nextTask.id },
+                        data: { status: 'blocked' }
+                    });
+                }
+            } else {
+                 logger.info("Cannot start manual task: no Jules API key and no Github Issue number.");
+            }
+        }
+    }
+
+  } catch (e) {
+    logger.error(`Error in syncAndProcessTasks for ${repoConfig.name}: `, e);
   }
 }
 
 
-const settingsCache = new LRUCache<number, any>({
-  max: 10,
-  ttl: 1000 * 60 * 5, // 5 minutes TTL
-});
 
-async function getCachedSettings(): Promise<any> {
-  if (settingsCache.has(1)) {
-    return settingsCache.get(1);
-  }
-  const settings = await getCachedSettings();
-  if (settings) {
-    settingsCache.set(1, settings);
-  }
-  return settings;
-}
-
-
-
-
-const rateLimitCache = new LRUCache<string, any>({
-  max: 10,
-  ttl: 1000 * 60 * 60, // 1 hour
-});
+const rateLimitCache = new Map<string, { lastSavedRemaining: number; lastSavedAt: number }>();
 
 function createOctokit(token: string) {
   const cache = rateLimitCache.get(token) ?? { lastSavedRemaining: 5000, lastSavedAt: 0 };
@@ -87,46 +281,81 @@ function createOctokit(token: string) {
     auth: token,
     request: {
       hook: async (request: any, options: any) => {
+        try {
           const res = await request(options);
           const limitStr = res.headers['x-ratelimit-remaining'];
           const resetStr = res.headers['x-ratelimit-reset'];
 
-          if (limitStr) {
-              const remaining = parseInt(limitStr, 10);
-              const limit = parseInt(res.headers['x-ratelimit-limit'], 10);
-              const cacheEntry = rateLimitCache.get(token) || { lastSavedRemaining: 5000, lastSavedAt: 0 };
+          if (limitStr && resetStr) {
+            const limit = parseInt(limitStr, 10);
+            const reset = new Date(parseInt(resetStr, 10) * 1000);
 
-              // Only save if significantly different or if enough time has passed
-              const now = Date.now();
-              if (Math.abs(remaining - cacheEntry.lastSavedRemaining) > 50 || (now - cacheEntry.lastSavedAt) > 1000 * 60 * 5) {
-                 prisma.rateLimitLog.create({
-                      data: { remaining, limit }
-                 }).catch(e => logger.error('Failed to log rate limit', e));
+            const now = Date.now();
+            if (Math.abs(cache.lastSavedRemaining - limit) >= 10 || limit < 200 || (now - cache.lastSavedAt) > 60000) {
+                try {
+                  await prisma.settings.update({
+                    where: { id: 1 },
+                    data: {
+                      githubRateLimitRemaining: limit,
+                      githubRateLimitReset: reset
+                    }
+                  });
+                  await prisma.rateLimitLog.create({
+                    data: {
+                      remaining: limit,
+                      limit: parseInt(res.headers['x-ratelimit-limit'] || '5000', 10)
+                    }
+                  });
+                  cache.lastSavedRemaining = limit;
+                  cache.lastSavedAt = now;
+                } catch (dbErr) {
+                  logger.error('Failed to update rate limit in DB:', dbErr);
+                }
+            }
 
-                 prisma.settings.update({
-                      where: { id: 1 },
-                      data: {
-                          githubRateLimitRemaining: remaining,
-                          githubRateLimitReset: resetStr ? new Date(parseInt(resetStr, 10) * 1000) : null
-                      }
-                 }).catch(e => logger.error('Failed to update settings rate limit', e));
-
-                 rateLimitCache.set(token, { lastSavedRemaining: remaining, lastSavedAt: now });
-              }
-
-              if (remaining < 500) {
-                  logger.warn(`GitHub API Rate Limit is low: ${remaining} remaining`);
-              }
+            if (limit < 50) {
+                logger.warn(`GitHub API rate limit is critically low: ${limit} remaining. Resets at ${reset.toISOString()}`);
+            }
           }
           return res;
+        } catch (error: any) {
+            if (error.response && error.response.headers) {
+                const limitStr = error.response.headers['x-ratelimit-remaining'];
+                const resetStr = error.response.headers['x-ratelimit-reset'];
+                if (limitStr && resetStr) {
+                    const limit = parseInt(limitStr, 10);
+                    const reset = new Date(parseInt(resetStr, 10) * 1000);
+
+                    try {
+                        await prisma.settings.update({
+                        where: { id: 1 },
+                        data: {
+                            githubRateLimitRemaining: limit,
+                            githubRateLimitReset: reset
+                        }
+                        });
+                        const now = Date.now();
+                        if (Math.abs(cache.lastSavedRemaining - limit) >= 10 || limit < 200 || (now - cache.lastSavedAt) > 60000) {
+                           await prisma.rateLimitLog.create({
+                             data: {
+                               remaining: limit,
+                               limit: parseInt(error.response.headers['x-ratelimit-limit'] || '5000', 10)
+                             }
+                           });
+                           cache.lastSavedRemaining = limit;
+                           cache.lastSavedAt = now;
+                        }
+                    } catch (dbErr) {
+                       logger.error('Failed to update rate limit in DB error branch:', dbErr);
+                    }
+                }
+            }
+            throw error;
+        }
       }
     }
   });
 }
-
-
-let isRunning = false;
-
 
 async function processRepositories(webhookPrs?: {owner: string, name: string, prNumber: number}[]) {
   if (isRunning) {
@@ -138,7 +367,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
   logger.info(`[${new Date().toISOString()}] Starting polling cycle...`)
 
   try {
-    const settings = await getCachedSettings()
+    const settings = await prisma.settings.findUnique({ where: { id: 1 } })
     const repos = await prisma.repository.findMany({ where: { isActive: true } });
     const hasAnyToken = settings?.githubToken || repos.some(r => !!r.githubToken);
     if (!hasAnyToken) {
@@ -186,8 +415,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
       logger.info(`Checking ${repo.owner}/${repo.name}...`)
 
-      const { data: prs, cached: prsCached } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/pulls', {
-
+      const { data: prs } = await octokit.rest.pulls.list({
         owner: repo.owner,
         repo: repo.name,
         state: 'open',
@@ -196,8 +424,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         per_page: 20
       })
 
-      if (prsCached && prs.length > 0) { logger.info(`Skipping ${repo.owner}/${repo.name}: PR list not modified (304).`); continue; }
-      for (const pr of prs || []) {
+      for (const pr of prs) {
         // Evaluate Branch Whitelist/Blacklist
         const targetBranch = pr.base?.ref;
         if (targetBranch) {
@@ -496,7 +723,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         if (reviewers.length === 0) continue; // Skip comment aggregation if no target reviewers
 
         // Fetch Issue Comments
-        const { data: issueComments } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+        const { data: issueComments } = await octokit.rest.issues.listComments({
           owner: repo.owner,
           repo: repo.name,
           issue_number: pr.number,
@@ -504,7 +731,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         })
 
         // Fetch Pull Request Review Comments
-        const { data: reviewComments } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
+        const { data: reviewComments } = await octokit.rest.pulls.listReviewComments({
           owner: repo.owner,
           repo: repo.name,
           pull_number: pr.number,
@@ -512,7 +739,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
         })
 
         // Fetch Pull Request Reviews (some bots leave bodies in reviews instead of comments)
-        const { data: reviews } = await octokitGetWithCache(octokit, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+        const { data: reviews } = await octokit.rest.pulls.listReviews({
           owner: repo.owner,
           repo: repo.name,
           pull_number: pr.number,
@@ -840,8 +1067,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           finalCommentTemplateOuter = finalCommentTemplate || null;
           finalAiSystemPromptOuter = finalAiSystemPrompt || null;
 
-          let aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
-          aggregatedBody = stripUnnecessaryLogs(aggregatedBody);
+          const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
 
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -1101,7 +1327,7 @@ async function processWebhooks() {
             owner: s.repoOwner,
             name: s.repoName,
             prNumber: s.prNumber
-        }))
+        }));
 
         if (isRunning) {
             return; // Leave signals; next tick will retry
@@ -1123,7 +1349,7 @@ async function processWebhooks() {
 
 
 async function syncJulesSessions() {
-  const settings = await getCachedSettings();
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   if (!settings?.julesApiKey) return;
 
   try {
@@ -1215,7 +1441,7 @@ async function start() {
   cron.schedule('0 0 * * *', async () => {
       logger.info('Running database auto-pruning...');
       try {
-          const currentSettings = await getCachedSettings();
+          const currentSettings = await prisma.settings.findUnique({ where: { id: 1 } });
           const pruneDays = currentSettings?.pruneDays ?? 60;
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - pruneDays);
@@ -1251,7 +1477,7 @@ async function start() {
             orderBy: { firstSeenAt: 'asc' }
           });
           for (const s of unresolvedSessions) {
-              const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } }, select: { githubToken: true } });
+              const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
               let t = repo?.githubToken || settings?.githubToken;
               if (!t) continue;
               try {
@@ -1271,7 +1497,7 @@ async function start() {
 
 
 
-  const settings = await getCachedSettings()
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } })
   const interval = settings?.pollingInterval || 60
 
   logger.info(`Starting worker with polling interval: ${interval}s`)
