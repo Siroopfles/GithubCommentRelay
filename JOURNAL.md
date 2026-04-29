@@ -304,3 +304,11 @@ All builds and tests passing.
 * Added auto-sync task to `worker.ts` that polls active Jules sessions via `getSession` and extracts Pull Request links/numbers from the final Output.
 * Updated Task Management UI (`src/app/tasks/page.tsx`) with a "Dispatch to Jules" modal feature. Users can now easily start a session for a task on a specified branch.
 * Built the Jules Dashboard (`src/app/jules/page.tsx`) providing an intuitive way to view all Jules sessions, their states, detailed log activity (Terminal outputs, agent messages, plan steps), and interface components to send messages and approve generated plans.
+
+## Performance, Caching & Resource Management (Categorie L) geïmplementeerd
+
+- **In-Memory Cache (56 & 60):** \`lru-cache\` geconfigureerd om \`prisma.settings.findUnique\` te cachen en load op de database te verminderen.
+- **E-tag / HTTP 304 Polling Optimalisatie (57):** In \`worker.ts\` een E-Tag response cache (memory-based) ingebouwd voor de trage \`octokit\` requesten (pulls list, issue/review comments). Bij 304 Not Modified slaan we de volledige verwerking over (rate-limits saved!).
+- **Volledig Parallelle Repository Processing (58):** De grote repos loop in \`processRepositories()\` in \`worker.ts\` herschreven naar een \`await Promise.all()\` constructie, wat de doorvoersnelheid massaal verhoogt.
+- **Agressieve tekst/log stripping (59):** Base64 en lange hex strings worden met een regex-stripper filter weggelaten uit de payload, dit bespaart input tokens in de LLM!
+- **Prisma Query Optimalisatie (60):** Enkele zware \`findMany\` queries op de Repository table teruggebracht naar enkel de echt benodigde kolommen (id, owner, token, etc), waardoor memory consumption verlaagd is.

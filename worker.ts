@@ -12,6 +12,9 @@ import { logger } from './src/lib/logger'
 let isRunning = false;
 
 
+
+
+
 async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any) {
   try {
     // 1. Sync tasks from local folder if applicable
@@ -1475,7 +1478,7 @@ async function start() {
           });
           for (const s of unresolvedSessions) {
               const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
-              let t = repo?.githubToken || settings?.githubToken;
+              let t = repo?.githubToken || currentSettings?.githubToken;
               if (!t) continue;
               try {
                   const { data: prInfo } = await createOctokit(t).rest.pulls.get({
