@@ -1478,7 +1478,7 @@ async function start() {
           });
           for (const s of unresolvedSessions) {
               const repo = await prisma.repository.findUnique({ where: { owner_name: { owner: s.repoOwner, name: s.repoName } } });
-              let t = repo?.githubToken || settings?.githubToken;
+              let t = repo?.githubToken || currentSettings?.githubToken;
               if (!t) continue;
               try {
                   const { data: prInfo } = await createOctokit(t).rest.pulls.get({
