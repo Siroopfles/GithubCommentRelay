@@ -1,20 +1,23 @@
 import { logger } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { encrypt, decrypt } from '@/lib/encryption';
+import { verifySession } from '@/lib/auth';
+import { cookies } from 'next/headers';
 
-// Simplistic mock auth check - in a real app, use next-auth or similar
-function isAuthenticated(request: NextRequest) {
-  // For a Proxmox local tool, this could check a specific local IP,
-  // or check a basic auth header. For now, we'll allow local access but
-  // structure it so auth can be easily added.
-  return true;
+async function getEncryptionKey() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return null;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return null;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return session?.encryptionKey || null;
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthenticated(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
 
   if (!settings) {
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
     hasGithubToken: !!settings.githubToken,
     pollingInterval: settings.pollingInterval,
     batchDelay: settings.batchDelay,
-      hasJulesApiKey: !!settings.julesApiKey,
+    hasJulesApiKey: !!settings.julesApiKey,
     pruneDays: settings.pruneDays,
     githubRateLimitRemaining: settings.githubRateLimitRemaining,
     githubRateLimitReset: settings.githubRateLimitReset,
@@ -43,12 +46,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthenticated(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
     const data = await request.json()
+    const encryptionKey = await getEncryptionKey();
 
     // Validate
     if (data.githubToken !== undefined && typeof data.githubToken !== 'string') {
@@ -60,11 +60,9 @@ export async function POST(request: NextRequest) {
     if (data.pruneDays !== undefined && (typeof data.pruneDays !== 'number' || !Number.isInteger(data.pruneDays) || data.pruneDays <= 0)) {
       return NextResponse.json({ error: 'pruneDays must be a positive integer' }, { status: 400 })
     }
-
     if (typeof data.batchDelay !== 'number' || !Number.isInteger(data.batchDelay) || data.batchDelay <= 0) {
       return NextResponse.json({ error: 'batchDelay must be a positive integer' }, { status: 400 })
     }
-
     if (data.julesApiKey !== undefined && typeof data.julesApiKey !== "string") {
       return NextResponse.json({ error: "julesApiKey must be a string" }, { status: 400 })
     }
@@ -72,7 +70,7 @@ export async function POST(request: NextRequest) {
     const updateData: any = {
       pollingInterval: data.pollingInterval,
       batchDelay: data.batchDelay,
-        pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
+      pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
     }
 
     if (data.webhookSecret !== undefined) {
@@ -84,7 +82,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.githubToken !== undefined) {
-      updateData.githubToken = data.githubToken === '' ? null : data.githubToken;
+      if (data.githubToken === '') {
+        updateData.githubToken = null;
+      } else {
+        if (!encryptionKey) return NextResponse.json({ error: 'Unauthorized to encrypt tokens. Please log in again.' }, { status: 401 });
+        updateData.githubToken = encrypt(data.githubToken, encryptionKey);
+      }
     }
 
     const redact = (obj: any) => {
@@ -111,12 +114,12 @@ export async function POST(request: NextRequest) {
         update: updateData,
         create: {
           id: 1,
-          githubToken: data.githubToken === '' || data.githubToken === undefined ? null : data.githubToken,
+          githubToken: updateData.githubToken || null,
           pollingInterval: data.pollingInterval,
           batchDelay: data.batchDelay,
-          pruneDays: data.pruneDays !== undefined ? data.pruneDays : 60,
-          julesApiKey: data.julesApiKey === "" || data.julesApiKey === undefined ? null : data.julesApiKey,
-          webhookSecret: data.webhookSecret === "" || data.webhookSecret === undefined ? null : data.webhookSecret
+          pruneDays: updateData.pruneDays,
+          julesApiKey: updateData.julesApiKey || null,
+          webhookSecret: updateData.webhookSecret || null
         }
       })
     ]);

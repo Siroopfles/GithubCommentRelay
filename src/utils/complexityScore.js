@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.defaultWeights = void 0;
 exports.calculateComplexity = calculateComplexity;
@@ -28,19 +39,20 @@ exports.defaultWeights = {
     }
 };
 function calculateComplexity(comments, customWeightsJson) {
-    let weights = { ...exports.defaultWeights, keywords: { ...exports.defaultWeights.keywords } };
+    var weights = __assign(__assign({}, exports.defaultWeights), { keywords: __assign({}, exports.defaultWeights.keywords) });
     if (customWeightsJson) {
         try {
-            const custom = JSON.parse(customWeightsJson);
+            var custom = JSON.parse(customWeightsJson);
             if (custom && typeof custom === 'object' && !Array.isArray(custom)) {
                 // Deep validate numeric fields
-                for (const key of Object.keys(exports.defaultWeights)) {
+                for (var _i = 0, _a = Object.keys(exports.defaultWeights); _i < _a.length; _i++) {
+                    var key = _a[_i];
                     if (key !== 'keywords' && custom[key] !== undefined) {
                         if (typeof custom[key] === 'number' && Number.isFinite(custom[key])) {
                             weights[key] = custom[key];
                         }
                         else {
-                            console.warn(`complexityWeights field '${key}' is not a finite number, using default.`);
+                            console.warn("complexityWeights field '".concat(key, "' is not a finite number, using default."));
                         }
                     }
                 }
@@ -48,7 +60,8 @@ function calculateComplexity(comments, customWeightsJson) {
                     weights.keywords = {};
                 }
                 if (custom.keywords && typeof custom.keywords === 'object' && !Array.isArray(custom.keywords)) {
-                    for (const [kw, val] of Object.entries(custom.keywords)) {
+                    for (var _b = 0, _c = Object.entries(custom.keywords); _b < _c.length; _b++) {
+                        var _d = _c[_b], kw = _d[0], val = _d[1];
                         if (val === null) {
                             delete weights.keywords[kw];
                         }
@@ -56,7 +69,7 @@ function calculateComplexity(comments, customWeightsJson) {
                             weights.keywords[kw] = val;
                         }
                         else {
-                            console.warn(`complexityWeights.keywords field '${kw}' is not a finite number, using default if it exists.`);
+                            console.warn("complexityWeights.keywords field '".concat(kw, "' is not a finite number, using default if it exists."));
                         }
                     }
                 }
@@ -72,10 +85,11 @@ function calculateComplexity(comments, customWeightsJson) {
             console.warn("Invalid complexityWeights JSON, falling back to default", e);
         }
     }
-    let totalScore = 0;
-    let breakdown = { baseCategoryScore: 0, stacktraceScore: 0, fileCountScore: 0, keywordScore: 0 };
-    const uniqueFiles = new Set();
-    for (const comment of comments) {
+    var totalScore = 0;
+    var breakdown = { baseCategoryScore: 0, stacktraceScore: 0, fileCountScore: 0, keywordScore: 0 };
+    var uniqueFiles = new Set();
+    for (var _e = 0, comments_1 = comments; _e < comments_1.length; _e++) {
+        var comment = comments_1[_e];
         // 1. Base category score
         switch (comment.category) {
             case "lint":
@@ -98,16 +112,20 @@ function calculateComplexity(comments, customWeightsJson) {
                 break;
         }
         // 2. Stacktrace length — count only stack-frame-like lines
-        const stackLines = comment.body.split('\n').filter(l => /^\s*at\s+\S+/.test(l) || /^\s*File\s+".+",\s*line\s+\d+/.test(l)).length;
+        var stackLines = comment.body.split('\n').filter(function (l) {
+            return /^\s*at\s+\S+/.test(l) || /^\s*File\s+".+",\s*line\s+\d+/.test(l);
+        }).length;
         breakdown.stacktraceScore += stackLines * weights.stacktraceLinePenalty;
         // 3. Keywords
-        const bodyLines = comment.body.split('\n');
-        let kwScoreForComment = 0;
-        for (const line of bodyLines) {
-            const lowerLine = line.toLowerCase();
+        var bodyLines = comment.body.split('\n');
+        var kwScoreForComment = 0;
+        for (var _f = 0, bodyLines_1 = bodyLines; _f < bodyLines_1.length; _f++) {
+            var line = bodyLines_1[_f];
+            var lowerLine = line.toLowerCase();
             // Only match keywords on lines that look like errors/exceptions
             if (lowerLine.includes('error') || lowerLine.includes('exception') || lowerLine.includes('traceback') || lowerLine.includes('warning') || lowerLine.includes('fail')) {
-                for (const [kw, score] of Object.entries(weights.keywords)) {
+                for (var _g = 0, _h = Object.entries(weights.keywords); _g < _h.length; _g++) {
+                    var _j = _h[_g], kw = _j[0], score = _j[1];
                     if (lowerLine.includes(kw.toLowerCase())) {
                         kwScoreForComment += score;
                     }
@@ -117,9 +135,9 @@ function calculateComplexity(comments, customWeightsJson) {
         breakdown.keywordScore += kwScoreForComment;
         // Simple file detection heuristic (e.g., path/to/file.ts)
         // Require either a directory separator or a known source-file extension
-        const fileMatches = comment.body.match(/\b[a-zA-Z0-9_\-./]*\/[a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]{1,6}\b|\b[a-zA-Z0-9_\-.]+\.(?:ts|tsx|js|jsx|py|go|rs|java|rb|php|cs|cpp|c|h|hpp|md|json|yml|yaml|sql|sh)\b/g);
+        var fileMatches = comment.body.match(/\b[a-zA-Z0-9_\-./]*\/[a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]{1,6}\b|\b[a-zA-Z0-9_\-.]+\.(?:ts|tsx|js|jsx|py|go|rs|java|rb|php|cs|cpp|c|h|hpp|md|json|yml|yaml|sql|sh)\b/g);
         if (fileMatches) {
-            fileMatches.forEach(f => uniqueFiles.add(f));
+            fileMatches.forEach(function (f) { return uniqueFiles.add(f); });
         }
     }
     // Cap base category score
@@ -138,17 +156,17 @@ function calculateComplexity(comments, customWeightsJson) {
     }
     totalScore += breakdown.stacktraceScore;
     // 4. File count penalty
-    let filePenalty = uniqueFiles.size * weights.fileCountPenalty;
+    var filePenalty = uniqueFiles.size * weights.fileCountPenalty;
     if (filePenalty > weights.maxFileCountPenalty)
         filePenalty = weights.maxFileCountPenalty;
     breakdown.fileCountScore = filePenalty;
     totalScore += filePenalty;
-    let label = "EASY";
+    var label = "EASY";
     if (totalScore >= 20)
         label = "CRITICAL";
     else if (totalScore >= 10)
         label = "HARD";
     else if (totalScore >= 5)
         label = "MEDIUM";
-    return { score: Math.round(totalScore * 10) / 10, label, breakdown };
+    return { score: Math.round(totalScore * 10) / 10, label: label, breakdown: breakdown };
 }

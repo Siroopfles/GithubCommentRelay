@@ -1,5 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { encrypt } from '@/lib/encryption';
+import { verifySession } from '@/lib/auth';
+import { cookies } from 'next/headers';
+
+async function getEncryptionKey() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return null;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return null;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return session?.encryptionKey || null;
+}
 
 export async function GET() {
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
@@ -12,6 +27,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
+  const encryptionKey = await getEncryptionKey();
 
   // Validate requiredApprovals
   let parsedApprovals = 1;
@@ -45,6 +61,11 @@ export async function POST(request: Request) {
     parsedBatchDelay = d;
   }
 
+  let finalGithubToken = null;
+  if (typeof githubToken === "string" && githubToken !== "") {
+     if (!encryptionKey) return NextResponse.json({ error: 'Unauthorized to encrypt tokens. Please log in again.' }, { status: 401 });
+     finalGithubToken = encrypt(githubToken, encryptionKey);
+  }
 
   try {
     const repo = await prisma.repository.create({
@@ -74,7 +95,7 @@ export async function POST(request: Request) {
         batchDelay: parsedBatchDelay,
         branchWhitelist: typeof branchWhitelist === "string" && branchWhitelist !== "" ? branchWhitelist : null,
         branchBlacklist: typeof branchBlacklist === "string" && branchBlacklist !== "" ? branchBlacklist : null,
-        githubToken: typeof githubToken === "string" && githubToken !== "" ? githubToken : null,
+        githubToken: finalGithubToken,
         requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null
       }
     })

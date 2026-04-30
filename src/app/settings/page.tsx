@@ -13,6 +13,8 @@ type SettingsForm = {
 
 export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [tokenStatus, setTokenStatus] = useState<"idle" | "verifying" | "valid" | "invalid">("idle");
+  const [tokenMessage, setTokenMessage] = useState("");
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [updateSecret, setUpdateSecret] = useState('')
   type BotAgentMapping = { id: string; botSource: string; agentName: string; role?: string; createdAt?: string };
@@ -49,7 +51,7 @@ export default function SettingsPage() {
   }, [activeTab]);
 
 
-  const { register, handleSubmit, reset } = useForm<SettingsForm>()
+  const { register, handleSubmit, reset, getValues } = useForm<SettingsForm>()
 
   useEffect(() => {
     fetch('/api/bot-agent-mappings')
@@ -243,6 +245,35 @@ export default function SettingsPage() {
     }
   };
 
+  const verifyToken = async () => {
+    const token = getValues("githubToken");
+    if (!token) return;
+    setTokenStatus("verifying");
+    setTokenMessage("");
+    try {
+      const res = await fetch("/api/github/verify-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setTokenStatus("valid");
+        if (data.hasRepoScope || data.isLikelyFineGrained) {
+          setTokenMessage("Token is valid and seems to have correct permissions.");
+        } else {
+           setTokenMessage("Token is valid, but missing explicit 'repo' scope.");
+        }
+      } else {
+        setTokenStatus("invalid");
+        setTokenMessage(data.error || "Token is invalid.");
+      }
+    } catch (e) {
+      setTokenStatus("invalid");
+      setTokenMessage("Failed to verify token.");
+    }
+  };
+
   const confirmUpdate = async () => {
     if (!updateSecret) {
       setShowUpdateModal(false)
@@ -298,7 +329,11 @@ export default function SettingsPage() {
             {...register('githubToken')}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md focus:ring-blue-500 focus:border-blue-500 text-black dark:text-gray-100"
             placeholder={hasToken ? "Token is securely stored. Enter a new one to update." : "ghp_xxxxxxxxxxxxxxxxxxxx"}
+            onBlur={verifyToken}
           />
+          {tokenStatus === "verifying" && <p className="mt-2 text-sm text-blue-500">Verifying token...</p>}
+          {tokenStatus === "valid" && <p className="mt-2 text-sm text-green-500 flex items-center">✅ {tokenMessage}</p>}
+          {tokenStatus === "invalid" && <p className="mt-2 text-sm text-red-500 flex items-center">❌ {tokenMessage}</p>}
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">This token will be used to post the aggregated comments under your name. Ensure it has fine-grained read/write permissions for issues and pull requests.</p>
         </div>
 

@@ -7,9 +7,49 @@ import { Octokit } from 'octokit'
 // @ts-ignore
 import cron from 'node-cron'
 import { logger } from './src/lib/logger'
+import http from "http";
+import { decrypt } from "./src/lib/encryption";
+
+import { redactPII } from "./src/lib/redaction";
+let inMemoryEncryptionKey: string | null = null;
+
+const ipcServer = http.createServer((req, res) => {
+  if (req.method === "POST" && req.url === "/set-key") {
+    let body = "";
+    req.on("data", chunk => { body += chunk.toString(); });
+    req.on("end", () => {
+      try {
+        const data = JSON.parse(body);
+        if (data.key && typeof data.key === "string" && data.key.length === 64) {
+          inMemoryEncryptionKey = data.key;
+          logger.info("Encryption key loaded into memory via IPC.");
+          res.writeHead(200); res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(400); res.end(JSON.stringify({ error: "Invalid key format" }));
+        }
+      } catch (e) {
+        res.writeHead(400); res.end(JSON.stringify({ error: "Invalid JSON" }));
+      }
+    });
+  } else {
+    res.writeHead(404); res.end();
+  }
+});
+ipcServer.listen(3001, "127.0.0.1", () => {
+  logger.info("Worker IPC server listening on 127.0.0.1:3001");
+});
 
 
-let isRunning = false;
+
+let isRunning = false
+
+function isWorkerReady() {
+  if (!inMemoryEncryptionKey) {
+    logger.warn("Worker paused: Encryption key not yet loaded. Please log in via Web UI.");
+    return false;
+  }
+  return true;
+};
 
 
 
@@ -274,6 +314,7 @@ async function syncAndProcessTasks(repoConfig: any, octokit: any, settings: any)
 const rateLimitCache = new Map<string, { lastSavedRemaining: number; lastSavedAt: number }>();
 
 function createOctokit(token: string) {
+  token = inMemoryEncryptionKey ? decrypt(token, inMemoryEncryptionKey) : token;
   const cache = rateLimitCache.get(token) ?? { lastSavedRemaining: 5000, lastSavedAt: 0 };
   rateLimitCache.set(token, cache);
 
@@ -811,7 +852,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                     repoOwner: repo.owner,
                     repoName: repo.name,
                     author: comment.user.login,
-                    body: comment.body,
+                    body: redactPII(comment.body),
                     postedAt: new Date(comment.created_at),
                     isSkipped: true
                   }
@@ -844,7 +885,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                   repoOwner: repo.owner,
                   repoName: repo.name,
                   author: comment.user.login,
-                  body: comment.body,
+                  body: redactPII(comment.body),
                   postedAt,
                   category
                 }
@@ -1068,6 +1109,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
           finalAiSystemPromptOuter = finalAiSystemPrompt || null;
 
           const aggregatedBody = formatAggregatedBody(commentsToBatch, finalAiSystemPrompt, finalCommentTemplate, session.isHighPriority, session.manualPrompt, botMappings) + checkRunsContent;
+          const redactedAggregatedBody = redactPII(aggregatedBody);
 
 
             if (repoConfig?.postAggregatedComments !== false) {
@@ -1111,7 +1153,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                          owner: session.repoOwner,
                          repo: session.repoName,
                          pull_number: session.prNumber,
-                         body: aggregatedBody,
+                         body: redactedAggregatedBody,
                          commit_id: headSha,
                          path: commentWithLine.path,
                          line: commentWithLine.line,
@@ -1129,7 +1171,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
                     owner: session.repoOwner,
                     repo: session.repoName,
                     issue_number: session.prNumber,
-                    body: aggregatedBody
+                    body: redactedAggregatedBody
                   })
                   logger.info(`Successfully posted aggregated comment to PR #${session.prNumber}`)
               }
@@ -1195,7 +1237,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
             try {
-              await forwardCommentsToJules(session, aggregatedBody, settings, prisma, octokit, repoConfig)
+              await forwardCommentsToJules(session, redactedAggregatedBody, settings, prisma, octokit, repoConfig)
               await prisma.aIAgentAction.create({
                   data: {
                       repoOwner: session.repoOwner,
@@ -1314,6 +1356,7 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
 
 
 async function processWebhooks() {
+  if (!isWorkerReady()) return;
     try {
         const signals = await prisma.webhookSignal.findMany({
             take: 10
@@ -1349,6 +1392,7 @@ async function processWebhooks() {
 
 
 async function syncJulesSessions() {
+  if (!isWorkerReady()) return;
   const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   if (!settings?.julesApiKey) return;
 
@@ -1446,8 +1490,9 @@ async function start() {
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - pruneDays);
 
-          const result = await prisma.processedComment.deleteMany({
-              where: { postedAt: { lt: cutoffDate } }
+          const result = await prisma.processedComment.updateMany({
+              where: { postedAt: { lt: cutoffDate }, isPruned: false },
+              data: { isPruned: true, body: "[PRUNED]" }
           });
           logger.info(`Pruned ${result.count} old comments from the database.`);
 

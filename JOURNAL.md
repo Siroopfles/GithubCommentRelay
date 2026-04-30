@@ -312,3 +312,11 @@ All builds and tests passing.
 - **Volledig Parallelle Repository Processing (58):** De grote repos loop in \`processRepositories()\` in \`worker.ts\` herschreven naar een \`await Promise.all()\` constructie, wat de doorvoersnelheid massaal verhoogt.
 - **Agressieve tekst/log stripping (59):** Base64 en lange hex strings worden met een regex-stripper filter weggelaten uit de payload, dit bespaart input tokens in de LLM!
 - **Prisma Query Optimalisatie (60):** Enkele zware \`findMany\` queries op de Repository table teruggebracht naar enkel de echt benodigde kolommen (id, owner, token, etc), waardoor memory consumption verlaagd is.
+
+## 2026-04-30: Category M - Precision Security & Authentication
+Implemented Category M features with precision:
+- **Idea 61 (Real-time PAT Scope Checker)**: Added `/api/github/verify-token` route checking `/user` scopes, updating the UI with validation feedback.
+- **Idea 62 (Token Encryptie in SQLite)**: Implemented AES-256-GCM encryption in `src/lib/encryption.ts`. Web API encrypts on save, and worker receives key via IPC to decrypt on-the-fly.
+- **Idea 63 (PII Redaction)**: Added `src/lib/redaction.ts` to replace tokens, emails, and passwords with placeholders before saving to local SQLite and before posting to GitHub.
+- **Idea 64 (Basic Login & Setup)**: Created a `/setup` phase that forces the generation of a Master Password (which acts as base for the encryption key), and a Next.js middleware enforcing login.
+- **Idea 65 (Soft-Delete Pruning)**: Changed the worker's cron job from `deleteMany` to `updateMany`, clearing `body` to `[PRUNED]` while preserving metadata.
