@@ -18,7 +18,23 @@ async function getEncryptionKey() {
   return session?.sessionId ? (sessionStore.get(session.sessionId) || null) : null;
 }
 
+async function isAuthenticated() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return !!session?.loggedIn;
+}
+
 export async function GET(request: NextRequest) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const settings = await prisma.settings.findUnique({ where: { id: 1 } })
 
   if (!settings) {
@@ -47,6 +63,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const data = await request.json()
     const encryptionKey = await getEncryptionKey();
@@ -67,6 +87,11 @@ export async function POST(request: NextRequest) {
     if (data.julesApiKey !== undefined && typeof data.julesApiKey !== "string") {
       return NextResponse.json({ error: "julesApiKey must be a string" }, { status: 400 })
     }
+    if (data.webhookSecret !== undefined) {
+      if (typeof data.webhookSecret !== "string") {
+        return NextResponse.json({ error: "webhookSecret must be a string" }, { status: 400 });
+      }
+    }
 
     const updateData: any = {
       pollingInterval: data.pollingInterval,
@@ -75,9 +100,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.webhookSecret !== undefined) {
-      if (typeof data.webhookSecret !== "string") {
-        return NextResponse.json({ error: "webhookSecret must be a string" }, { status: 400 });
-      }
       updateData.webhookSecret = data.webhookSecret === "" ? null : data.webhookSecret;
     }
 

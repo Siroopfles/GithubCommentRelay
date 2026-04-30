@@ -43,6 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (json.prLabelRules !== undefined) {
       return NextResponse.json({ error: "prLabelRules updates are not currently accepted via this endpoint" }, { status: 422 });
     }
+
     const updateData: any = {};
     if (json.owner !== undefined) updateData.owner = json.owner;
     if (json.name !== undefined) updateData.name = json.name;
@@ -51,12 +52,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (json.autoMergeEnabled !== undefined) updateData.autoMergeEnabled = json.autoMergeEnabled;
     if (json.requiredApprovals !== undefined) { const v = parseInt(json.requiredApprovals, 10); updateData.requiredApprovals = (!isNaN(v) && v >= 0) ? v : 1; }
     if (json.requireCI !== undefined) updateData.requireCI = json.requireCI;
-    if (json.mergeStrategy !== undefined) updateData.mergeStrategy = ['merge', 'squash', 'rebase'].includes(json.mergeStrategy) ? json.mergeStrategy : undefined;
-    if (json.taskSourceType !== undefined) updateData.taskSourceType = ['none', 'local_folder', 'github_issues'].includes(json.taskSourceType) ? json.taskSourceType : undefined;
+
+    if (json.mergeStrategy !== undefined) {
+      if (!['merge', 'squash', 'rebase'].includes(json.mergeStrategy)) return NextResponse.json({ error: 'Invalid mergeStrategy' }, { status: 400 });
+      updateData.mergeStrategy = json.mergeStrategy;
+    }
+    if (json.taskSourceType !== undefined) {
+      if (!['none', 'local_folder', 'github_issues'].includes(json.taskSourceType)) return NextResponse.json({ error: 'Invalid taskSourceType' }, { status: 400 });
+      updateData.taskSourceType = json.taskSourceType;
+    }
+    if (json.julesChatForwardMode !== undefined) {
+      if (!['off', 'always', 'failsafe'].includes(json.julesChatForwardMode)) return NextResponse.json({ error: 'Invalid julesChatForwardMode' }, { status: 400 });
+      updateData.julesChatForwardMode = json.julesChatForwardMode;
+    }
+
     if (json.taskSourcePath !== undefined) updateData.taskSourcePath = json.taskSourcePath || null;
     if (json.maxConcurrentTasks !== undefined) { const v = parseInt(json.maxConcurrentTasks, 10); updateData.maxConcurrentTasks = (!isNaN(v) && v >= 0) ? v : 3; }
     if (json.julesPromptTemplate !== undefined) updateData.julesPromptTemplate = json.julesPromptTemplate || null;
-    if (json.julesChatForwardMode !== undefined) updateData.julesChatForwardMode = ['off', 'always', 'failsafe'].includes(json.julesChatForwardMode) ? json.julesChatForwardMode : undefined;
     if (json.julesChatForwardDelay !== undefined) { const v = parseInt(json.julesChatForwardDelay, 10); updateData.julesChatForwardDelay = (!isNaN(v) && v >= 0) ? v : 5; }
     if (json.aiSystemPrompt !== undefined) updateData.aiSystemPrompt = json.aiSystemPrompt || null;
     if (json.commentTemplate !== undefined) updateData.commentTemplate = json.commentTemplate || null;

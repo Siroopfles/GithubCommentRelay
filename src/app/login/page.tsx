@@ -25,11 +25,11 @@ export default function LoginPage() {
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (typeof password !== "string" || password.length === 0) {
       setError("Password is required");
       return;
     }
-    e.preventDefault();
     setIsLoading(true);
     setError('');
 
