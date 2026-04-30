@@ -25,8 +25,8 @@ export function encrypt(text: string, hexKey: string): string {
 
 export function decrypt(encryptedData: string, hexKey: string): string {
   if (!encryptedData) return encryptedData;
-  if (!hexKey) throw new Error("Encryption key is required");
   if (!encryptedData.includes(':')) return encryptedData; // Assume it's unencrypted
+  if (!hexKey) throw new Error("Encryption key is required");
 
   const key = Buffer.from(hexKey, 'hex');
   if (key.length !== 32) throw new Error("Invalid key length for aes-256-gcm");
@@ -34,19 +34,17 @@ export function decrypt(encryptedData: string, hexKey: string): string {
   const parts = encryptedData.split(':');
   if (parts.length !== 3) return encryptedData; // Malformed, return as is (might be old data or different format)
 
-  const iv = Buffer.from(parts[0], 'hex');
-  const authTag = Buffer.from(parts[1], 'hex');
-  const textToDecrypt = parts[2];
-
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-
   try {
+    const iv = Buffer.from(parts[0], 'hex');
+    const authTag = Buffer.from(parts[1], 'hex');
+    const textToDecrypt = parts[2];
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
     let decrypted = decipher.update(textToDecrypt, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (error) {
-    console.error("Decryption failed:", error);
+    console.error("Decryption failed:", error instanceof Error ? error.message : "Unknown error");
     return encryptedData; // fallback
   }
 }

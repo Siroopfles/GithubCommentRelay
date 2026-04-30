@@ -247,7 +247,11 @@ export default function SettingsPage() {
 
   const verifyToken = async () => {
     const token = getValues("githubToken");
-    if (!token) return;
+    if (!token) {
+      setTokenStatus("idle");
+      setTokenMessage("");
+      return;
+    }
     setTokenStatus("verifying");
     setTokenMessage("");
     try {
@@ -259,8 +263,10 @@ export default function SettingsPage() {
       const data = await res.json();
       if (data.valid) {
         setTokenStatus("valid");
-        if (data.hasRepoScope || data.isLikelyFineGrained) {
-          setTokenMessage("Token is valid and seems to have correct permissions.");
+        if (data.hasRepoScope) {
+          setTokenMessage("Token is valid and has the classic repo scope.");
+        } else if (data.isLikelyFineGrained) {
+          setTokenMessage("Token is valid, but repo access still needs to be confirmed.");
         } else {
            setTokenMessage("Token is valid, but missing explicit 'repo' scope.");
         }

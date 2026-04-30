@@ -9,7 +9,7 @@ const REDACTION_PATTERNS = [
   { regex: /(?<![A-Z0-9])[A-Z0-9]{20}(?![A-Z0-9])/g, replacement: '[REDACTED_AWS_KEY]' },
 
   // GitHub Tokens (ghp_, gho_, ghu_, ghs_, ghr_)
-  { regex: /gh[pousr]_[A-Za-z0-9_]{36,}/g, replacement: '[REDACTED_GITHUB_TOKEN]' },
+  { regex: /(?:gh[pousr]_[A-Za-z0-9_]{36,}|github_pat_[A-Za-z0-9_]{20,})/g, replacement: '[REDACTED_GITHUB_TOKEN]' },
 
   // JWT Tokens (heuristic: header.payload.signature)
   { regex: /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, replacement: '[REDACTED_JWT]' },

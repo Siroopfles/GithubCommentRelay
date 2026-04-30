@@ -151,3 +151,66 @@
 {"level":"info","message":"Encryption key loaded into memory via IPC.","timestamp":"2026-04-30 10:33:00"}
 {"level":"info","message":"[2026-04-30T10:33:59.736Z] Starting polling cycle...","timestamp":"2026-04-30 10:33:59"}
 {"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 10:33:59"}
+{"level":"info","message":"Cleaning up any stuck processing sessions from previous runs...","timestamp":"2026-04-30 11:20:29"}
+{"level":"info","message":"Worker IPC server listening on 127.0.0.1:3001","timestamp":"2026-04-30 11:20:29"}
+{"level":"info","message":"Starting worker with polling interval: 60s","timestamp":"2026-04-30 11:20:29"}
+{"level":"info","message":"[2026-04-30T11:20:29.328Z] Starting polling cycle...","timestamp":"2026-04-30 11:20:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:20:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:34"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:39"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:44"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:49"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:54"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:20:59"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:04"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:09"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:14"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:19"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:24"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:29"}
+{"level":"info","message":"[2026-04-30T11:21:29.327Z] Starting polling cycle...","timestamp":"2026-04-30 11:21:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:21:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:34"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:39"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:44"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:49"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:54"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:21:59"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:04"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:09"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:14"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:19"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:24"}
+{"level":"info","message":"[2026-04-30T11:22:29.327Z] Starting polling cycle...","timestamp":"2026-04-30 11:22:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:22:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:34"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:39"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:44"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:49"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:54"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:22:59"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:04"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:09"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:14"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:19"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:24"}
+{"level":"info","message":"[2026-04-30T11:23:29.328Z] Starting polling cycle...","timestamp":"2026-04-30 11:23:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:23:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:29"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:34"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:39"}
+{"level":"warn","message":"Worker paused: Encryption key not yet loaded. Please log in via Web UI.","timestamp":"2026-04-30 11:23:44"}
+{"level":"info","message":"Encryption key loaded into memory via IPC.","timestamp":"2026-04-30 11:23:47"}
+{"level":"info","message":"[2026-04-30T11:24:29.328Z] Starting polling cycle...","timestamp":"2026-04-30 11:24:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:24:29"}
+{"level":"info","message":"[2026-04-30T11:25:29.329Z] Starting polling cycle...","timestamp":"2026-04-30 11:25:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:25:29"}
+{"level":"info","message":"[2026-04-30T11:26:29.329Z] Starting polling cycle...","timestamp":"2026-04-30 11:26:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:26:29"}
+{"level":"info","message":"[2026-04-30T11:27:29.329Z] Starting polling cycle...","timestamp":"2026-04-30 11:27:29"}
+{"level":"info","message":"Skipping cycle: No GitHub Token configured anywhere.","timestamp":"2026-04-30 11:27:29"}

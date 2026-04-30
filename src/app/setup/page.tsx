@@ -13,11 +13,9 @@ export default function SetupPage() {
     // Generate a strong random password on component mount
     const generatePassword = () => {
       const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=';
-      let newPassword = '';
-      for (let i = 0, n = charset.length; i < 32; ++i) {
-        newPassword += charset.charAt(Math.floor(Math.random() * n));
-      }
-      return newPassword;
+      const bytes = new Uint8Array(32);
+      window.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (b) => charset[b % charset.length]).join('');
     };
 
     const fetchSetupStatus = async () => {

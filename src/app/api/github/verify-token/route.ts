@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error('Error verifying token:', error);
+    console.error('Error verifying token:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
