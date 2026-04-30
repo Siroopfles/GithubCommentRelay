@@ -31,8 +31,9 @@ async function isAuthenticated() {
 
 export async function GET() {
   if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
   const safeRepos = repos.map(repo => {
     const { githubToken, ...rest } = repo;
@@ -48,6 +49,16 @@ export async function POST(request: Request) {
 
   const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
   const encryptionKey = await getEncryptionKey();
+
+  if (typeof owner !== "string" || owner.trim() === "") {
+    return NextResponse.json({ error: "owner must be a non-empty string" }, { status: 400 });
+  }
+  const validOwner = owner.trim();
+
+  if (typeof name !== "string" || name.trim() === "") {
+    return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
+  }
+  const validName = name.trim();
 
   let parsedApprovals = 1;
   if (requiredApprovals !== undefined) {
@@ -89,8 +100,8 @@ export async function POST(request: Request) {
   try {
     const repo = await prisma.repository.create({
       data: {
-        owner,
-        name,
+        owner: validOwner,
+        name: validName,
         groupName: groupName || 'Default',
         autoMergeEnabled: autoMergeEnabled || false,
         requiredApprovals: parsedApprovals,
