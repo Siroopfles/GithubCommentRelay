@@ -73,6 +73,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (json.aiSystemPrompt !== undefined) updateData.aiSystemPrompt = json.aiSystemPrompt || null;
     if (json.commentTemplate !== undefined) updateData.commentTemplate = json.commentTemplate || null;
     if (json.postAggregatedComments !== undefined) updateData.postAggregatedComments = json.postAggregatedComments;
+    if (json.includeCheckRuns !== undefined) updateData.includeCheckRuns = json.includeCheckRuns;
     if (json.batchDelay !== undefined) { const v = parseInt(json.batchDelay, 10); updateData.batchDelay = (!isNaN(v) && v >= 0) ? v : null; }
     if (json.branchWhitelist !== undefined) updateData.branchWhitelist = json.branchWhitelist || null;
     if (json.branchBlacklist !== undefined) updateData.branchBlacklist = json.branchBlacklist || null;
@@ -130,6 +131,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        if (!(await isAuthenticated())) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
         const resolvedParams = await params;
         const id = resolvedParams.id;
         const repo = await prisma.repository.findUnique({
