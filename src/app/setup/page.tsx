@@ -90,9 +90,10 @@ export default function SetupPage() {
         </div>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Master Password</label>
+          <label htmlFor="master-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Master Password</label>
           <div className="relative">
             <input
+              id="master-password"
               type="text"
               readOnly
               value={password || ''}

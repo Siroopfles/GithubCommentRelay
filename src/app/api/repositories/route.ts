@@ -17,6 +17,18 @@ async function getEncryptionKey() {
   return session?.sessionId ? (sessionStore.get(session.sessionId) || null) : null;
 }
 
+async function isAuthenticated() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return !!session?.loggedIn;
+}
+
 export async function GET() {
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
   const safeRepos = repos.map(repo => {
@@ -27,10 +39,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
   const encryptionKey = await getEncryptionKey();
 
-  // Validate requiredApprovals
   let parsedApprovals = 1;
   if (requiredApprovals !== undefined) {
     parsedApprovals = parseInt(requiredApprovals, 10);

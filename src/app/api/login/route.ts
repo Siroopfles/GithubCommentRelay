@@ -8,6 +8,9 @@ import { cookies } from 'next/headers';
 export async function POST(req: Request) {
   try {
     const { password } = await req.json();
+    if (typeof password !== "string" || password.length === 0) {
+      return NextResponse.json({ error: "Password is required" }, { status: 400 });
+    }
 
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });
 
@@ -40,11 +43,15 @@ export async function POST(req: Request) {
 
     // Send the encryption key to the worker via local IPC
     try {
-      await fetch('http://127.0.0.1:3001/set-key', {
+      const ipcRes = await fetch('http://127.0.0.1:3001/set-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: encryptionKey }),
+        signal: AbortSignal.timeout(1500),
       });
+      if (!ipcRes.ok) {
+        console.warn('Worker IPC rejected key load:', ipcRes.status);
+      }
     } catch (workerError) {
       console.warn('Worker might not be running or IPC failed:', workerError);
     }

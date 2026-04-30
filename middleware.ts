@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Exempt specific API routes
-  if (pathname === '/api/login' || pathname === '/api/setup' || pathname === '/api/setup/status' || pathname === '/api/github/verify-token') {
+  if (pathname === '/api/login' || pathname === '/api/setup' || pathname === '/api/setup/status') {
     return NextResponse.next();
   }
 

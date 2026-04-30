@@ -75,6 +75,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.webhookSecret !== undefined) {
+      if (typeof data.webhookSecret !== "string") {
+        return NextResponse.json({ error: "webhookSecret must be a string" }, { status: 400 });
+      }
       updateData.webhookSecret = data.webhookSecret === "" ? null : data.webhookSecret;
     }
 

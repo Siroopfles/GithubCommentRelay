@@ -17,40 +17,59 @@ async function getEncryptionKey() {
   return session?.sessionId ? (sessionStore.get(session.sessionId) || null) : null;
 }
 
+async function isAuthenticated() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return !!session?.loggedIn;
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    if (!(await isAuthenticated())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const resolvedParams = await params;
     const id = resolvedParams.id;
     const json = await request.json()
     const encryptionKey = await getEncryptionKey();
 
+    if (json.prLabelRules !== undefined) {
+      return NextResponse.json({ error: "prLabelRules updates are not currently accepted via this endpoint" }, { status: 422 });
+    }
     const updateData: any = {};
     if (json.owner !== undefined) updateData.owner = json.owner;
     if (json.name !== undefined) updateData.name = json.name;
     if (json.groupName !== undefined) updateData.groupName = json.groupName;
     if (json.isActive !== undefined) updateData.isActive = json.isActive;
     if (json.autoMergeEnabled !== undefined) updateData.autoMergeEnabled = json.autoMergeEnabled;
-    if (json.requiredApprovals !== undefined) updateData.requiredApprovals = parseInt(json.requiredApprovals, 10) || 1;
+    if (json.requiredApprovals !== undefined) { const v = parseInt(json.requiredApprovals, 10); updateData.requiredApprovals = (!isNaN(v) && v >= 0) ? v : 1; }
     if (json.requireCI !== undefined) updateData.requireCI = json.requireCI;
     if (json.mergeStrategy !== undefined) updateData.mergeStrategy = ['merge', 'squash', 'rebase'].includes(json.mergeStrategy) ? json.mergeStrategy : undefined;
     if (json.taskSourceType !== undefined) updateData.taskSourceType = ['none', 'local_folder', 'github_issues'].includes(json.taskSourceType) ? json.taskSourceType : undefined;
     if (json.taskSourcePath !== undefined) updateData.taskSourcePath = json.taskSourcePath || null;
-    if (json.maxConcurrentTasks !== undefined) updateData.maxConcurrentTasks = parseInt(json.maxConcurrentTasks, 10) || 3;
+    if (json.maxConcurrentTasks !== undefined) { const v = parseInt(json.maxConcurrentTasks, 10); updateData.maxConcurrentTasks = (!isNaN(v) && v >= 0) ? v : 3; }
     if (json.julesPromptTemplate !== undefined) updateData.julesPromptTemplate = json.julesPromptTemplate || null;
     if (json.julesChatForwardMode !== undefined) updateData.julesChatForwardMode = ['off', 'always', 'failsafe'].includes(json.julesChatForwardMode) ? json.julesChatForwardMode : undefined;
-    if (json.julesChatForwardDelay !== undefined) updateData.julesChatForwardDelay = parseInt(json.julesChatForwardDelay, 10) || 5;
+    if (json.julesChatForwardDelay !== undefined) { const v = parseInt(json.julesChatForwardDelay, 10); updateData.julesChatForwardDelay = (!isNaN(v) && v >= 0) ? v : 5; }
     if (json.aiSystemPrompt !== undefined) updateData.aiSystemPrompt = json.aiSystemPrompt || null;
     if (json.commentTemplate !== undefined) updateData.commentTemplate = json.commentTemplate || null;
     if (json.postAggregatedComments !== undefined) updateData.postAggregatedComments = json.postAggregatedComments;
-    if (json.batchDelay !== undefined) updateData.batchDelay = parseInt(json.batchDelay, 10) || null;
+    if (json.batchDelay !== undefined) { const v = parseInt(json.batchDelay, 10); updateData.batchDelay = (!isNaN(v) && v >= 0) ? v : null; }
     if (json.branchWhitelist !== undefined) updateData.branchWhitelist = json.branchWhitelist || null;
     if (json.branchBlacklist !== undefined) updateData.branchBlacklist = json.branchBlacklist || null;
     if (json.requiredBots !== undefined) updateData.requiredBots = json.requiredBots || null;
     if (json.aiBotUsernames !== undefined) updateData.aiBotUsernames = json.aiBotUsernames || null;
     if (json.regressionDetection !== undefined) updateData.regressionDetection = json.regressionDetection;
     if (json.regressionMatchMode !== undefined) updateData.regressionMatchMode = json.regressionMatchMode;
-    if (json.infiniteLoopThreshold !== undefined) updateData.infiniteLoopThreshold = parseInt(json.infiniteLoopThreshold, 10) || 3;
-    if (json.maxDiffLines !== undefined) updateData.maxDiffLines = parseInt(json.maxDiffLines, 10) || 500;
+    if (json.infiniteLoopThreshold !== undefined) { const v = parseInt(json.infiniteLoopThreshold, 10); updateData.infiniteLoopThreshold = (!isNaN(v) && v >= 0) ? v : 3; }
+    if (json.maxDiffLines !== undefined) { const v = parseInt(json.maxDiffLines, 10); updateData.maxDiffLines = (!isNaN(v) && v >= 0) ? v : 500; }
     if (json.complexityWeights !== undefined) updateData.complexityWeights = json.complexityWeights;
 
     if (json.githubToken !== undefined) {
@@ -67,10 +86,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       data: updateData
     })
 
-    // We intentionally removed prLabelRules handling for now to save space unless it's strictly necessary.
-    // The previous PUT had it removed as well, and fixing that is secondary to the destructive null bug.
-    // Let's at least avoid the destructive null bug.
-
     const { githubToken: _, ...safeRepo } = repo;
     return NextResponse.json({ ...safeRepo, hasGithubToken: !!repo.githubToken })
   } catch (error: any) {
@@ -83,6 +98,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    if (!(await isAuthenticated())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const resolvedParams = await params;
     const id = resolvedParams.id;
     await prisma.repository.delete({
