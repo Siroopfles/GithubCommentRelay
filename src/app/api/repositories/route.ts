@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { encrypt } from '@/lib/encryption';
 import { verifySession } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { sessionStore } from '@/lib/sessionStore';
 
 async function getEncryptionKey() {
   const cookieStore = await cookies();
@@ -13,7 +14,7 @@ async function getEncryptionKey() {
   if (!settings?.sessionSecret) return null;
 
   const session = await verifySession(settings.sessionSecret, sessionCookie.value);
-  return session?.encryptionKey || null;
+  return session?.sessionId ? (sessionStore.get(session.sessionId) || null) : null;
 }
 
 export async function GET() {

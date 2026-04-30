@@ -1,3 +1,5 @@
+import { sessionStore } from "@/lib/sessionStore";
+import crypto from "crypto";
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, createSession } from '@/lib/auth';
@@ -20,10 +22,12 @@ export async function POST(req: Request) {
     }
 
     // Derive the encryption key using the master password
-    const encryptionKey = Buffer.from(password).toString('hex').padStart(64, '0').slice(0, 64);
+    const encryptionKey = crypto.scryptSync(password, settings.sessionSecret, 32).toString('hex');
 
     // Create JWT Session - DO NOT INCLUDE encryptionKey IN PAYLOAD
-    const sessionToken = await createSession(settings.sessionSecret, { loggedIn: true }, '24h');
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    sessionStore.set(sessionId, encryptionKey);
+    const sessionToken = await createSession(settings.sessionSecret, { loggedIn: true, sessionId }, '24h');
 
     const cookieStore = await cookies();
     cookieStore.set('session', sessionToken, {
