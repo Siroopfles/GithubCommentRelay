@@ -92,9 +92,12 @@ export async function POST(request: Request) {
   }
 
   let finalGithubToken = null;
-  if (typeof githubToken === "string" && githubToken !== "") {
-     if (!encryptionKey) return NextResponse.json({ error: 'Unauthorized to encrypt tokens. Please log in again.' }, { status: 401 });
-     finalGithubToken = encrypt(githubToken, encryptionKey);
+  if (githubToken !== undefined && githubToken !== null) {
+    if (typeof githubToken !== "string") return NextResponse.json({ error: "Invalid githubToken" }, { status: 400 });
+    const trimmedToken = githubToken.trim();
+    if (trimmedToken === "") return NextResponse.json({ error: "Invalid githubToken" }, { status: 400 });
+    if (!encryptionKey) return NextResponse.json({ error: "Unauthorized to encrypt tokens. Please log in again." }, { status: 401 });
+    finalGithubToken = encrypt(trimmedToken, encryptionKey);
   }
 
   try {
