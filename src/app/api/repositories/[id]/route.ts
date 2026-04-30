@@ -45,8 +45,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const updateData: any = {};
-    if (json.owner !== undefined) updateData.owner = json.owner;
-    if (json.name !== undefined) updateData.name = json.name;
+    if (json.owner !== undefined) {
+      if (typeof json.owner !== "string" || json.owner.trim() === "") return NextResponse.json({ error: "owner must be a non-empty string" }, { status: 400 });
+      updateData.owner = json.owner.trim();
+    }
+    if (json.name !== undefined) {
+      if (typeof json.name !== "string" || json.name.trim() === "") return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
+      updateData.name = json.name.trim();
+    }
     if (json.groupName !== undefined) updateData.groupName = json.groupName;
     if (json.isActive !== undefined) updateData.isActive = json.isActive;
     if (json.autoMergeEnabled !== undefined) updateData.autoMergeEnabled = json.autoMergeEnabled;
@@ -80,7 +86,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (json.requiredBots !== undefined) updateData.requiredBots = json.requiredBots || null;
     if (json.aiBotUsernames !== undefined) updateData.aiBotUsernames = json.aiBotUsernames || null;
     if (json.regressionDetection !== undefined) updateData.regressionDetection = json.regressionDetection;
-    if (json.regressionMatchMode !== undefined) updateData.regressionMatchMode = json.regressionMatchMode;
+    if (json.regressionMatchMode !== undefined) {
+      const modeMap: Record<string, string> = { "exact": "EXACT", "type": "TYPE", "fuzzy": "FUZZY" };
+      const key = typeof json.regressionMatchMode === "string" ? json.regressionMatchMode.toLowerCase() : "";
+      if (!modeMap[key]) return NextResponse.json({ error: "regressionMatchMode must be one of 'exact', 'type', 'fuzzy'" }, { status: 400 });
+      updateData.regressionMatchMode = modeMap[key];
+    }
     if (json.infiniteLoopThreshold !== undefined) { const v = parseInt(json.infiniteLoopThreshold, 10); updateData.infiniteLoopThreshold = (!isNaN(v) && v >= 0) ? v : 3; }
     if (json.maxDiffLines !== undefined) { const v = parseInt(json.maxDiffLines, 10); updateData.maxDiffLines = (!isNaN(v) && v >= 0) ? v : 500; }
     if (json.complexityWeights !== undefined) updateData.complexityWeights = json.complexityWeights;

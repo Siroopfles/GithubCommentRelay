@@ -30,6 +30,9 @@ async function isAuthenticated() {
 }
 
 export async function GET() {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
   const safeRepos = repos.map(repo => {
     const { githubToken, ...rest } = repo;
