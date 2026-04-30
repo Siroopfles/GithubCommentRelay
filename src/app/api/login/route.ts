@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, createSession } from '@/lib/auth';
+import { setGlobalEncryptionKey } from '@/lib/sessionStore';
 import { cookies } from 'next/headers';
 
 export async function POST(req: Request) {
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
     // Create JWT Session - DO NOT INCLUDE encryptionKey IN PAYLOAD
     const sessionId = crypto.randomBytes(16).toString('hex');
     sessionStore.set(sessionId, encryptionKey);
+    setGlobalEncryptionKey(encryptionKey);
     const sessionToken = await createSession(settings.sessionSecret, { loggedIn: true, sessionId }, '24h');
 
     const cookieStore = await cookies();
