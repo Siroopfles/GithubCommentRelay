@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "./prisma";
 import nodemailer from "nodemailer";
-
-const prisma = new PrismaClient();
+import { decrypt } from "./encryption";
 
 export enum NotificationEvent {
   SYSTEM_ERROR = "SYSTEM_ERROR",
@@ -25,15 +24,15 @@ export async function dispatchNotification(
       where: { isActive: true },
     });
 
-    for (const rule of rules) {
+    const promises = rules.map(async (rule) => {
       let selectedEvents: string[] = [];
       try {
         selectedEvents = JSON.parse(rule.events);
       } catch (e) {
-        continue;
+        return;
       }
 
-      if (!selectedEvents.includes(event)) continue;
+      if (!selectedEvents.includes(event)) return;
 
       try {
         switch (rule.type) {
@@ -41,13 +40,25 @@ export async function dispatchNotification(
             await sendDiscord(rule.targetUrl!, payload);
             break;
           case "telegram":
-            await sendTelegram(rule.token!, rule.chatId!, payload);
+            await sendTelegram(
+              rule.token
+                ? decrypt(rule.token, process.env.ENCRYPTION_KEY || "")
+                : "",
+              rule.chatId!,
+              payload,
+            );
             break;
           case "ntfy":
             await sendNtfy(rule.targetUrl!, payload);
             break;
           case "gotify":
-            await sendGotify(rule.targetUrl!, rule.token!, payload);
+            await sendGotify(
+              rule.targetUrl!,
+              rule.token
+                ? decrypt(rule.token, process.env.ENCRYPTION_KEY || "")
+                : "",
+              payload,
+            );
             break;
           case "webhook":
             await sendWebhook(rule.targetUrl!, event, payload);
@@ -62,7 +73,8 @@ export async function dispatchNotification(
           ruleError,
         );
       }
-    }
+    });
+    await Promise.allSettled(promises);
   } catch (err) {
     console.error("Error dispatching notifications:", err);
   }
@@ -154,18 +166,31 @@ async function sendSmtp(rule: any, payload: NotificationPayload) {
   if (!rule.smtpHost || !rule.smtpPort || !rule.smtpFrom || !rule.smtpTo)
     return;
 
-  const transporter = nodemailer.createTransport({
-    host: rule.smtpHost,
-    port: rule.smtpPort,
-    secure: rule.smtpPort === 465, // true for 465, false for other ports
-    auth:
-      rule.smtpUser && rule.smtpPass
-        ? {
-            user: rule.smtpUser,
-            pass: rule.smtpPass,
-          }
-        : undefined,
-  });
+  // Ensure smtp credentials are decrypted
+  const pass = rule.smtpPass
+    ? decrypt(rule.smtpPass, process.env.ENCRYPTION_KEY || "")
+    : undefined;
+  const cacheKey = `${rule.id}-${rule.smtpHost}-${rule.smtpPort}-${rule.smtpUser}`;
+  if (!(global as any).smtpCache) (global as any).smtpCache = {};
+
+  let transporter = ((global as any).smtpCache as any)[cacheKey];
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: rule.smtpHost,
+      port: rule.smtpPort,
+      secure: rule.smtpPort === 465,
+      auth:
+        rule.smtpUser && pass
+          ? {
+              user: rule.smtpUser,
+              pass,
+            }
+          : undefined,
+    });
+    ((global as any).smtpCache as any)[cacheKey] = transporter;
+  }
+
+  // To avoid unused block errors, dummy statement:
 
   await transporter.sendMail({
     from: rule.smtpFrom,

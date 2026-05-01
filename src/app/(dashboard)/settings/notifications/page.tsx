@@ -10,6 +10,12 @@ export default function NotificationsPage() {
 
   // New rule state
   const [name, setName] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [smtpFrom, setSmtpFrom] = useState("");
+  const [smtpTo, setSmtpTo] = useState("");
   const [ruleType, setRuleType] = useState("discord");
   const [events, setEvents] = useState<string[]>([]);
   const [targetUrl, setTargetUrl] = useState("");
@@ -64,6 +70,12 @@ export default function NotificationsPage() {
         targetUrl,
         token,
         chatId,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        smtpPass,
+        smtpFrom,
+        smtpTo,
         events: JSON.stringify(events),
         isActive: true,
       }),
@@ -99,9 +111,7 @@ export default function NotificationsPage() {
             />
             <button
               className="bg-gray-200 px-4 rounded"
-              onClick={() =>
-                setHealthApiToken(Math.random().toString(36).substring(2, 15))
-              }
+              onClick={() => setHealthApiToken(window.crypto.randomUUID())}
             >
               Generate
             </button>
@@ -122,9 +132,7 @@ export default function NotificationsPage() {
             />
             <button
               className="bg-gray-200 px-4 rounded"
-              onClick={() =>
-                setRssSecretToken(Math.random().toString(36).substring(2, 15))
-              }
+              onClick={() => setRssSecretToken(window.crypto.randomUUID())}
             >
               Generate
             </button>
@@ -207,6 +215,7 @@ export default function NotificationsPage() {
               <option value="ntfy">Ntfy</option>
               <option value="gotify">Gotify</option>
               <option value="webhook">Custom Webhook</option>
+              <option value="smtp">Email (SMTP)</option>
             </select>
           </div>
 
@@ -252,6 +261,55 @@ export default function NotificationsPage() {
               value={token}
               onChange={(e) => setToken(e.target.value)}
             />
+          )}
+
+          {ruleType === "smtp" && (
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <input
+                  type="text"
+                  placeholder="SMTP Host (e.g. smtp.gmail.com)"
+                  className="border p-2 rounded w-full"
+                  value={smtpHost}
+                  onChange={(e) => setSmtpHost(e.target.value)}
+                />
+                <input
+                  type="number"
+                  placeholder="SMTP Port (e.g. 587 or 465)"
+                  className="border p-2 rounded w-full"
+                  value={smtpPort}
+                  onChange={(e) => setSmtpPort(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="SMTP Username"
+                  className="border p-2 rounded w-full"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="SMTP Password"
+                  className="border p-2 rounded w-full"
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="From Address (e.g. bot@domain.com)"
+                  className="border p-2 rounded w-full"
+                  value={smtpFrom}
+                  onChange={(e) => setSmtpFrom(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="To Address"
+                  className="border p-2 rounded w-full"
+                  value={smtpTo}
+                  onChange={(e) => setSmtpTo(e.target.value)}
+                />
+              </div>
+            </>
           )}
 
           {ruleType === "telegram" && (

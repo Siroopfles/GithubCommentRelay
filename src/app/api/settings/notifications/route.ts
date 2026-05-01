@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { encrypt } from "@/lib/encryption";
 
 const prisma = new PrismaClient();
 
@@ -51,12 +52,16 @@ export async function POST(req: NextRequest) {
         type: body.ruleType,
         name: body.name,
         targetUrl: body.targetUrl,
-        token: body.token,
+        token: body.token
+          ? encrypt(body.token, process.env.ENCRYPTION_KEY || "")
+          : null,
         chatId: body.chatId,
         smtpHost: body.smtpHost,
-        smtpPort: body.smtpPort ? parseInt(body.smtpPort) : null,
+        smtpPort: body.smtpPort ? parseInt(String(body.smtpPort), 10) : null,
         smtpUser: body.smtpUser,
-        smtpPass: body.smtpPass,
+        smtpPass: body.smtpPass
+          ? encrypt(body.smtpPass, process.env.ENCRYPTION_KEY || "")
+          : null,
         smtpFrom: body.smtpFrom,
         smtpTo: body.smtpTo,
         events: body.events, // JSON string
