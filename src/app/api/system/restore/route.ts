@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import fs from 'fs';
+import { promises as fsp, existsSync } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { verifySession } from '@/lib/auth';
+import { verifySession, isAuthenticated } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 
-async function isAuthenticated() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('session');
-  if (!sessionCookie) return false;
 
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  if (!settings?.sessionSecret) return false;
-
-  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
-  return !!session?.loggedIn;
-}
 
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) {
@@ -43,20 +33,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid database file format' }, { status: 400 });
     }
 
-    const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    let dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    if (process.env.DATABASE_URL) {
+      const url = process.env.DATABASE_URL;
+      if (url.startsWith('file:')) {
+         const dbFile = url.replace('file:', '');
+         // Prisma resolves relative paths from the schema file directory, which is /prisma
+         dbPath = path.resolve(process.cwd(), 'prisma', dbFile);
+      }
+    }
 
     // Create an emergency backup of the current DB just in case
-    if (fs.existsSync(dbPath)) {
+    if (existsSync(dbPath)) {
        const emergencyBackupPath = path.join(process.cwd(), 'backups', `emergency-pre-restore-${Date.now()}.db`);
-       if (!fs.existsSync(path.join(process.cwd(), 'backups'))) {
-          fs.mkdirSync(path.join(process.cwd(), 'backups'), { recursive: true });
-       }
-       fs.copyFileSync(dbPath, emergencyBackupPath);
+       await fsp.mkdir(path.join(process.cwd(), 'backups'), { recursive: true });
+       await fsp.copyFile(dbPath, emergencyBackupPath);
        logger.info(`Created emergency backup before restore at ${emergencyBackupPath}`);
     }
 
     // Write the new db
-    fs.writeFileSync(dbPath, buffer);
+    await prisma.$disconnect();
+    await fsp.writeFile(dbPath, buffer);
     logger.info(`Database restored successfully from uploaded file: ${file.name}`);
 
     // Trigger process restart (assuming pm2)

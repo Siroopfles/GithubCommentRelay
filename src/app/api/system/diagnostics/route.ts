@@ -4,20 +4,16 @@ import fs from 'fs';
 import path from 'path';
 import { Octokit } from 'octokit';
 import { decrypt } from '@/lib/encryption';
-import { verifySession } from '@/lib/auth';
+import { verifySession, isAuthenticated } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { sessionStore } from '@/lib/sessionStore';
 
-async function isAuthenticated() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('session');
-  if (!sessionCookie) return false;
 
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  if (!settings?.sessionSecret) return false;
 
-  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
-  return !!session?.loggedIn;
+export interface DiagnosticsResults {
+    database?: { status: string; message: string };
+    directories?: Record<string, { status: string; message: string }>;
+    githubToken?: { status: string; message: string };
 }
 
 export async function GET() {
@@ -25,7 +21,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const results: any = {};
+
+  const results: DiagnosticsResults = {};
 
   // 1. Check Database
   try {
@@ -78,8 +75,8 @@ export async function GET() {
 
   // 4. Overall status
   const isHealthy = !Object.values(results).some((r: any) =>
-      r.status === 'error' || (r.directories && Object.values(r.directories).some((d: any) => d.status === 'error'))
-  );
+      r?.status === 'error'
+  ) && (!results.directories || !Object.values(results.directories).some((d: any) => d.status === 'error'));
 
   return NextResponse.json({
     status: isHealthy ? 'healthy' : 'degraded',

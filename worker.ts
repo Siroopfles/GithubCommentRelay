@@ -2007,12 +2007,19 @@ cron.schedule("0 3 * * *", async () => {
       fs.mkdirSync(backupDir, { recursive: true });
     }
 
-    const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    let dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    if (process.env.DATABASE_URL) {
+      const url = process.env.DATABASE_URL;
+      if (url.startsWith('file:')) {
+         const dbFile = url.replace('file:', '');
+         dbPath = path.resolve(process.cwd(), 'prisma', dbFile);
+      }
+    }
     if (fs.existsSync(dbPath)) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupPath = path.join(backupDir, `dev-${timestamp}.db`);
 
-      fs.copyFileSync(dbPath, backupPath);
+      await prisma.$executeRawUnsafe(`VACUUM main INTO '${backupPath}'`);
       logger.info(`Successfully created database backup at ${backupPath}`);
 
       // Rotation logic: keep only the last 7 days (or simply latest 7 files)

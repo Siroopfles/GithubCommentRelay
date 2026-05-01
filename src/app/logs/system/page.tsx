@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Activity, RefreshCw } from 'lucide-react'
 
 export default function SystemLogsPage() {
@@ -7,7 +7,7 @@ export default function SystemLogsPage() {
   const [isPolling, setIsPolling] = useState(true)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       const res = await fetch('/api/system/logs')
       if (res.ok) {
@@ -17,7 +17,7 @@ export default function SystemLogsPage() {
     } catch (e) {
       console.error("Failed to fetch logs")
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchLogs()
@@ -26,7 +26,7 @@ export default function SystemLogsPage() {
       const interval = setInterval(fetchLogs, 3000) // Poll every 3s
       return () => clearInterval(interval)
     }
-  }, [isPolling])
+  }, [isPolling, fetchLogs])
 
   useEffect(() => {
      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })

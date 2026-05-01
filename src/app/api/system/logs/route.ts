@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { isAuthenticated } from '@/lib/auth';
 
 export async function GET() {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const logPath = path.join(process.cwd(), 'logs', 'combined.log');
     if (!fs.existsSync(logPath)) {
@@ -22,8 +26,8 @@ export async function GET() {
     }
 
     const lines = data.split('\n').filter(Boolean);
-    // return last 100
-    const tailLines = lines.slice(-100);
+    const cleanLines = startPos > 0 ? lines.slice(1) : lines;
+    const tailLines = cleanLines.slice(-100);
 
     return NextResponse.json({ logs: tailLines });
   } catch (error) {

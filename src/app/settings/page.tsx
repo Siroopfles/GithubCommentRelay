@@ -331,6 +331,11 @@ export default function SettingsPage() {
       setDiagnosticsResult(null);
       try {
           const res = await fetch('/api/system/diagnostics');
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            setDiagnosticsResult({ status: 'error', details: { error: { status: 'error', message: errorData.error || `HTTP ${res.status}` } } });
+            return;
+          }
           const data = await res.json();
           setDiagnosticsResult(data);
       } catch (error) {
@@ -539,18 +544,18 @@ export default function SettingsPage() {
           {isRunningDiagnostics ? 'Running...' : 'Run Diagnostics'}
         </button>
 
-        {diagnosticsResult && (
+        {diagnosticsResult && diagnosticsResult.details && (
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
              <h3 className="font-semibold mb-3 text-gray-800 dark:text-gray-200 text-sm">Results ({diagnosticsResult.status})</h3>
              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                <li className="flex items-center justify-between">
+                {diagnosticsResult.details.database && <li className="flex items-center justify-between">
                    <span>Database</span>
                    <span className={`font-mono ${diagnosticsResult.details.database?.status === 'error' ? 'text-red-500' : 'text-green-500'}`}>{diagnosticsResult.details.database?.status}: {diagnosticsResult.details.database?.message}</span>
-                </li>
-                <li className="flex items-center justify-between">
+                </li>}
+                {diagnosticsResult.details.githubToken && <li className="flex items-center justify-between">
                    <span>GitHub Token</span>
                    <span className={`font-mono ${diagnosticsResult.details.githubToken?.status === 'error' ? 'text-red-500' : diagnosticsResult.details.githubToken?.status === 'warning' ? 'text-yellow-500' : 'text-green-500'}`}>{diagnosticsResult.details.githubToken?.status}: {diagnosticsResult.details.githubToken?.message}</span>
-                </li>
+                </li>}
                 {diagnosticsResult.details.directories && Object.entries(diagnosticsResult.details.directories).map(([dir, info]: any) => (
                     <li key={dir} className="flex items-center justify-between">
                        <span>Dir /{dir}</span>

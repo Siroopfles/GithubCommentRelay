@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import os from 'os';
-import fs from 'fs';
+import { isAuthenticated } from '@/lib/auth';
+import { execSync } from 'child_process';
 
 export async function GET() {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
@@ -15,13 +19,12 @@ export async function GET() {
 
     let diskSpace = 'N/A';
     try {
-        const { execSync } = require('child_process');
         const output = execSync('df -h / | tail -n 1').toString();
         const parts = output.trim().split(/\s+/);
         if (parts.length >= 5) {
             diskSpace = parts[4]; // Use percentage
         }
-    } catch(e) {}
+    } catch(e) { console.error('Failed to get disk space:', e); }
 
     return NextResponse.json({
       cpu: cpuLoadPercent,
