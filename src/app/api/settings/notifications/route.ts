@@ -1,17 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
 
-const prisma = new PrismaClient();
+import { verifySession } from "@/lib/auth";
+import { cookies } from "next/headers";
 
-export async function GET() {
+async function isAuthenticated() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("session");
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(
+    settings.sessionSecret,
+    sessionCookie.value,
+  );
+  return !!session?.loggedIn;
+}
+
+export async function GET(req: NextRequest) {
+  if (!(await isAuthenticated()))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const rules = await prisma.notificationRule.findMany();
+    const rules = await prisma.notificationRule.findMany({
+      select: {
+        id: true,
+        type: true,
+        name: true,
+        targetUrl: true,
+        chatId: true,
+        smtpHost: true,
+        smtpPort: true,
+        smtpUser: true,
+        smtpFrom: true,
+        smtpTo: true,
+        events: true,
+        isActive: true,
+      },
+    });
     const settings = await prisma.settings.findFirst();
     return NextResponse.json({
       rules,
-      healthApiToken: settings?.healthApiToken || "",
-      rssSecretToken: settings?.rssSecretToken || "",
+      hasHealthApiToken: !!settings?.healthApiToken,
+      hasRssSecretToken: !!settings?.rssSecretToken,
       rssEvents: settings?.rssEvents || "[]",
     });
   } catch (error) {
@@ -23,6 +56,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await isAuthenticated()))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json();
 
@@ -66,7 +101,7 @@ export async function POST(req: NextRequest) {
         smtpTo: body.smtpTo,
         events: body.events, // JSON string
         isActive: body.isActive ?? true,
-        settingsId: 1, // Default settings ID
+        settingsId: (await prisma.settings.findFirst())?.id || 1,
       },
     });
 
@@ -78,6 +113,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!(await isAuthenticated()))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

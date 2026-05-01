@@ -33,8 +33,8 @@ export default function NotificationsPage() {
     const res = await fetch("/api/settings/notifications");
     const data = await res.json();
     setRules(data.rules || []);
-    setHealthApiToken(data.healthApiToken || "");
-    setRssSecretToken(data.rssSecretToken || "");
+    setHealthApiToken(data.hasHealthApiToken ? "********" : "");
+    setRssSecretToken(data.hasRssSecretToken ? "********" : "");
     try {
       setRssEvents(JSON.parse(data.rssEvents || "[]"));
     } catch {
@@ -47,21 +47,24 @@ export default function NotificationsPage() {
   }, []);
 
   const saveSettings = async () => {
-    await fetch("/api/settings/notifications", {
+    const res = await fetch("/api/settings/notifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type: "update_settings",
-        healthApiToken,
-        rssSecretToken,
+        healthApiToken:
+          healthApiToken === "********" ? undefined : healthApiToken,
+        rssSecretToken:
+          rssSecretToken === "********" ? undefined : rssSecretToken,
         rssEvents: JSON.stringify(rssEvents),
       }),
     });
-    alert("Settings saved!");
+    if (res.ok) alert("Settings saved!");
+    else alert("Failed to save settings");
   };
 
   const addRule = async () => {
-    await fetch("/api/settings/notifications", {
+    const res = await fetch("/api/settings/notifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -80,13 +83,18 @@ export default function NotificationsPage() {
         isActive: true,
       }),
     });
-    setName("");
-    loadData();
+    if (res.ok) {
+      setName("");
+      loadData();
+    } else alert("Failed to add rule");
   };
 
   const deleteRule = async (id: string) => {
-    await fetch(`/api/settings/notifications?id=${id}`, { method: "DELETE" });
-    loadData();
+    const res = await fetch(`/api/settings/notifications?id=${id}`, {
+      method: "DELETE",
+    });
+    if (res.ok) loadData();
+    else alert("Failed to delete rule");
   };
 
   return (
@@ -182,7 +190,14 @@ export default function NotificationsPage() {
                 </span>
               </p>
               <p className="text-sm text-gray-500">
-                Events: {JSON.parse(rule.events || "[]").join(", ")}
+                Events:{" "}
+                {(() => {
+                  try {
+                    return JSON.parse(rule.events || "[]").join(", ");
+                  } catch {
+                    return "";
+                  }
+                })()}
               </p>
             </div>
             <button

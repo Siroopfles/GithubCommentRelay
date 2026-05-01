@@ -80,9 +80,19 @@ export async function dispatchNotification(
   }
 }
 
+async function postWithGuard(url: string, init: RequestInit) {
+  const res = await globalThis.fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} from ${url}`);
+  }
+}
+
 async function sendDiscord(webhookUrl: string, payload: NotificationPayload) {
   if (!webhookUrl) return;
-  await fetch(webhookUrl, {
+  await postWithGuard(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -104,7 +114,7 @@ async function sendTelegram(
 ) {
   if (!token || !chatId) return;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  await fetch(url, {
+  await postWithGuard(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -117,7 +127,7 @@ async function sendTelegram(
 
 async function sendNtfy(url: string, payload: NotificationPayload) {
   if (!url) return;
-  await fetch(url, {
+  await postWithGuard(url, {
     method: "POST",
     headers: {
       Title: payload.title,
@@ -135,7 +145,7 @@ async function sendGotify(
   if (!url || !token) return;
   // Gotify expects standard URL + message endpoint
   const endpoint = url.endsWith("/") ? `${url}message` : `${url}/message`;
-  await fetch(endpoint, {
+  await postWithGuard(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -155,7 +165,7 @@ async function sendWebhook(
   payload: NotificationPayload,
 ) {
   if (!url) return;
-  await fetch(url, {
+  await postWithGuard(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ event, payload }),
@@ -197,6 +207,6 @@ async function sendSmtp(rule: any, payload: NotificationPayload) {
     to: rule.smtpTo,
     subject: payload.title,
     text: payload.message,
-    html: `<h2>${payload.title}</h2><p>${payload.message.replace(/\n/g, "<br/>")}</p>`,
+    html: `<h2>${payload.title.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</h2><p>${payload.message.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")}</p>`,
   });
 }
