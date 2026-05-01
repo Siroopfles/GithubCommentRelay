@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Settings, GitBranch, Users, Activity, FileText, ListTodo, Minimize2, Maximize2, MessageSquare } from 'lucide-react';
+import { Settings, GitBranch, Users, Activity, FileText, ListTodo, Minimize2, Maximize2, MessageSquare, Bell } from 'lucide-react';
 import { useCompactMode } from '@/components/CompactModeContext';
 
 export default function Sidebar() {
@@ -17,6 +17,7 @@ export default function Sidebar() {
     { href: '/logs/chat', icon: MessageSquare, label: 'Visual Filter' },
     { href: '/logs', icon: FileText, label: 'Logs' },
     { href: '/settings', icon: Settings, label: 'Settings' },
+    { href: '/settings/notifications', icon: Bell, label: 'Notifications' },
   ];
 
   const linkClass = (href: string) => {

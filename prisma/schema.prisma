@@ -23,7 +23,12 @@ model Settings {
   masterPasswordHash       String?
   setupCompleted           Boolean   @default(false)
   sessionSecret            String?
+
+  healthApiToken           String?
+  rssSecretToken           String?
+  rssEvents                String? // JSON array of selected events
   updatedAt                DateTime  @updatedAt
+  notificationRules        NotificationRule[]
 }
 
 model Repository {
@@ -252,4 +257,27 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model NotificationRule {
+  id          String   @id @default(cuid())
+  settingsId  Int      @default(1)
+  settings    Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  type        String   // discord, telegram, ntfy, gotify, smtp, webhook
+  name        String
+  targetUrl   String?  // Webhook URL, Ntfy URL, Gotify URL
+  token       String?  // Telegram Token, Gotify Token
+  chatId      String?  // Telegram Chat ID
+  smtpHost    String?
+  smtpPort    Int?
+  smtpUser    String?
+  smtpPass    String?
+  smtpFrom    String?
+  smtpTo      String?
+  events      String   // JSON array of event types (SYSTEM_ERROR, PR_AGGREGATED, AI_TASK_COMPLETED, DAILY_SUMMARY, etc.)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([settingsId, isActive])
 }

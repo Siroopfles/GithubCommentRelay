@@ -320,3 +320,12 @@ Implemented Category M features with precision:
 - **Idea 63 (PII Redaction)**: Added `src/lib/redaction.ts` to replace tokens, emails, and passwords with placeholders before saving to local SQLite and before posting to GitHub.
 - **Idea 64 (Basic Login & Setup)**: Created a `/setup` phase that forces the generation of a Master Password (which acts as base for the encryption key), and a Next.js middleware enforcing login.
 - **Idea 65 (Soft-Delete Pruning)**: Changed the worker's cron job from `deleteMany` to `updateMany`, clearing `body` to `[PRUNED]` while preserving metadata.
+
+## Implement Notifications & Integrations (Categories N)
+* Added global `healthApiToken`, `rssSecretToken`, and `rssEvents` directly into `Settings` Prisma model.
+* Created generic `NotificationRule` Prisma model supporting discord, telegram, ntfy, gotify, smtp, webhook.
+* Wrote `dispatchNotification()` inside `src/lib/notifications.ts` which fires alerts depending on events, such as `SYSTEM_ERROR`, `PR_AGGREGATED`, `AI_TASK_COMPLETED`, `DAILY_SUMMARY`.
+* Connected `dispatchNotification()` to `worker.ts` for errors, rate limits, PR aggregation finish, and a new cron job for the daily summary.
+* Created a `/api/health` Next.js endpoint.
+* Created a secure `/api/feed/[token]` RSS Feed Next.js endpoint.
+* Created a settings dashboard page `/settings/notifications` to allow users to generate API tokens and map their Discord/Telegram/Webhook configs.
