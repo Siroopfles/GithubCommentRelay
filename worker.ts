@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { dispatchNotification, NotificationEvent } from './src/lib/notifications';
 import { formatAggregatedBody } from "./src/lib/format_helper";
 import { createSession, sendMessage, getSession } from "./src/lib/julesApi";
 import { prisma } from './src/lib/prisma'
@@ -1305,6 +1306,10 @@ async function processRepositories(webhookPrs?: {owner: string, name: string, pr
               const doneRules = await prisma.pRLabelRule.findMany({
                   where: { repository: { owner: session.repoOwner, name: session.repoName }, event: 'processing_done' }
               });
+        await dispatchNotification(NotificationEvent.PR_AGGREGATED, {
+          title: `PR Aggregated: ${session.repoOwner}/${session.repoName}#${session.prNumber}`,
+          message: `Successfully aggregated and commented on PR #${session.prNumber}.`,
+        });
               const t = repoConfig?.githubToken || settings?.githubToken;
               if (t && doneRules.length > 0) {
                   const octo = createOctokit(t);
@@ -1611,3 +1616,39 @@ async function forwardCommentsToJules(session: { repoOwner: string, repoName: st
   }
   return false;
 }
+
+
+// Daily Summary Job
+cron.schedule('0 8 * * *', async () => {
+  console.log('[Worker] Running Daily Summary Job');
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const prsProcessed = await prisma.batchSession.count({
+      where: {
+        isProcessed: true,
+        resolvedAt: { gte: twentyFourHoursAgo }
+      }
+    });
+
+    const tasksDone = await prisma.task.count({
+      where: {
+        status: 'done',
+        updatedAt: { gte: twentyFourHoursAgo }
+      }
+    });
+
+    const errorsLogged = await prisma.auditLog.count({
+      where: {
+        createdAt: { gte: twentyFourHoursAgo }
+      }
+    });
+
+    await dispatchNotification(NotificationEvent.DAILY_SUMMARY, {
+      title: 'Daily System Summary',
+      message: `In the past 24 hours:\n- PRs Processed: ${prsProcessed}\n- AI Tasks Completed: ${tasksDone}\n- Audit Logs / System Events: ${errorsLogged}`,
+    });
+  } catch (error) {
+    console.error('[Worker] Error in Daily Summary Job:', error);
+  }
+});
