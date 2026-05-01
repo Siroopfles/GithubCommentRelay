@@ -329,3 +329,13 @@ Implemented Category M features with precision:
 * Created a `/api/health` Next.js endpoint.
 * Created a secure `/api/feed/[token]` RSS Feed Next.js endpoint.
 * Created a settings dashboard page `/settings/notifications` to allow users to generate API tokens and map their Discord/Telegram/Webhook configs.
+
+## Implementatie Categorie O: Onderhoud, Backup & Proxmox/LXC Systeembeheer
+
+Vandaag heb ik met succes alle vijf de onderdelen van Categorie O geïmplementeerd om de beheerervaring van de applicatie aanzienlijk te verbeteren.
+
+- **71. Geautomatiseerde SQLite Backups:** Toegevoegd aan `worker.ts`. Er wordt nu via `node-cron` elke dag om 03:00 uur een kopie van `dev.db` gemaakt en opgeslagen in een `/backups` directory met een rolatie die maximaal de 7 laatste backups behoudt.
+- **72. One-click Database Restore UI:** In de applicatie-instellingen (`/settings`) is nu een sectie "Database Management" toegevoegd, compleet met een uploadknop en een achterliggende API route (`/api/system/restore`). Deze vervangt `dev.db` met het geüploade bestand en triggert een pm2 restart.
+- **73. In-App CPU / Memory Monitor Widgets:** In de navigatiebalk (Sidebar) is nu een System Health widget zichtbaar, aangedreven door de `/api/system/monitor` endpoint. Deze checkt regelmatig OS metrics zoals CPU Load, vrij RAM geheugen en het totale schijfgebruik op `/`.
+- **74. Geautomatiseerde "Run Diagnostics" Knop:** Onder de Database Restore in `/settings` staat nu een diagnostics knop die een quick check uitvoert via de `/api/system/diagnostics` API. Hij checkt of de maprechten goed staan, test de databaseverbinding en valideert de algemene GitHub token.
+- **75. Real-time PM2 / Log Viewer in Web UI:** Tot slot heb ik een interface "System Console" aangemaakt (`/logs/system`). Deze interface pollt `/api/system/logs` en laat zo de laatste 100 regels van het gecombineerde Winston logbestand (`logs/combined.log`) in realtime zien.

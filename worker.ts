@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { PrismaClient } from "@prisma/client";
 import {
   dispatchNotification,
@@ -1993,6 +1995,53 @@ async function forwardCommentsToJules(
   return false;
 }
 
+
+
+
+// Automated DB Backups (run daily at 03:00)
+cron.schedule("0 3 * * *", async () => {
+  logger.info("Running automated SQLite database backup...");
+  try {
+    const backupDir = path.join(process.cwd(), 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    let dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    if (process.env.DATABASE_URL) {
+      const url = process.env.DATABASE_URL;
+      if (url.startsWith('file:')) {
+         const dbFile = url.replace('file:', '');
+         dbPath = path.resolve(process.cwd(), 'prisma', dbFile);
+      }
+    }
+    if (fs.existsSync(dbPath)) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = path.join(backupDir, `dev-${timestamp}.db`);
+
+      await prisma.$executeRawUnsafe(`VACUUM main INTO '${backupPath}'`);
+      logger.info(`Successfully created database backup at ${backupPath}`);
+
+      // Rotation logic: keep only the last 7 days (or simply latest 7 files)
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.startsWith('dev-') && f.endsWith('.db'))
+        .map(f => ({ name: f, time: fs.statSync(path.join(backupDir, f)).mtime.getTime() }))
+        .sort((a, b) => b.time - a.time);
+
+      if (files.length > 7) {
+        for (let i = 7; i < files.length; i++) {
+          const fileToDelete = path.join(backupDir, files[i].name);
+          fs.unlinkSync(fileToDelete);
+          logger.info(`Deleted old backup file: ${fileToDelete}`);
+        }
+      }
+    } else {
+      logger.error("Source database dev.db not found, skipping backup.");
+    }
+  } catch (err) {
+    logger.error("Failed to run automated DB backup:", err);
+  }
+}, { timezone: "UTC" });
 // Daily Summary Job
 cron.schedule("0 8 * * *", async () => {
   console.log("[Worker] Running Daily Summary Job");

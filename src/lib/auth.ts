@@ -1,3 +1,5 @@
+import { prisma } from '@/lib/prisma';
+import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
 
@@ -27,4 +29,17 @@ export async function verifySession(secret: string, token: string): Promise<any>
   } catch (error) {
     return null;
   }
+}
+
+
+export async function isAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return !!session?.loggedIn;
 }
