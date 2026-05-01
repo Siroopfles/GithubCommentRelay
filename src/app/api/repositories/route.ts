@@ -1,7 +1,39 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { encrypt } from '@/lib/encryption';
+import { verifySession } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import { sessionStore } from '@/lib/sessionStore';
+
+async function getEncryptionKey() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return null;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return null;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return session?.sessionId ? (sessionStore.get(session.sessionId) || null) : null;
+}
+
+async function isAuthenticated() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return !!session?.loggedIn;
+}
 
 export async function GET() {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const repos = await prisma.repository.findMany({ orderBy: { createdAt: 'desc' } })
   const safeRepos = repos.map(repo => {
     const { githubToken, ...rest } = repo;
@@ -11,9 +43,23 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  // Validate requiredApprovals
+  const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
+  const encryptionKey = await getEncryptionKey();
+
+  if (typeof owner !== "string" || owner.trim() === "") {
+    return NextResponse.json({ error: "owner must be a non-empty string" }, { status: 400 });
+  }
+  const validOwner = owner.trim();
+
+  if (typeof name !== "string" || name.trim() === "") {
+    return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
+  }
+  const validName = name.trim();
+
   let parsedApprovals = 1;
   if (requiredApprovals !== undefined) {
     parsedApprovals = parseInt(requiredApprovals, 10);
@@ -45,12 +91,20 @@ export async function POST(request: Request) {
     parsedBatchDelay = d;
   }
 
+  let finalGithubToken = null;
+  if (githubToken !== undefined && githubToken !== null) {
+    if (typeof githubToken !== "string") return NextResponse.json({ error: "Invalid githubToken" }, { status: 400 });
+    const trimmedToken = githubToken.trim();
+    if (trimmedToken === "") return NextResponse.json({ error: "Invalid githubToken" }, { status: 400 });
+    if (!encryptionKey) return NextResponse.json({ error: "Unauthorized to encrypt tokens. Please log in again." }, { status: 401 });
+    finalGithubToken = encrypt(trimmedToken, encryptionKey);
+  }
 
   try {
     const repo = await prisma.repository.create({
       data: {
-        owner,
-        name,
+        owner: validOwner,
+        name: validName,
         groupName: groupName || 'Default',
         autoMergeEnabled: autoMergeEnabled || false,
         requiredApprovals: parsedApprovals,
@@ -74,7 +128,7 @@ export async function POST(request: Request) {
         batchDelay: parsedBatchDelay,
         branchWhitelist: typeof branchWhitelist === "string" && branchWhitelist !== "" ? branchWhitelist : null,
         branchBlacklist: typeof branchBlacklist === "string" && branchBlacklist !== "" ? branchBlacklist : null,
-        githubToken: typeof githubToken === "string" && githubToken !== "" ? githubToken : null,
+        githubToken: finalGithubToken,
         requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null
       }
     })

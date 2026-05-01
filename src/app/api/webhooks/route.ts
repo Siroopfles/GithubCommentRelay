@@ -1,3 +1,5 @@
+import { decrypt } from "@/lib/encryption";
+import { getGlobalEncryptionKey } from "@/lib/sessionStore";
 import { logger } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -91,7 +93,9 @@ export async function POST(request: NextRequest) {
             if (token) {
                try {
                   const { Octokit } = await import('octokit');
-                  const octo = new Octokit({ auth: token });
+                  const encryptionKey = getGlobalEncryptionKey();
+                  const decryptedToken = encryptionKey ? decrypt(token, encryptionKey) : token;
+                  const octo = new Octokit({ auth: decryptedToken });
                   const { data: user } = await octo.rest.users.getAuthenticated();
                   botUsername = user.login;
                } catch (e) {

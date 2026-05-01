@@ -20,6 +20,9 @@ model Settings {
   githubRateLimitRemaining Int?
   githubRateLimitReset     DateTime?
   webhookSecret            String?
+  masterPasswordHash       String?
+  setupCompleted           Boolean   @default(false)
+  sessionSecret            String?
   updatedAt                DateTime  @updatedAt
 }
 
@@ -95,6 +98,7 @@ model ProcessedComment {
   forwardedToJules Boolean                   @default(false)
   category         ProcessedCommentCategory?
   isRegression     Boolean                   @default(false)
+  isPruned         Boolean                   @default(false)
 
   @@unique([commentId, source])
   @@index([repoOwner, repoName, prNumber, postedAt])
