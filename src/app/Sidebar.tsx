@@ -4,10 +4,33 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Settings, GitBranch, Users, Activity, FileText, ListTodo, Minimize2, Maximize2, MessageSquare, Bell } from 'lucide-react';
 import { useCompactMode } from '@/components/CompactModeContext';
+import { useState, useEffect } from 'react';
+import { Cpu, HardDrive, MemoryStick } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { isCompactMode, toggleCompactMode } = useCompactMode();
+
+  const [metrics, setMetrics] = useState<{cpu: number, memory: number, disk: string} | null>(null);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await fetch('/api/system/monitor');
+        if (res.ok) {
+          const data = await res.json();
+          setMetrics(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch system metrics", e);
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000); // 30s
+    return () => clearInterval(interval);
+  }, []);
+
 
   const navItems = [
     { href: '/', icon: Activity, label: 'Dashboard' },
@@ -16,6 +39,7 @@ export default function Sidebar() {
     { href: '/reviewers', icon: Users, label: 'Reviewers' },
     { href: '/logs/chat', icon: MessageSquare, label: 'Visual Filter' },
     { href: '/logs', icon: FileText, label: 'Logs' },
+    { href: '/logs/system', icon: Activity, label: 'System Console' },
     { href: '/settings', icon: Settings, label: 'Settings' },
     { href: '/settings/notifications', icon: Bell, label: 'Notifications' },
   ];
@@ -44,6 +68,42 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
+
+      {/* System Monitor Widget */}
+      {metrics && !isCompactMode && (
+        <div className="p-4 mx-2 mb-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+           <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">System Health</div>
+
+           <div className="space-y-3">
+             <div>
+               <div className="flex justify-between text-xs mb-1 text-gray-700 dark:text-gray-300">
+                 <span className="flex items-center gap-1"><Cpu size={12}/> CPU</span>
+                 <span>{metrics.cpu}%</span>
+               </div>
+               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                 <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, metrics.cpu)}%` }}></div>
+               </div>
+             </div>
+
+             <div>
+               <div className="flex justify-between text-xs mb-1 text-gray-700 dark:text-gray-300">
+                 <span className="flex items-center gap-1"><MemoryStick size={12}/> RAM</span>
+                 <span>{metrics.memory}%</span>
+               </div>
+               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                 <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, metrics.memory)}%` }}></div>
+               </div>
+             </div>
+
+             <div>
+               <div className="flex justify-between text-xs text-gray-700 dark:text-gray-300">
+                 <span className="flex items-center gap-1"><HardDrive size={12}/> Disk</span>
+                 <span>{metrics.disk}</span>
+               </div>
+             </div>
+           </div>
+        </div>
+      )}
 
       {/* Compact Mode Toggle */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800">

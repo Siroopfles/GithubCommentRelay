@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 
 type SettingsForm = {
@@ -13,6 +13,12 @@ type SettingsForm = {
 
 export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false)
+  const [diagnosticsResult, setDiagnosticsResult] = useState<any>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+
   const [tokenStatus, setTokenStatus] = useState<"idle" | "verifying" | "valid" | "invalid">("idle");
   const [tokenMessage, setTokenMessage] = useState("");
   const [showUpdateModal, setShowUpdateModal] = useState(false)
@@ -280,6 +286,65 @@ export default function SettingsPage() {
     }
   };
 
+
+  const handleRestoreDatabase = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!confirm('Are you sure you want to replace the current database with this backup? The application will restart.')) {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+    }
+
+    setIsRestoring(true)
+    setMessage(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/system/restore', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to restore database')
+      }
+
+      setMessage({ type: 'success', text: 'Database restored successfully! Application restarting...' })
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000)
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message })
+    } finally {
+      setIsRestoring(false)
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+
+  const handleRunDiagnostics = async () => {
+      setIsRunningDiagnostics(true);
+      setDiagnosticsResult(null);
+      try {
+          const res = await fetch('/api/system/diagnostics');
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            setDiagnosticsResult({ status: 'error', details: { error: { status: 'error', message: errorData.error || `HTTP ${res.status}` } } });
+            return;
+          }
+          const data = await res.json();
+          setDiagnosticsResult(data);
+      } catch (error) {
+          setDiagnosticsResult({ status: 'error', details: { error: { message: 'Failed to fetch diagnostics' } } });
+      } finally {
+          setIsRunningDiagnostics(false);
+      }
+  };
+
   const confirmUpdate = async () => {
     if (!updateSecret) {
       setShowUpdateModal(false)
@@ -440,6 +505,66 @@ export default function SettingsPage() {
             Add
           </button>
         </div>
+      </div>
+
+
+      <div className="mt-12 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Database Management</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+          Upload a backup <code>.db</code> file to replace the current database. This action is destructive and will overwrite all existing data. The application will automatically restart upon successful restoration.
+        </p>
+        <input
+          type="file"
+          accept=".db"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleRestoreDatabase}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isRestoring}
+          className="px-6 py-2 bg-yellow-600 text-white font-medium rounded-md hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isRestoring ? 'Restoring...' : 'Restore Database from Backup'}
+        </button>
+      </div>
+
+
+      <div className="mt-12 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">System Diagnostics</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+          Run an automated health check to verify database connectivity, log file permissions, and GitHub token validity.
+        </p>
+        <button
+          onClick={handleRunDiagnostics}
+          disabled={isRunningDiagnostics}
+          className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isRunningDiagnostics ? 'Running...' : 'Run Diagnostics'}
+        </button>
+
+        {diagnosticsResult && diagnosticsResult.details && (
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+             <h3 className="font-semibold mb-3 text-gray-800 dark:text-gray-200 text-sm">Results ({diagnosticsResult.status})</h3>
+             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                {diagnosticsResult.details.database && <li className="flex items-center justify-between">
+                   <span>Database</span>
+                   <span className={`font-mono ${diagnosticsResult.details.database?.status === 'error' ? 'text-red-500' : 'text-green-500'}`}>{diagnosticsResult.details.database?.status}: {diagnosticsResult.details.database?.message}</span>
+                </li>}
+                {diagnosticsResult.details.githubToken && <li className="flex items-center justify-between">
+                   <span>GitHub Token</span>
+                   <span className={`font-mono ${diagnosticsResult.details.githubToken?.status === 'error' ? 'text-red-500' : diagnosticsResult.details.githubToken?.status === 'warning' ? 'text-yellow-500' : 'text-green-500'}`}>{diagnosticsResult.details.githubToken?.status}: {diagnosticsResult.details.githubToken?.message}</span>
+                </li>}
+                {diagnosticsResult.details.directories && Object.entries(diagnosticsResult.details.directories).map(([dir, info]: any) => (
+                    <li key={dir} className="flex items-center justify-between">
+                       <span>Dir /{dir}</span>
+                       <span className={`font-mono ${info.status === 'error' ? 'text-red-500' : 'text-green-500'}`}>{info.status}: {info.message}</span>
+                    </li>
+                ))}
+             </ul>
+          </div>
+        )}
       </div>
 
       <div className="mt-12 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-red-100 dark:border-red-900">

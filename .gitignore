@@ -18,3 +18,7 @@ src/lib/*.js
 # Log files
 system-update.log
 logs/
+
+# Backups
+/backups/*
+!/backups/.keep
