@@ -30,6 +30,7 @@ type Repo = {
   hasGithubToken?: boolean
   maxConcurrentTasks: number
   requiredBots?: string | null
+  architectureInfo?: string | null
 }
 
 export default function RepositoriesPage() {
@@ -56,6 +57,7 @@ export default function RepositoriesPage() {
     branchBlacklist?: string | null
     githubToken?: string | null
     requiredBots?: string | null
+    architectureInfo?: string | null
   }>({
     defaultValues: {
       autoMergeEnabled: false,
@@ -221,6 +223,12 @@ const updateData: Record<string, unknown> = {
           </div>
         </div>
 
+        <div className="mb-4">
+          <label htmlFor="architectureInfo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Architecture Information (Markdown)</label>
+          <textarea id="architectureInfo" {...register('architectureInfo')} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Describe the architecture of the project" rows={4} />
+          <p className="text-xs text-gray-500 mt-1">This context will be injected in the payload sent to AI bots to guide their fixes.</p>
+        </div>
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -373,6 +381,10 @@ const updateData: Record<string, unknown> = {
 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group / Folder</label>
                                     <input {...registerEdit('groupName')} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" placeholder="e.g. Work, Open Source" />
+                                  </div>
+                                  <div className="col-span-1 md:col-span-2 mt-4">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Architecture Information (Markdown)</label>
+                                    <textarea {...registerEdit('architectureInfo')} className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-gray-100" placeholder="Describe the architecture of the project" rows={4} />
                                   </div>
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GitHub Token (Leave empty to keep)</label>

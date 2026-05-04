@@ -1,4 +1,4 @@
-export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string, role?: string | null}[]): string {
+export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string, role?: string | null}[], prIntent?: {title: string, body: string} | null, architectureInfo?: string | null, previousAttempts?: string[]): string {
   let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`;
 
   if (isHighPriority) {
@@ -7,6 +7,22 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
 
   if (manualPrompt) {
     aggregatedBody += `**Manual Instruction:**\n${manualPrompt}\n\n`;
+  }
+
+  if (prIntent) {
+    aggregatedBody += `**Pull Request Intent:**\n*Title:* ${prIntent.title}\n*Description:* ${prIntent.body || "No description provided"}\n\n`;
+  }
+
+  if (architectureInfo) {
+    aggregatedBody += `**Project Architecture & Context:**\n${architectureInfo}\n\n`;
+  }
+
+  if (previousAttempts && previousAttempts.length > 0) {
+    aggregatedBody += `**Previous Mislukte Fix Pogingen:**\nLet op: er zijn eerdere pogingen gedaan om dit op te lossen. Dit waren de gegenereerde outputs (wat we al hebben geprobeerd en niet bleek te werken):\n`;
+    previousAttempts.forEach((attempt, index) => {
+        aggregatedBody += `<details><summary>Poging ${index + 1}</summary>\n\n\`\`\`\n${attempt}\n\`\`\`\n</details>\n`;
+    });
+    aggregatedBody += `\n`;
   }
 
   if (aiSystemPrompt) {
