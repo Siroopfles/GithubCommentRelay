@@ -20,9 +20,10 @@ export default function ErrorRewritesPage() {
     fetch("/api/learning/rewrites")
       .then(r => r.json())
       .then(data => {
-        setRules(data.rules);
-        setRepos(data.repos);
-      });
+        setRules(data.rules ?? []);
+        setRepos(data.repos ?? []);
+      })
+      .catch(err => console.error("Failed to load rewrite rules", err));
   }, []);
 
   const handleAdd = async () => {
@@ -40,8 +41,10 @@ export default function ErrorRewritesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/learning/rewrites?id=${id}`, { method: "DELETE" });
-    setRules(rules.filter(r => r.id !== id));
+    const res = await fetch(`/api/learning/rewrites?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRules(rules.filter(r => r.id !== id));
+    }
   };
 
   return (
@@ -113,8 +116,8 @@ export default function ErrorRewritesPage() {
               <tr key={rule.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rule.repository?.owner}/{rule.repository?.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rule.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500" title={rule.errorRegex}>{rule.errorRegex.substring(0, 20)}...</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={rule.rewriteTo}>{rule.rewriteTo.substring(0, 30)}...</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500" title={rule.errorRegex}>{rule.errorRegex.length > 20 ? rule.errorRegex.substring(0, 20) + "…" : rule.errorRegex}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={rule.rewriteTo}>{rule.rewriteTo.length > 30 ? rule.rewriteTo.substring(0, 30) + "…" : rule.rewriteTo}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <span className="bg-gray-100 text-gray-800 py-1 px-2 rounded-full text-xs font-bold">{rule.applyCount}</span>
                 </td>

@@ -155,7 +155,7 @@ export default function LearningDashboard() {
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
                       <div
                         className="bg-indigo-600 h-2.5 rounded-full"
-                        style={{ width: `${Math.min(100, (metric.avgDuration / stats.maxTtr) * 100)}%` }}
+                        style={{ width: `${stats.maxTtr > 0 ? Math.min(100, (metric.avgDuration / stats.maxTtr) * 100) : 0}%` }}
                       ></div>
                     </div>
                   </div>

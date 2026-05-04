@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -41,7 +42,7 @@ export async function GET() {
       maxTtr
     });
   } catch (error) {
-    console.error("Error fetching learning stats", error);
+    logger.error("Error fetching learning stats", { error });
     return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
   }
 }

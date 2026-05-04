@@ -8,9 +8,7 @@ CREATE TABLE "AgentFeedback" (
     "upvotes" INTEGER NOT NULL DEFAULT 0,
     "downvotes" INTEGER NOT NULL DEFAULT 0,
     "promptUsed" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "successCount" INTEGER NOT NULL DEFAULT 0,
-    "failureCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "AgentFeedback_repositoryId_fkey" FOREIGN KEY ("repositoryId") REFERENCES "Repository" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -23,9 +21,7 @@ CREATE TABLE "FlakyTestRule" (
     "testNameRegex" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "ignoreCount" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "successCount" INTEGER NOT NULL DEFAULT 0,
-    "failureCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "FlakyTestRule_repositoryId_fkey" FOREIGN KEY ("repositoryId") REFERENCES "Repository" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -39,9 +35,7 @@ CREATE TABLE "ErrorRewriteRule" (
     "rewriteTo" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "applyCount" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "successCount" INTEGER NOT NULL DEFAULT 0,
-    "failureCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "ErrorRewriteRule_repositoryId_fkey" FOREIGN KEY ("repositoryId") REFERENCES "Repository" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -55,9 +49,7 @@ CREATE TABLE "ResolutionTime" (
     "firstSeenAt" DATETIME NOT NULL,
     "resolvedAt" DATETIME NOT NULL,
     "durationSecs" INTEGER NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "successCount" INTEGER NOT NULL DEFAULT 0,
-    "failureCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,,
     CONSTRAINT "ResolutionTime_repositoryId_fkey" FOREIGN KEY ("repositoryId") REFERENCES "Repository" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -71,9 +63,7 @@ CREATE TABLE "new_PromptTemplate" (
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "systemPrompt" TEXT,
     "template" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "successCount" INTEGER NOT NULL DEFAULT 0,
-    "failureCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,,
     CONSTRAINT "PromptTemplate_repositoryId_fkey" FOREIGN KEY ("repositoryId") REFERENCES "Repository" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_PromptTemplate" ("createdAt", "id", "isActive", "name", "repositoryId", "systemPrompt", "template") SELECT "createdAt", "id", "isActive", "name", "repositoryId", "systemPrompt", "template" FROM "PromptTemplate";

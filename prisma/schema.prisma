@@ -243,8 +243,6 @@ model PromptTemplate {
   systemPrompt String?
   template     String
   createdAt    DateTime   @default(now())
-  successCount Int        @default(0)
-  failureCount Int        @default(0)
 
   @@unique([repositoryId, name])
   @@index([repositoryId, isActive])
@@ -302,8 +300,6 @@ model AgentFeedback {
   downvotes    Int        @default(0)
   promptUsed   String?    // The prompt or prompt template ID that generated this
   createdAt    DateTime   @default(now())
-  successCount Int        @default(0)
-  failureCount Int        @default(0)
   updatedAt    DateTime   @updatedAt
 
   @@index([repositoryId, agentName])
@@ -318,8 +314,6 @@ model FlakyTestRule {
   isActive     Boolean    @default(true)
   ignoreCount  Int        @default(0) // How many times it was ignored
   createdAt    DateTime   @default(now())
-  successCount Int        @default(0)
-  failureCount Int        @default(0)
   updatedAt    DateTime   @updatedAt
 
   @@index([repositoryId, isActive])
@@ -335,8 +329,6 @@ model ErrorRewriteRule {
   isActive     Boolean    @default(true)
   applyCount   Int        @default(0) // How many times it was applied
   createdAt    DateTime   @default(now())
-  successCount Int        @default(0)
-  failureCount Int        @default(0)
   updatedAt    DateTime   @updatedAt
 
   @@index([repositoryId, isActive])
@@ -352,8 +344,6 @@ model ResolutionTime {
   resolvedAt   DateTime   // When the PR was merged
   durationSecs Int        // TTR in seconds
   createdAt    DateTime   @default(now())
-  successCount Int        @default(0)
-  failureCount Int        @default(0)
 
   @@index([repositoryId, category])
 }

@@ -1019,11 +1019,12 @@ async function processRepositories(
               const rewriteRules = await prisma.errorRewriteRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
 
               let currentBody = comment.body || "";
+              const MAX_REGEX_INPUT = 10_000;
               let isFlaky = false;
               for (const rule of flakyRules) {
                 try {
                   const rx = new RegExp(rule.testNameRegex, "i");
-                  if (rx.test(currentBody)) {
+                  if (rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
                     isFlaky = true;
                     await prisma.flakyTestRule.update({ where: { id: rule.id }, data: { ignoreCount: { increment: 1 } } });
                     break;
@@ -1042,7 +1043,7 @@ async function processRepositories(
                 for (const rule of rewriteRules) {
                   try {
                     const rx = new RegExp(rule.errorRegex, "i");
-                    if (rx.test(currentBody)) {
+                    if (rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
                       currentBody = `[Original error rewritten]: ${rule.rewriteTo}\n\n<details><summary>Original Error</summary>\n\n${currentBody}\n</details>`;
                       comment.body = currentBody; // update local ref
                       await prisma.errorRewriteRule.update({ where: { id: rule.id }, data: { applyCount: { increment: 1 } } });
@@ -2044,9 +2045,15 @@ async function start() {
 
 
 
+
+let isSyncingReactionsAndTTR = false;
+
 async function syncReactionsAndTTR() {
   if (!isWorkerReady()) return;
+  if (isSyncingReactionsAndTTR) return;
+  isSyncingReactionsAndTTR = true;
   try {
+
     const repos = await prisma.repository.findMany({ where: { isActive: true } });
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });
 
@@ -2069,7 +2076,8 @@ async function syncReactionsAndTTR() {
             pull_number: session.prNumber
           });
 
-          if (pr.state === 'closed' || pr.merged) {
+          if (pr.state === 'closed') {
+             const wasMerged = pr.merged === true;
              const resolvedAt = pr.merged_at ? new Date(pr.merged_at) : new Date(pr.closed_at!);
              const durationSecs = Math.floor((resolvedAt.getTime() - session.firstSeenAt.getTime()) / 1000);
 
@@ -2085,17 +2093,19 @@ async function syncReactionsAndTTR() {
 
              const categories = Array.from(new Set(comments.map(c => c.category || 'general')));
 
-             for (const cat of categories) {
-               await prisma.resolutionTime.create({
-                 data: {
-                   repositoryId: repo.id,
-                   prNumber: session.prNumber,
-                   category: cat,
-                   firstSeenAt: session.firstSeenAt,
-                   resolvedAt,
-                   durationSecs
-                 }
-               });
+             if (wasMerged) {
+               for (const cat of categories) {
+                 await prisma.resolutionTime.create({
+                   data: {
+                     repositoryId: repo.id,
+                     prNumber: session.prNumber,
+                     category: cat,
+                     firstSeenAt: session.firstSeenAt,
+                     resolvedAt,
+                     durationSecs
+                   }
+                 });
+               }
              }
 
              await prisma.batchSession.update({
@@ -2106,7 +2116,7 @@ async function syncReactionsAndTTR() {
              // Auto-tuning of Prompts based on Success
              // If this session used a specific prompt template, increment its success count since the PR merged!
              const sessionData = await prisma.batchSession.findUnique({ where: { id: session.id }});
-             if (sessionData && sessionData.lastPromptId) {
+             if (wasMerged && sessionData && sessionData.lastPromptId) {
                 await prisma.promptTemplate.updateMany({
                    where: { id: sessionData.lastPromptId },
                    data: { successCount: { increment: 1 } }
@@ -2171,6 +2181,8 @@ async function syncReactionsAndTTR() {
     }
   } catch (err) {
     logger.error("Error in syncReactionsAndTTR:", err);
+  } finally {
+    isSyncingReactionsAndTTR = false;
   }
 }
 

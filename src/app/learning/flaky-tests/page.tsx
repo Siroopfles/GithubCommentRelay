@@ -19,9 +19,10 @@ export default function FlakyTestsPage() {
     fetch("/api/learning/flaky")
       .then(r => r.json())
       .then(data => {
-        setRules(data.rules);
-        setRepos(data.repos);
-      });
+        setRules(data.rules ?? []);
+        setRepos(data.repos ?? []);
+      })
+      .catch(err => console.error("Failed to load flaky rules", err));
   }, []);
 
   const handleAdd = async () => {
@@ -39,8 +40,10 @@ export default function FlakyTestsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/learning/flaky?id=${id}`, { method: "DELETE" });
-    setRules(rules.filter(r => r.id !== id));
+    const res = await fetch(`/api/learning/flaky?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRules(rules.filter(r => r.id !== id));
+    }
   };
 
   return (
