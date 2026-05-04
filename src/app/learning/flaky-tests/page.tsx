@@ -49,8 +49,8 @@ export default function FlakyTestsPage() {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="mb-6 flex items-center gap-4">
-        <Link href="/learning" className="text-gray-500 hover:text-gray-900">
-          <ArrowLeft className="w-6 h-6" />
+        <Link href="/learning" className="text-gray-500 hover:text-gray-900" aria-label="Back to learning">
+          <ArrowLeft className="w-6 h-6" aria-hidden="true" />
         </Link>
         <h1 className="text-3xl font-bold text-gray-900">Flaky Test Detectie</h1>
       </div>
@@ -112,8 +112,8 @@ export default function FlakyTestsPage() {
                   <span className="bg-gray-100 text-gray-800 py-1 px-2 rounded-full text-xs font-bold">{rule.ignoreCount}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                  <button onClick={() => handleDelete(rule.id)} className="text-red-500 hover:text-red-700">
-                    <Trash2 className="w-5 h-5" />
+                  <button onClick={() => handleDelete(rule.id)} className="text-red-500 hover:text-red-700" aria-label="Delete flaky test">
+                    <Trash2 className="w-5 h-5" aria-hidden="true" />
                   </button>
                 </td>
               </tr>

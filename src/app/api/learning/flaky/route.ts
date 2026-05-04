@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+import { verifySession } from '@/lib/auth';
+import { cookies } from 'next/headers';
+
+async function isAuthenticated() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (!sessionCookie) return false;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  if (!settings?.sessionSecret) return false;
+
+  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
+  return !!session?.loggedIn;
+}
+
+
 export async function GET() {
+  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const rules = await prisma.flakyTestRule.findMany({
       include: { repository: { select: { owner: true, name: true } } }
@@ -17,10 +34,19 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const data = await req.json();
     if (!data.repositoryId || !data.testNameRegex) {
       return NextResponse.json({ error: "repositoryId and testNameRegex are required" }, { status: 400 });
+    }
+    if (typeof data.testNameRegex !== "string" || data.testNameRegex.length > 500) {
+      return NextResponse.json({ error: "testNameRegex must be a string <= 500 chars" }, { status: 400 });
+    }
+    try {
+      new RegExp(data.testNameRegex, "i");
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid regex pattern" }, { status: 400 });
     }
     const rule = await prisma.flakyTestRule.create({
       data: {
@@ -39,6 +65,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const url = new URL(req.url);
     const id = url.searchParams.get("id");

@@ -558,6 +558,21 @@ async function processRepositories(
         per_page: 20,
       });
 
+
+      // Pre-compile flaky and rewrite rules to avoid ReDOS and compilation inside loops
+      const rawFlakyRules = await prisma.flakyTestRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
+      const rawRewriteRules = await prisma.errorRewriteRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
+
+      const compiledFlakyRules = rawFlakyRules.map(rule => {
+        try { return { id: rule.id, rx: new RegExp(rule.testNameRegex, "i") }; }
+        catch(e) { logger.error(`Invalid flaky regex ${rule.id}`); return null; }
+      }).filter((r): r is {id: string, rx: RegExp} => r !== null);
+
+      const compiledRewriteRules = rawRewriteRules.map(rule => {
+        try { return { id: rule.id, rewriteTo: rule.rewriteTo, rx: new RegExp(rule.errorRegex, "i") }; }
+        catch(e) { logger.error(`Invalid rewrite regex ${rule.id}`); return null; }
+      }).filter((r): r is {id: string, rewriteTo: string, rx: RegExp} => r !== null);
+
       for (const pr of prs) {
         // Evaluate Branch Whitelist/Blacklist
         const targetBranch = pr.base?.ref;
@@ -1015,22 +1030,14 @@ async function processRepositories(
 
               // -- Q CATEGORY IMPLEMENTATION --
               // Check Flaky Test Rules and Error Rewrite Rules before saving comment
-              const flakyRules = await prisma.flakyTestRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
-              const rewriteRules = await prisma.errorRewriteRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
-
               let currentBody = comment.body || "";
               const MAX_REGEX_INPUT = 10_000;
               let isFlaky = false;
-              for (const rule of flakyRules) {
-                try {
-                  const rx = new RegExp(rule.testNameRegex, "i");
-                  if (rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
-                    isFlaky = true;
-                    await prisma.flakyTestRule.update({ where: { id: rule.id }, data: { ignoreCount: { increment: 1 } } });
-                    break;
-                  }
-                } catch (e) {
-                  logger.error(`Invalid regex in flaky rule ${rule.id}: ${e}`);
+              for (const rule of compiledFlakyRules) {
+                if (rule.rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
+                  isFlaky = true;
+                  await prisma.flakyTestRule.update({ where: { id: rule.id }, data: { ignoreCount: { increment: 1 } } });
+                  break;
                 }
               }
 
@@ -1040,16 +1047,11 @@ async function processRepositories(
               }
 
               if (!isSkipped) {
-                for (const rule of rewriteRules) {
-                  try {
-                    const rx = new RegExp(rule.errorRegex, "i");
-                    if (rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
-                      currentBody = `[Original error rewritten]: ${rule.rewriteTo}\n\n<details><summary>Original Error</summary>\n\n${currentBody}\n</details>`;
-                      comment.body = currentBody; // update local ref
-                      await prisma.errorRewriteRule.update({ where: { id: rule.id }, data: { applyCount: { increment: 1 } } });
-                    }
-                  } catch (e) {
-                    logger.error(`Invalid regex in rewrite rule ${rule.id}: ${e}`);
+                for (const rule of compiledRewriteRules) {
+                  if (rule.rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
+                    currentBody = `[Original error rewritten]: ${rule.rewriteTo}\n\n<details><summary>Original Error</summary>\n\n${currentBody}\n</details>`;
+                    comment.body = currentBody; // update local ref
+                    await prisma.errorRewriteRule.update({ where: { id: rule.id }, data: { applyCount: { increment: 1 } } });
                   }
                 }
               }
