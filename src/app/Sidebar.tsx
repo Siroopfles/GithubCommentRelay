@@ -40,6 +40,7 @@ export default function Sidebar() {
     { href: '/logs/chat', icon: MessageSquare, label: 'Visual Filter' },
     { href: '/logs', icon: FileText, label: 'Logs' },
     { href: '/logs/system', icon: Activity, label: 'System Console' },
+    { href: '/learning', icon: Activity, label: 'Learning' },
     { href: '/settings', icon: Settings, label: 'Settings' },
     { href: '/settings/notifications', icon: Bell, label: 'Notifications' },
   ];
