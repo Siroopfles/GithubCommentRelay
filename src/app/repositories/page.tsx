@@ -183,6 +183,7 @@ const updateData: Record<string, unknown> = {
       name: data.name,
       groupName: data.groupName,
       isActive: data.isActive,
+      architectureInfo: data.architectureInfo
     };
     if (data.githubToken) updateData.githubToken = data.githubToken;
 

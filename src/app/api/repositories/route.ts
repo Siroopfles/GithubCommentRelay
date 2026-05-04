@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots } = await request.json()
+  const { owner, name, groupName, autoMergeEnabled, requiredApprovals, requireCI, mergeStrategy, taskSourceType, taskSourcePath, maxConcurrentTasks, julesPromptTemplate, julesChatForwardMode, julesChatForwardDelay, aiSystemPrompt, commentTemplate, postAggregatedComments, batchDelay, branchWhitelist, branchBlacklist, githubToken, requiredBots, architectureInfo } = await request.json()
   const encryptionKey = await getEncryptionKey();
 
   if (typeof owner !== "string" || owner.trim() === "") {
@@ -129,7 +129,8 @@ export async function POST(request: Request) {
         branchWhitelist: typeof branchWhitelist === "string" && branchWhitelist !== "" ? branchWhitelist : null,
         branchBlacklist: typeof branchBlacklist === "string" && branchBlacklist !== "" ? branchBlacklist : null,
         githubToken: finalGithubToken,
-        requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null
+        requiredBots: typeof requiredBots === "string" && requiredBots !== "" ? requiredBots : null,
+        architectureInfo: typeof architectureInfo === "string" && architectureInfo !== "" ? architectureInfo : null
       }
     })
     const { githubToken: _, ...safeRepo } = repo;

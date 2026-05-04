@@ -1,32 +1,37 @@
 export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string, role?: string | null}[], prIntent?: {title: string, body: string} | null, architectureInfo?: string | null, previousAttempts?: string[]): string {
   let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`;
 
+  const sanitizeStr = (s: string | null | undefined) =>
+    s == null ? s : s.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE');
+
   if (isHighPriority) {
     aggregatedBody += `🚨 [PRIORITY: HIGH] @ai-agent Please process this PR with high priority.\n\n`;
   }
 
   if (manualPrompt) {
-    aggregatedBody += `**Manual Instruction:**\n${manualPrompt}\n\n`;
+    aggregatedBody += `**Manual Instruction:**\n${sanitizeStr(manualPrompt)}\n\n`;
   }
 
   if (prIntent) {
-    aggregatedBody += `**Pull Request Intent:**\n*Title:* ${prIntent.title}\n*Description:* ${prIntent.body || "No description provided"}\n\n`;
+    aggregatedBody += `**Pull Request Intent:**\n*Title:* ${sanitizeStr(prIntent.title)}\n*Description:* ${sanitizeStr(prIntent.body) || "No description provided"}\n\n`;
   }
 
   if (architectureInfo) {
-    aggregatedBody += `**Project Architecture & Context:**\n${architectureInfo}\n\n`;
+    aggregatedBody += `**Project Architecture & Context:**\n${sanitizeStr(architectureInfo)}\n\n`;
   }
 
   if (previousAttempts && previousAttempts.length > 0) {
-    aggregatedBody += `**Previous Mislukte Fix Pogingen:**\nLet op: er zijn eerdere pogingen gedaan om dit op te lossen. Dit waren de gegenereerde outputs (wat we al hebben geprobeerd en niet bleek te werken):\n`;
+    aggregatedBody += `**Previous Failed Fix Attempts:**\nNote: previous attempts have been made to resolve this. These were the generated outputs (what has already been tried and did not work):\n`;
     previousAttempts.forEach((attempt, index) => {
-        aggregatedBody += `<details><summary>Poging ${index + 1}</summary>\n\n\`\`\`\n${attempt}\n\`\`\`\n</details>\n`;
+        const cleanAttempt = sanitizeStr(attempt) || "";
+        const fence = cleanAttempt.includes("```") ? "~~~~" : "```";
+        aggregatedBody += `<details><summary>Attempt ${index + 1}</summary>\n\n${fence}\n${cleanAttempt}\n${fence}\n</details>\n`;
     });
     aggregatedBody += `\n`;
   }
 
   if (aiSystemPrompt) {
-    aggregatedBody += `${aiSystemPrompt}\n\n---\n\n`;
+    aggregatedBody += `${sanitizeStr(aiSystemPrompt)}\n\n---\n\n`;
   } else {
     aggregatedBody += `Below are the most recent pull request comments and code reviews. Please use these exact comments as the context to fix the PR. Do not ask me for the text of the PR comments; they are provided right below this message.\n\n---\n\n`;
   }

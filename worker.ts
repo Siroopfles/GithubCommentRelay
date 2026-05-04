@@ -979,40 +979,8 @@ async function processRepositories(
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
         );
 
+        const fileCache = new Map<string, string>();
         for (const comment of allComments) {
-          if (("path" in comment) && comment.path && ("line" in comment) && comment.line && comment.body && octokit && !comment.body.includes("**Context for")) {
-            try {
-              const { data: fileData } = await octokit.rest.repos.getContent({
-                owner: repo.owner,
-                repo: repo.name,
-                path: comment.path,
-                ref: pr.head.sha
-              });
-              if (!Array.isArray(fileData) && fileData.type === "file" && fileData.content) {
-                const decoded = Buffer.from(fileData.content, 'base64').toString('utf8');
-                const lines = decoded.split('\n');
-                const start = Math.max(0, comment.line - 6);
-                const end = Math.min(lines.length, comment.line + 5);
-                const snippet = lines.slice(start, end).map((l, idx) => `${start + idx + 1}: ${l}`).join('\n');
-
-                let fileContext = `\n\n**Context for ${comment.path} (Around line ${comment.line}):**\n\`\`\`\n${snippet}\n\`\`\``;
-
-                // Idea 78: Related Files Map
-                const importRegex = /(?:import|require)\s*\(?\s*['"]([^'"]+)['"]/g;
-                const related: string[] = [];
-                let match;
-                while ((match = importRegex.exec(decoded)) !== null) {
-                  if (!related.includes(match[1])) related.push(match[1]);
-                }
-                if (related.length > 0) {
-                  fileContext += `\n**Related Imports/Files:** ${related.slice(0, 10).join(', ')}`;
-                }
-                comment.body += fileContext;
-              }
-            } catch(e) {
-              logger.error(`Failed to fetch contextual snippet for ${comment.path}`, e);
-            }
-          }
           if (!comment.user || !comment.body) continue;
 
           const normalizeUser = (name: string) =>
@@ -1247,23 +1215,27 @@ async function processRepositories(
 
 
             let previousAttempts: string[] = [];
-            try {
-               const priorTasks = await prisma.task.findMany({
-                   where: {
-                       repositoryId: repoConfig?.id,
-                       prNumber: session.prNumber,
-                       julesSessionState: "COMPLETED"
-                   },
-                   orderBy: { createdAt: "desc" },
-                   take: 3
-               });
-               for (const prior of priorTasks) {
-                   if (prior.julesSessionUrl) {
-                       // Idealiter halen we hier de output van de session, maar we hebben url.
-                       // Bij gebrek aan full outputs in de DB, sturen we tenminste de metadata mee.
-                       previousAttempts.push(`Task ID: ${prior.id} (Completed at ${prior.updatedAt.toISOString()})`);
-                   }
+            if (repoConfig?.id) {
+               try {
+                  const priorTasks = await prisma.task.findMany({
+                      where: {
+                          repositoryId: repoConfig.id,
+                          prNumber: session.prNumber,
+                          julesSessionState: "COMPLETED"
+                      },
+                      orderBy: { createdAt: "desc" },
+                      take: 3
+                  });
+                  for (const prior of priorTasks) {
+                      if (prior.julesSessionUrl) {
+                          previousAttempts.push(`Task ID: ${prior.id} (Completed at ${prior.updatedAt.toISOString()})`);
+                      }
+                  }
+               } catch(e) {
+                  logger.error("Error fetching previous task attempts:", e);
                }
+            }
+            try {
                // Also check previous batched comments that were forwarded
                const priorComments = await prisma.processedComment.findMany({
                    where: {
@@ -1279,7 +1251,7 @@ async function processRepositories(
                    previousAttempts.push("Earlier issues reported in this PR: " + priorComments.map(c => c.body).join(' | ').substring(0, 1000) + "...");
                }
             } catch(e) {
-               logger.error("Error fetching previous attempts:", e);
+               logger.error("Error fetching previous comments attempts:", e);
             }
 
             let checkRunsContent = "";

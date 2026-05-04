@@ -84,6 +84,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (json.branchWhitelist !== undefined) updateData.branchWhitelist = json.branchWhitelist || null;
     if (json.branchBlacklist !== undefined) updateData.branchBlacklist = json.branchBlacklist || null;
     if (json.requiredBots !== undefined) updateData.requiredBots = json.requiredBots || null;
+    if (json.architectureInfo !== undefined) updateData.architectureInfo = json.architectureInfo || null;
     if (json.aiBotUsernames !== undefined) updateData.aiBotUsernames = json.aiBotUsernames || null;
     if (json.regressionDetection !== undefined) updateData.regressionDetection = json.regressionDetection;
     if (json.regressionMatchMode !== undefined) {
