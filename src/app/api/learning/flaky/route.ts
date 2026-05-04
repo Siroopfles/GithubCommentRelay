@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAuthenticated } from "@/lib/apiAuth";
@@ -15,7 +16,7 @@ export async function GET() {
     });
     return NextResponse.json({ rules, repos });
   } catch (error: any) {
-    console.error("Error fetching flaky rules", error);
+    logger.error("Error fetching flaky rules", { error });
     return NextResponse.json({ error: error.message || "Failed to fetch flaky rules" }, { status: 500 });
   }
 }
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(rule);
   } catch (error: any) {
-    console.error("Error creating flaky rule", error);
+    logger.error("Error creating flaky rule", { error });
     return NextResponse.json({ error: error.message || "Failed to create flaky rule" }, { status: 500 });
   }
 }
@@ -62,7 +63,7 @@ export async function DELETE(req: Request) {
     await prisma.flakyTestRule.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Error deleting flaky rule", error);
+    logger.error("Error deleting flaky rule", { error });
     return NextResponse.json({ error: error.message || "Failed to delete flaky rule" }, { status: 500 });
   }
 }
