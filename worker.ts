@@ -979,6 +979,7 @@ async function processRepositories(
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
         );
 
+        const fileCache = new Map<string, string>();
         for (const comment of allComments) {
           if (!comment.user || !comment.body) continue;
 
@@ -1199,6 +1200,60 @@ async function processRepositories(
             }
             const octokit = createOctokit(tokenToUse);
 
+
+            let prIntent: { title: string, body: string } | null = null;
+            try {
+              const { data: prData } = await octokit.rest.pulls.get({
+                owner: session.repoOwner,
+                repo: session.repoName,
+                pull_number: session.prNumber,
+              });
+              prIntent = { title: prData.title, body: prData.body || "" };
+            } catch (e) {
+              logger.error(`Failed to fetch PR ${session.prNumber} for intent details:`, e);
+            }
+
+
+            let previousAttempts: string[] = [];
+            if (repoConfig?.id) {
+               try {
+                  const priorTasks = await prisma.task.findMany({
+                      where: {
+                          repositoryId: repoConfig.id,
+                          prNumber: session.prNumber,
+                          julesSessionState: "COMPLETED"
+                      },
+                      orderBy: { createdAt: "desc" },
+                      take: 3
+                  });
+                  for (const prior of priorTasks) {
+                      if (prior.julesSessionUrl) {
+                          previousAttempts.push(`Task ID: ${prior.id} (Completed at ${prior.updatedAt.toISOString()})`);
+                      }
+                  }
+               } catch(e) {
+                  logger.error("Error fetching previous task attempts:", e);
+               }
+            }
+            try {
+               // Also check previous batched comments that were forwarded
+               const priorComments = await prisma.processedComment.findMany({
+                   where: {
+                       repoOwner: session.repoOwner,
+                       repoName: session.repoName,
+                       prNumber: session.prNumber,
+                       forwardedToJules: true
+                   },
+                   orderBy: { postedAt: "desc" },
+                   take: 5
+               });
+               if (priorComments.length > 0) {
+                   previousAttempts.push("Earlier issues reported in this PR: " + priorComments.map(c => c.body).join(' | ').substring(0, 1000) + "...");
+               }
+            } catch(e) {
+               logger.error("Error fetching previous comments attempts:", e);
+            }
+
             let checkRunsContent = "";
             let headSha: string | null = null;
             if (repoConfig?.includeCheckRuns || session.includeCheckRuns) {
@@ -1347,6 +1402,9 @@ async function processRepositories(
                 session.isHighPriority,
                 session.manualPrompt,
                 botMappings,
+                prIntent,
+                (repoConfig as any)?.architectureInfo,
+                previousAttempts
               ) + checkRunsContent;
             const redactedAggregatedBody = redactPII(aggregatedBody);
 

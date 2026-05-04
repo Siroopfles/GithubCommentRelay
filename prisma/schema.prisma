@@ -62,6 +62,7 @@ model Repository {
   maxDiffLines           Int                 @default(500) // 0 to disable
   complexityWeights      String? // JSON object for custom complexity weighting
   groupName              String?             @default("Default")
+  architectureInfo       String?             @default("")
   createdAt              DateTime            @default(now())
 
   tasks           Task[]

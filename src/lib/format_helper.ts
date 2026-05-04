@@ -1,16 +1,37 @@
-export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string, role?: string | null}[]): string {
+export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: string | null, commentTemplate?: string | null, isHighPriority?: boolean, manualPrompt?: string | null, botMappings?: {botSource: string, agentName: string, role?: string | null}[], prIntent?: {title: string, body: string} | null, architectureInfo?: string | null, previousAttempts?: string[]): string {
   let aggregatedBody = `### 🤖 Automated Reviewer Comments Aggregated\n\n`;
+
+  const sanitize = (s: string | null | undefined) =>
+    s == null ? s : s.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE');
 
   if (isHighPriority) {
     aggregatedBody += `🚨 [PRIORITY: HIGH] @ai-agent Please process this PR with high priority.\n\n`;
   }
 
   if (manualPrompt) {
-    aggregatedBody += `**Manual Instruction:**\n${manualPrompt}\n\n`;
+    aggregatedBody += `**Manual Instruction:**\n${sanitize(manualPrompt)}\n\n`;
+  }
+
+  if (prIntent) {
+    aggregatedBody += `**Pull Request Intent:**\n*Title:* ${sanitize(prIntent.title)}\n*Description:* ${sanitize(prIntent.body) || "No description provided"}\n\n`;
+  }
+
+  if (architectureInfo) {
+    aggregatedBody += `**Project Architecture & Context:**\n${sanitize(architectureInfo)}\n\n`;
+  }
+
+  if (previousAttempts && previousAttempts.length > 0) {
+    aggregatedBody += `**Previous Failed Fix Attempts:**\nNote: previous attempts have been made to resolve this. These were the generated outputs (what has already been tried and did not work):\n`;
+    previousAttempts.forEach((attempt, index) => {
+        const cleanAttempt = sanitize(attempt) || "";
+        const fence = cleanAttempt.includes("```") ? "~~~~" : "```";
+        aggregatedBody += `<details><summary>Attempt ${index + 1}</summary>\n\n${fence}\n${cleanAttempt}\n${fence}\n</details>\n`;
+    });
+    aggregatedBody += `\n`;
   }
 
   if (aiSystemPrompt) {
-    aggregatedBody += `${aiSystemPrompt}\n\n---\n\n`;
+    aggregatedBody += `${sanitize(aiSystemPrompt)}\n\n---\n\n`;
   } else {
     aggregatedBody += `Below are the most recent pull request comments and code reviews. Please use these exact comments as the context to fix the PR. Do not ask me for the text of the PR comments; they are provided right below this message.\n\n---\n\n`;
   }
@@ -20,9 +41,6 @@ export function formatAggregatedBody(commentsToBatch: any[], aiSystemPrompt?: st
   // Deduplication
   const deduplicatedComments: any[] = [];
   const normalize = (str: string) => str.trim().replace(/\s+/g, ' ').toLowerCase();
-
-  const sanitize = (s: string | null | undefined) =>
-    s == null ? s : s.replace(/-->/g, '--&gt;').replace(/JSON_END/g, 'JSON_END_SAFE').replace(/JSON_START/g, 'JSON_START_SAFE');
 
   for (const comment of commentsToBatch) {
     // Simple deduplication based on exact body match or highly similar body
