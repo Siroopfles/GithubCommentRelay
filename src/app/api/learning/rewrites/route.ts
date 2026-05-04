@@ -5,8 +5,8 @@ import { isAuthenticated } from "@/lib/apiAuth";
 
 
 export async function GET() {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const rules = await prisma.errorRewriteRule.findMany({
       include: { repository: { select: { owner: true, name: true } } }
     });
@@ -21,8 +21,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const data = await req.json();
     if (!data.repositoryId || !data.errorRegex || !data.rewriteTo) {
       return NextResponse.json({ error: "repositoryId, errorRegex and rewriteTo are required" }, { status: 400 });
@@ -45,8 +45,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     if (!id) {

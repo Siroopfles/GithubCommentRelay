@@ -6,8 +6,8 @@ import { isAuthenticated } from "@/lib/apiAuth";
 
 
 export async function GET() {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const feedback = await prisma.agentFeedback.aggregate({
       _sum: {
         upvotes: true,

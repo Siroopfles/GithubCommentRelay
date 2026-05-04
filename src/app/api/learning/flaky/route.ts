@@ -6,8 +6,8 @@ import { isAuthenticated } from "@/lib/apiAuth";
 
 
 export async function GET() {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const rules = await prisma.flakyTestRule.findMany({
       include: { repository: { select: { owner: true, name: true } } }
     });
@@ -22,11 +22,23 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const data = await req.json();
     if (!data.repositoryId || !data.testNameRegex) {
       return NextResponse.json({ error: "repositoryId and testNameRegex are required" }, { status: 400 });
+    }
+    if (typeof data.repositoryId !== "string" || data.repositoryId.trim().length === 0) {
+      return NextResponse.json({ error: "repositoryId must be a non-empty string" }, { status: 400 });
+    }
+    if (data.name !== undefined && data.name !== null && typeof data.name !== "string") {
+      return NextResponse.json({ error: "name must be a string" }, { status: 400 });
+    }
+    if (data.name && data.name.length > 255) {
+      return NextResponse.json({ error: "name must be <= 255 chars" }, { status: 400 });
+    }
+    if (data.isActive !== undefined && typeof data.isActive !== "boolean") {
+      return NextResponse.json({ error: "isActive must be a boolean" }, { status: 400 });
     }
     if (typeof data.testNameRegex !== "string" || data.testNameRegex.length > 500) {
       return NextResponse.json({ error: "testNameRegex must be a string <= 500 chars" }, { status: 400 });
@@ -53,8 +65,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    if (!(await isAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     if (!id) {
