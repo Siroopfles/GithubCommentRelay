@@ -2135,13 +2135,14 @@ async function syncReactionsAndTTR() {
       // For this, we'd need to find comments posted by our authenticated user that look like AI agent responses.
       // But a simpler proxy is reading agent feedback explicitly if we store comment IDs.
       // Alternatively, check tasks
-      const recentTasks = await prisma.task.findMany({
+      // Find all PRs where Jules/Agents were active (via Tasks)
+      const tasksWithPrs = await prisma.task.findMany({
         where: { repositoryId: repo.id, prNumber: { not: null } },
-        orderBy: { createdAt: 'desc' },
-        take: 20
+        select: { prNumber: true },
+        distinct: ['prNumber']
       });
 
-      for (const task of recentTasks) {
+      for (const task of tasksWithPrs) {
          if (!task.prNumber) continue;
          try {
            const { data: comments } = await octokit.rest.issues.listComments({
@@ -2151,28 +2152,41 @@ async function syncReactionsAndTTR() {
            });
 
            for (const comment of comments) {
-             if (comment.body && comment.body.includes('Jules') && comment.reactions) { // Very naive heuristic
+             // Authoritative check if it's our agent (Bot or User we use)
+             // Usually, our own tool posts as the user who owns the PAT.
+             // But we can check if it's the PAT user AND contains the Jules signature.
+             // Alternatively, if it's a GitHub App, user.type === "Bot"
+
+             // For this hobby tool, it posts under the user's PAT, so user.login matches the owner of the PAT.
+             // Let's assume any comment by the authenticated user or any "Bot" user that contains the AI signature is an agent.
+             const isAgent = comment.user && (comment.user.type === 'Bot' || comment.body?.includes('*Task started in Jules:'));
+
+             if (isAgent && comment.reactions) {
                 const upvotes = comment.reactions['+1'];
                 const downvotes = comment.reactions['-1'];
 
                 if (upvotes > 0 || downvotes > 0) {
-                  // Upsert agent feedback
-                  await prisma.agentFeedback.upsert({
-                    where: { id: `feed-${comment.id}` }, // Not a true upsert where since id is not tied to comment. Let's find first.
-                    create: {
-                      id: `feed-${comment.id}`,
-                      repositoryId: repo.id,
-                      agentName: 'Jules',
-                      prNumber: task.prNumber,
-                      commentId: BigInt(comment.id),
-                      upvotes,
-                      downvotes
-                    },
-                    update: {
-                      upvotes,
-                      downvotes
-                    }
-                  });
+                  const feedId = `feed-${comment.id}`;
+                  // Use finding first then creating/updating to avoid Prisma upsert unique constraint issues since id is manual string
+                  const existingFeed = await prisma.agentFeedback.findUnique({ where: { id: feedId } });
+                  if (existingFeed) {
+                    await prisma.agentFeedback.update({
+                      where: { id: feedId },
+                      data: { upvotes, downvotes }
+                    });
+                  } else {
+                    await prisma.agentFeedback.create({
+                      data: {
+                        id: feedId,
+                        repositoryId: repo.id,
+                        agentName: comment.user?.login || 'Jules',
+                        prNumber: task.prNumber,
+                        commentId: BigInt(comment.id),
+                        upvotes,
+                        downvotes
+                      }
+                    });
+                  }
                 }
              }
            }

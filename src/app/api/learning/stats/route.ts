@@ -1,21 +1,8 @@
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAuthenticated } from "@/lib/apiAuth";
 
-import { verifySession } from '@/lib/auth';
-import { cookies } from 'next/headers';
-
-async function isAuthenticated() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('session');
-  if (!sessionCookie) return false;
-
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  if (!settings?.sessionSecret) return false;
-
-  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
-  return !!session?.loggedIn;
-}
 
 
 export async function GET() {
