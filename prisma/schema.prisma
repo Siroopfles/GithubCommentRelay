@@ -68,6 +68,10 @@ model Repository {
   tasks           Task[]
   prLabelRules    PRLabelRule[]
   promptTemplates PromptTemplate[]
+  agentFeedbacks  AgentFeedback[]
+  flakyTestRules  FlakyTestRule[]
+  errorRewriteRules ErrorRewriteRule[]
+  resolutionTimes ResolutionTime[]
 
   @@unique([owner, name])
 }
@@ -281,4 +285,65 @@ model NotificationRule {
   updatedAt   DateTime @updatedAt
 
   @@index([settingsId, isActive])
+}
+
+// --- Category Q: Feedback Loops & Learning Systems ---
+
+model AgentFeedback {
+  id           String     @id @default(cuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  agentName    String
+  prNumber     Int
+  commentId    BigInt?    // GitHub Comment ID if applicable
+  upvotes      Int        @default(0)
+  downvotes    Int        @default(0)
+  promptUsed   String?    // The prompt or prompt template ID that generated this
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([repositoryId, agentName])
+}
+
+model FlakyTestRule {
+  id           String     @id @default(cuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name         String?    // Friendly name
+  testNameRegex String    // Regex to match the flaky test warning
+  isActive     Boolean    @default(true)
+  ignoreCount  Int        @default(0) // How many times it was ignored
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([repositoryId, isActive])
+}
+
+model ErrorRewriteRule {
+  id           String     @id @default(cuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name         String?
+  errorRegex   String     // Regex to match the vague error
+  rewriteTo    String     // Human readable text to replace or append
+  isActive     Boolean    @default(true)
+  applyCount   Int        @default(0) // How many times it was applied
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([repositoryId, isActive])
+}
+
+model ResolutionTime {
+  id           String     @id @default(cuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  prNumber     Int
+  category     String     // Type of error (e.g. 'lint', 'security', 'general')
+  firstSeenAt  DateTime
+  resolvedAt   DateTime   // When the PR was merged
+  durationSecs Int        // TTR in seconds
+  createdAt    DateTime   @default(now())
+
+  @@index([repositoryId, category])
 }

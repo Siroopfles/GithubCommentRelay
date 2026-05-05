@@ -558,6 +558,21 @@ async function processRepositories(
         per_page: 20,
       });
 
+
+      // Pre-compile flaky and rewrite rules to avoid ReDOS and compilation inside loops
+      const rawFlakyRules = await prisma.flakyTestRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
+      const rawRewriteRules = await prisma.errorRewriteRule.findMany({ where: { repositoryId: repo.id, isActive: true } });
+
+      const compiledFlakyRules = rawFlakyRules.map(rule => {
+        try { return { id: rule.id, rx: new RegExp(rule.testNameRegex, "i") }; }
+        catch(e) { logger.error(`Invalid flaky regex ${rule.id}`); return null; }
+      }).filter((r): r is {id: string, rx: RegExp} => r !== null);
+
+      const compiledRewriteRules = rawRewriteRules.map(rule => {
+        try { return { id: rule.id, rewriteTo: rule.rewriteTo, rx: new RegExp(rule.errorRegex, "i") }; }
+        catch(e) { logger.error(`Invalid rewrite regex ${rule.id}`); return null; }
+      }).filter((r): r is {id: string, rewriteTo: string, rx: RegExp} => r !== null);
+
       for (const pr of prs) {
         // Evaluate Branch Whitelist/Blacklist
         const targetBranch = pr.base?.ref;
@@ -1011,6 +1026,36 @@ async function processRepositories(
                   isSkipped = true;
                 }
               }
+
+
+              // -- Q CATEGORY IMPLEMENTATION --
+              // Check Flaky Test Rules and Error Rewrite Rules before saving comment
+              let currentBody = comment.body || "";
+              const MAX_REGEX_INPUT = 10_000;
+              let isFlaky = false;
+              for (const rule of compiledFlakyRules) {
+                if (rule.rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
+                  isFlaky = true;
+                  await prisma.flakyTestRule.update({ where: { id: rule.id }, data: { ignoreCount: { increment: 1 } } });
+                  break;
+                }
+              }
+
+              if (isFlaky) {
+                logger.info(`Skipping comment ${comment.id} due to flaky test rule`);
+                isSkipped = true;
+              }
+
+              if (!isSkipped) {
+                for (const rule of compiledRewriteRules) {
+                  if (rule.rx.test(currentBody.slice(0, MAX_REGEX_INPUT))) {
+                    currentBody = `[Original error rewritten]: ${rule.rewriteTo}\n\n<details><summary>Original Error</summary>\n\n${currentBody}\n</details>`;
+                    comment.body = currentBody; // update local ref
+                    await prisma.errorRewriteRule.update({ where: { id: rule.id }, data: { applyCount: { increment: 1 } } });
+                  }
+                }
+              }
+              // -- END Q CATEGORY --
 
               if (isSkipped) {
                 await prisma.processedComment.create({
@@ -1974,10 +2019,12 @@ async function start() {
     try {
       cron.schedule(cronExpression, () => {
         void processRepositories();
+      void syncReactionsAndTTR();
         void syncJulesSessions();
       });
       // Trigger immediate first run for consistency
       void processRepositories();
+      void syncReactionsAndTTR();
       void syncJulesSessions();
     } catch (err) {
       logger.error("Failed to schedule cron job:", err);
@@ -1987,12 +2034,171 @@ async function start() {
     // This correctly handles larger polling intervals without node-cron second-field limitations.
     setInterval(() => {
       void processRepositories();
+      void syncReactionsAndTTR();
       void syncJulesSessions();
     }, interval * 1000);
 
     // Trigger immediate first run
     void processRepositories();
+      void syncReactionsAndTTR();
     void syncJulesSessions();
+  }
+}
+
+
+
+
+let isSyncingReactionsAndTTR = false;
+
+async function syncReactionsAndTTR() {
+  if (!isWorkerReady()) return;
+  if (isSyncingReactionsAndTTR) return;
+  isSyncingReactionsAndTTR = true;
+  try {
+
+    const repos = await prisma.repository.findMany({ where: { isActive: true } });
+    const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+
+    for (const repo of repos) {
+      const tokenToUse = repo.githubToken || settings?.githubToken;
+      if (!tokenToUse) continue;
+      const octokit = createOctokit(tokenToUse);
+
+      // A. Check for resolved PRs (Time-to-resolution)
+      const unresolvedSessions = await prisma.batchSession.findMany({
+        where: { repoOwner: repo.owner, repoName: repo.name, resolved: false },
+        select: { prNumber: true, firstSeenAt: true, id: true, repoOwner: true, repoName: true }
+      });
+
+      for (const session of unresolvedSessions) {
+        try {
+          const { data: pr } = await octokit.rest.pulls.get({
+            owner: session.repoOwner,
+            repo: session.repoName,
+            pull_number: session.prNumber
+          });
+
+          if (pr.state === 'closed') {
+             const wasMerged = pr.merged === true;
+             const resolvedAt = pr.merged_at ? new Date(pr.merged_at) : new Date(pr.closed_at!);
+             const durationSecs = Math.floor((resolvedAt.getTime() - session.firstSeenAt.getTime()) / 1000);
+
+             // Figure out categories based on comments in this session
+             const comments = await prisma.processedComment.findMany({
+               where: {
+                 prNumber: session.prNumber,
+                 repoOwner: session.repoOwner,
+                 repoName: session.repoName,
+                 postedAt: { gte: session.firstSeenAt }
+               }
+             });
+
+             const categories = Array.from(new Set(comments.map(c => c.category || 'general')));
+
+             if (wasMerged) {
+               for (const cat of categories) {
+                 await prisma.resolutionTime.create({
+                   data: {
+                     repositoryId: repo.id,
+                     prNumber: session.prNumber,
+                     category: cat,
+                     firstSeenAt: session.firstSeenAt,
+                     resolvedAt,
+                     durationSecs
+                   }
+                 });
+               }
+             }
+
+             await prisma.batchSession.update({
+               where: { id: session.id },
+               data: { resolved: true, resolvedAt }
+             });
+
+             // Auto-tuning of Prompts based on Success
+             // If this session used a specific prompt template, increment its success count since the PR merged!
+             const sessionData = await prisma.batchSession.findUnique({ where: { id: session.id }});
+             if (wasMerged && sessionData && sessionData.lastPromptId) {
+                await prisma.promptTemplate.updateMany({
+                   where: { id: sessionData.lastPromptId },
+                   data: { successCount: { increment: 1 } }
+                });
+             }
+
+          }
+        } catch (e) {
+          logger.error(`Failed to check TTR for PR #${session.prNumber}: ${e}`);
+        }
+      }
+
+      // B. Check for reactions on Aggregated Bot Comments
+      // For this, we'd need to find comments posted by our authenticated user that look like AI agent responses.
+      // But a simpler proxy is reading agent feedback explicitly if we store comment IDs.
+      // Alternatively, check tasks
+      // Find all PRs where Jules/Agents were active (via Tasks)
+      const tasksWithPrs = await prisma.task.findMany({
+        where: { repositoryId: repo.id, prNumber: { not: null } },
+        select: { prNumber: true },
+        distinct: ['prNumber']
+      });
+
+      for (const task of tasksWithPrs) {
+         if (!task.prNumber) continue;
+         try {
+           const { data: comments } = await octokit.rest.issues.listComments({
+             owner: repo.owner,
+             repo: repo.name,
+             issue_number: task.prNumber
+           });
+
+           for (const comment of comments) {
+             // Authoritative check if it's our agent (Bot or User we use)
+             // Usually, our own tool posts as the user who owns the PAT.
+             // But we can check if it's the PAT user AND contains the Jules signature.
+             // Alternatively, if it's a GitHub App, user.type === "Bot"
+
+             // For this hobby tool, it posts under the user's PAT, so user.login matches the owner of the PAT.
+             // Let's assume any comment by the authenticated user or any "Bot" user that contains the AI signature is an agent.
+             const isAgent = comment.user && (comment.user.type === 'Bot' || comment.body?.includes('*Task started in Jules:'));
+
+             if (isAgent && comment.reactions) {
+                const upvotes = comment.reactions['+1'];
+                const downvotes = comment.reactions['-1'];
+
+                if (upvotes > 0 || downvotes > 0) {
+                  const feedId = `feed-${comment.id}`;
+                  // Use finding first then creating/updating to avoid Prisma upsert unique constraint issues since id is manual string
+                  const existingFeed = await prisma.agentFeedback.findUnique({ where: { id: feedId } });
+                  if (existingFeed) {
+                    await prisma.agentFeedback.update({
+                      where: { id: feedId },
+                      data: { upvotes, downvotes }
+                    });
+                  } else {
+                    await prisma.agentFeedback.create({
+                      data: {
+                        id: feedId,
+                        repositoryId: repo.id,
+                        agentName: comment.user?.login || 'Jules',
+                        prNumber: task.prNumber,
+                        commentId: BigInt(comment.id),
+                        upvotes,
+                        downvotes
+                      }
+                    });
+                  }
+                }
+             }
+           }
+         } catch (e) {
+            // Ignore missing PRs
+         }
+      }
+    }
+  } catch (err) {
+    logger.error("Error in syncReactionsAndTTR:", err);
+  } finally {
+    isSyncingReactionsAndTTR = false;
   }
 }
 
