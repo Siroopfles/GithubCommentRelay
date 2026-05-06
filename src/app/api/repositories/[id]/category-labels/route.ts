@@ -1,19 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifySession } from '@/lib/auth';
-import { cookies } from 'next/headers';
-
-async function isAuthenticated() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('session');
-  if (!sessionCookie) return false;
-
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  if (!settings?.sessionSecret) return false;
-
-  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
-  return !!session?.loggedIn;
-}
+import { isAuthenticated } from '@/lib/session';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -40,7 +28,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }
         const resolvedParams = await params;
         const id = resolvedParams.id;
-        const json = await request.json();
+                let json: { category?: string; labelName?: string };
+        try {
+            json = await request.json();
+        } catch {
+            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+        }
 
         if (!json.category || !json.labelName) {
             return NextResponse.json({ error: "category and labelName are required" }, { status: 400 });
@@ -50,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             where: {
                 repositoryId_category: {
                     repositoryId: id,
-                    category: json.category
+                    category: json.category as import("@prisma/client").ProcessedCommentCategory
                 }
             },
             update: {
@@ -58,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             },
             create: {
                 repositoryId: id,
-                category: json.category,
+                category: json.category as import("@prisma/client").ProcessedCommentCategory,
                 labelName: json.labelName
             }
         });

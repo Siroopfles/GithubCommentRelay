@@ -1,3 +1,15 @@
+
+## 2026-05-06 - Jules Refactor Session
+
+**Task:** Address PR Feedback from CodeRabbit
+**Status:** Completed
+
+### Actions Taken:
+1. **Schema Update**: Added `@default("")` to `AuditLog.action` and fixed the `categoryLabelMappings` relation on the `Repository` model.
+2. **API Updates**:
+   - `category-labels` DELETE route is now scoped via `repositoryId`.
+   - `category-labels` POST route now catches invalid JSON returning HTTP 400.
+3. **Refactoring**: Extracted duplicated `isAuthenticated` function into `src/lib/session.ts` and updated both routes to use the shared helper.
 # Project Journal
 
 ## Session: Automatic Pull Request Merging

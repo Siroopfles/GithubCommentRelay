@@ -32,46 +32,68 @@ model Settings {
 }
 
 model Repository {
-  id                     String              @id @default(cuid())
-  owner                  String
-  name                   String
-  isActive               Boolean             @default(true)
-  autoMergeEnabled       Boolean             @default(false)
-  requiredApprovals      Int                 @default(1)
-  requireCI              Boolean             @default(true)
-  mergeStrategy          String              @default("merge") // 'merge', 'squash', 'rebase'
-  taskSourceType         String              @default("none") // 'none', 'local_folder', 'github_issues'
-  taskSourcePath         String? // Path to folder if taskSourceType is 'local_folder'
-  maxConcurrentTasks     Int                 @default(3) // Limits AI tasks running simultaneously
-  julesPromptTemplate    String? // Template for the prompt
-  julesChatForwardMode   String              @default("off") // 'off', 'always', 'failsafe'
-  julesChatForwardDelay  Int                 @default(5) // In minutes
-  aiSystemPrompt         String? // Top-level prompt for AI bots
-  commentTemplate        String? // Markdown template for individual bot comments
-  postAggregatedComments Boolean             @default(true)
-  batchDelay             Int?
-  branchWhitelist        String?
-  branchBlacklist        String?
-  includeCheckRuns       Boolean             @default(false)
-  githubToken            String?
-  requiredBots           String?
-  aiBotUsernames         String? // Comma-separated list of AI agent usernames
-  regressionDetection    Boolean             @default(true)
-  regressionMatchMode    RegressionMatchMode @default(EXACT)
-  infiniteLoopThreshold  Int                 @default(3) // 0 to disable
-  maxDiffLines           Int                 @default(500) // 0 to disable
-  complexityWeights      String? // JSON object for custom complexity weighting
-  groupName              String?             @default("Default")
-  architectureInfo       String?             @default("")
-  createdAt              DateTime            @default(now())
+  id                       String              @id @default(cuid())
+  owner                    String
+  name                     String
+  isActive                 Boolean             @default(true)
+  autoMergeEnabled         Boolean             @default(false)
+  requiredApprovals        Int                 @default(1)
+  requireCI                Boolean             @default(true)
+  mergeStrategy            String              @default("merge") // 'merge', 'squash', 'rebase'
+  taskSourceType           String              @default("none") // 'none', 'local_folder', 'github_issues'
+  taskSourcePath           String? // Path to folder if taskSourceType is 'local_folder'
+  maxConcurrentTasks       Int                 @default(3) // Limits AI tasks running simultaneously
+  julesPromptTemplate      String? // Template for the prompt
+  julesChatForwardMode     String              @default("off") // 'off', 'always', 'failsafe'
+  julesChatForwardDelay    Int                 @default(5) // In minutes
+  aiSystemPrompt           String? // Top-level prompt for AI bots
+  commentTemplate          String? // Markdown template for individual bot comments
+  postAggregatedComments   Boolean             @default(true)
+  batchDelay               Int?
+  branchWhitelist          String?
+  branchBlacklist          String?
+  includeCheckRuns         Boolean             @default(false)
+  githubToken              String?
+  requiredBots             String?
+  aiBotUsernames           String? // Comma-separated list of AI agent usernames
+  regressionDetection      Boolean             @default(true)
+  regressionMatchMode      RegressionMatchMode @default(EXACT)
+  infiniteLoopThreshold    Int                 @default(3) // 0 to disable
+  maxDiffLines             Int                 @default(500) // 0 to disable
+  complexityWeights        String? // JSON object for custom complexity weighting
+  groupName                String?             @default("Default")
+  architectureInfo         String?             @default("")
+  createdAt                DateTime            @default(now())
+  // --- Category R: Workflow Automations ---
+  // 86: Auto Draft
+  autoDraftEnabled         Boolean             @default(false)
+  autoDraftErrorThreshold  Int?
+  autoDraftComplexityScore Int?
+  autoDraftMessage         String?
 
-  tasks             Task[]
-  prLabelRules      PRLabelRule[]
-  promptTemplates   PromptTemplate[]
-  agentFeedbacks    AgentFeedback[]
-  flakyTestRules    FlakyTestRule[]
-  errorRewriteRules ErrorRewriteRule[]
-  resolutionTimes   ResolutionTime[]
+  // 88: Dependency PRs
+  dependencyDashboardEnabled Boolean @default(false)
+  dependencyBotRegex         String? @default("^dependabot\\[bot\\]$|^renovate\\[bot\\]$")
+  dependencyTrackingIssue    Boolean @default(false)
+
+  // 89: Commit Validation
+  commitValidationEnabled Boolean @default(false)
+  commitValidationRegex   String? @default("^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.*\\))?: .+")
+  commitValidationFixMode String  @default("comment") // 'comment' or 'pr_title'
+
+  // 90: Auto Merge
+  aiAutoMergeEnabled           Boolean @default(false)
+  aiAutoMergeAllowedCategories String? // JSON array of ProcessedCommentCategory
+  aiAutoMergeMethod            String  @default("merge") // 'merge', 'squash', 'rebase'
+
+  tasks                 Task[]
+  prLabelRules          PRLabelRule[]
+  promptTemplates       PromptTemplate[]
+  agentFeedbacks        AgentFeedback[]
+  flakyTestRules        FlakyTestRule[]
+  errorRewriteRules     ErrorRewriteRule[]
+  resolutionTimes       ResolutionTime[]
+  categoryLabelMappings CategoryLabelMapping[]
 
   @@unique([owner, name])
 }
@@ -256,7 +278,7 @@ enum RegressionMatchMode {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
+  action    String   @default("") // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
   entity    String? // e.g., "Settings", "Repository"
   details   String? // JSON stringified details
   createdAt DateTime @default(now())
@@ -346,4 +368,16 @@ model ResolutionTime {
   createdAt    DateTime   @default(now())
 
   @@index([repositoryId, category])
+}
+
+model CategoryLabelMapping {
+  id           String                   @id @default(cuid())
+  repositoryId String
+  repository   Repository               @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  category     ProcessedCommentCategory
+  labelName    String
+  createdAt    DateTime                 @default(now())
+
+  @@unique([repositoryId, category])
+  @@index([repositoryId])
 }

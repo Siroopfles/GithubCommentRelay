@@ -2121,7 +2121,7 @@ async function syncReactionsAndTTR() {
              if (wasMerged && sessionData && sessionData.lastPromptId) {
                 await prisma.promptTemplate.updateMany({
                    where: { id: sessionData.lastPromptId },
-                   data: { successCount: { increment: 1 } }
+                   data: { successCount: { increment: 1 } } as any
                 });
              }
 
