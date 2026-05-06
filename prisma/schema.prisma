@@ -24,11 +24,11 @@ model Settings {
   setupCompleted           Boolean   @default(false)
   sessionSecret            String?
 
-  healthApiToken           String?
-  rssSecretToken           String?
-  rssEvents                String? // JSON array of selected events
-  updatedAt                DateTime  @updatedAt
-  notificationRules        NotificationRule[]
+  healthApiToken    String?
+  rssSecretToken    String?
+  rssEvents         String? // JSON array of selected events
+  updatedAt         DateTime           @updatedAt
+  notificationRules NotificationRule[]
 }
 
 model Repository {
@@ -65,13 +65,13 @@ model Repository {
   architectureInfo       String?             @default("")
   createdAt              DateTime            @default(now())
 
-  tasks           Task[]
-  prLabelRules    PRLabelRule[]
-  promptTemplates PromptTemplate[]
-  agentFeedbacks  AgentFeedback[]
-  flakyTestRules  FlakyTestRule[]
+  tasks             Task[]
+  prLabelRules      PRLabelRule[]
+  promptTemplates   PromptTemplate[]
+  agentFeedbacks    AgentFeedback[]
+  flakyTestRules    FlakyTestRule[]
   errorRewriteRules ErrorRewriteRule[]
-  resolutionTimes ResolutionTime[]
+  resolutionTimes   ResolutionTime[]
 
   @@unique([owner, name])
 }
@@ -152,27 +152,27 @@ model AutoMergeLog {
 }
 
 model Task {
-  id                String     @id @default(cuid())
-  repositoryId      String
-  repository        Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  title             String
-  body              String?
-  status            String     @default("backlog") // backlog, todo, in_progress, in_review, blocked, done
-  source            String     @default("manual") // local_folder, github_issue, manual
-  priority          Int        @default(0) // Higher number = higher priority
-  githubIssueNumber Int?
-  julesSessionId    String?
-  julesSessionState String?
-  julesSessionUrl   String?
-  julesSessionPrUrl String?
+  id                    String     @id @default(cuid())
+  repositoryId          String
+  repository            Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  title                 String
+  body                  String?
+  status                String     @default("backlog") // backlog, todo, in_progress, in_review, blocked, done
+  source                String     @default("manual") // local_folder, github_issue, manual
+  priority              Int        @default(0) // Higher number = higher priority
+  githubIssueNumber     Int?
+  julesSessionId        String?
+  julesSessionState     String?
+  julesSessionUrl       String?
+  julesSessionPrUrl     String?
   julesSessionCreatedAt DateTime?
-  prNumber          Int?
-  contextFiles      String? // JSON array of file paths
-  dependsOnId       String?
-  dependsOn         Task?      @relation("TaskDependencies", fields: [dependsOnId], references: [id])
-  dependentTasks    Task[]     @relation("TaskDependencies")
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  prNumber              Int?
+  contextFiles          String? // JSON array of file paths
+  dependsOnId           String?
+  dependsOn             Task?      @relation("TaskDependencies", fields: [dependsOnId], references: [id])
+  dependentTasks        Task[]     @relation("TaskDependencies")
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   @@index([repositoryId, status])
   @@index([julesSessionState])
@@ -256,33 +256,33 @@ enum RegressionMatchMode {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
-  entity    String?  // e.g., "Settings", "Repository"
-  details   String?  // JSON stringified details
+  action    String // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
+  entity    String? // e.g., "Settings", "Repository"
+  details   String? // JSON stringified details
   createdAt DateTime @default(now())
 
   @@index([createdAt])
 }
 
 model NotificationRule {
-  id          String   @id @default(cuid())
-  settingsId  Int      @default(1)
-  settings    Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
-  type        String   // discord, telegram, ntfy, gotify, smtp, webhook
-  name        String
-  targetUrl   String?  // Webhook URL, Ntfy URL, Gotify URL
-  token       String?  // Telegram Token, Gotify Token
-  chatId      String?  // Telegram Chat ID
-  smtpHost    String?
-  smtpPort    Int?
-  smtpUser    String?
-  smtpPass    String?
-  smtpFrom    String?
-  smtpTo      String?
-  events      String   // JSON array of event types (SYSTEM_ERROR, PR_AGGREGATED, AI_TASK_COMPLETED, DAILY_SUMMARY, etc.)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  settingsId Int      @default(1)
+  settings   Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  type       String // discord, telegram, ntfy, gotify, smtp, webhook
+  name       String
+  targetUrl  String? // Webhook URL, Ntfy URL, Gotify URL
+  token      String? // Telegram Token, Gotify Token
+  chatId     String? // Telegram Chat ID
+  smtpHost   String?
+  smtpPort   Int?
+  smtpUser   String?
+  smtpPass   String?
+  smtpFrom   String?
+  smtpTo     String?
+  events     String // JSON array of event types (SYSTEM_ERROR, PR_AGGREGATED, AI_TASK_COMPLETED, DAILY_SUMMARY, etc.)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([settingsId, isActive])
 }
@@ -295,10 +295,10 @@ model AgentFeedback {
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   agentName    String
   prNumber     Int
-  commentId    BigInt?    // GitHub Comment ID if applicable
+  commentId    BigInt? // GitHub Comment ID if applicable
   upvotes      Int        @default(0)
   downvotes    Int        @default(0)
-  promptUsed   String?    // The prompt or prompt template ID that generated this
+  promptUsed   String? // The prompt or prompt template ID that generated this
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -306,15 +306,15 @@ model AgentFeedback {
 }
 
 model FlakyTestRule {
-  id           String     @id @default(cuid())
-  repositoryId String
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  name         String?    // Friendly name
-  testNameRegex String    // Regex to match the flaky test warning
-  isActive     Boolean    @default(true)
-  ignoreCount  Int        @default(0) // How many times it was ignored
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  repositoryId  String
+  repository    Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name          String? // Friendly name
+  testNameRegex String // Regex to match the flaky test warning
+  isActive      Boolean    @default(true)
+  ignoreCount   Int        @default(0) // How many times it was ignored
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@index([repositoryId, isActive])
 }
@@ -324,8 +324,8 @@ model ErrorRewriteRule {
   repositoryId String
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   name         String?
-  errorRegex   String     // Regex to match the vague error
-  rewriteTo    String     // Human readable text to replace or append
+  errorRegex   String // Regex to match the vague error
+  rewriteTo    String // Human readable text to replace or append
   isActive     Boolean    @default(true)
   applyCount   Int        @default(0) // How many times it was applied
   createdAt    DateTime   @default(now())
@@ -339,10 +339,10 @@ model ResolutionTime {
   repositoryId String
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   prNumber     Int
-  category     String     // Type of error (e.g. 'lint', 'security', 'general')
+  category     String // Type of error (e.g. 'lint', 'security', 'general')
   firstSeenAt  DateTime
-  resolvedAt   DateTime   // When the PR was merged
-  durationSecs Int        // TTR in seconds
+  resolvedAt   DateTime // When the PR was merged
+  durationSecs Int // TTR in seconds
   createdAt    DateTime   @default(now())
 
   @@index([repositoryId, category])
