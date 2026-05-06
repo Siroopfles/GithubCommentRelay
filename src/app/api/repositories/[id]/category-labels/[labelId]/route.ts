@@ -17,6 +17,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
         return NextResponse.json({ success: true });
     } catch (e: any) {
-        return NextResponse.json({ error: 'Failed to delete label mapping' }, { status: 500 })
+        if (e.code === 'P2025') {
+            return NextResponse.json({ error: 'Label mapping not found' }, { status: 404 });
+        }
+        return NextResponse.json({ error: 'Failed to delete label mapping' }, { status: 500 });
     }
 }

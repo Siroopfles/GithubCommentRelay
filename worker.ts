@@ -2119,10 +2119,7 @@ async function syncReactionsAndTTR() {
              // If this session used a specific prompt template, increment its success count since the PR merged!
              const sessionData = await prisma.batchSession.findUnique({ where: { id: session.id }});
              if (wasMerged && sessionData && sessionData.lastPromptId) {
-                await prisma.promptTemplate.updateMany({
-                   where: { id: sessionData.lastPromptId },
-                   data: { successCount: { increment: 1 } } as any
-                });
+                // Feature omitted: successCount does not exist on PromptTemplate.
              }
 
           }

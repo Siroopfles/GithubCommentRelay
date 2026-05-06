@@ -39,6 +39,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "category and labelName are required" }, { status: 400 });
         }
 
+        const validCategories = ['general', 'lint', 'security', 'type_error', 'test_failure'];
+        if (!validCategories.includes(json.category)) {
+            return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+        }
+
+
         const label = await prisma.categoryLabelMapping.upsert({
             where: {
                 repositoryId_category: {
