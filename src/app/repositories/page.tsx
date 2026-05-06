@@ -31,6 +31,20 @@ type Repo = {
   maxConcurrentTasks: number
   requiredBots?: string | null
   architectureInfo?: string | null
+
+  autoDraftEnabled?: boolean
+  autoDraftErrorThreshold?: number | null
+  autoDraftComplexityScore?: number | null
+  autoDraftMessage?: string | null
+  dependencyDashboardEnabled?: boolean
+  dependencyBotRegex?: string | null
+  dependencyTrackingIssue?: boolean
+  commitValidationEnabled?: boolean
+  commitValidationRegex?: string | null
+  commitValidationFixMode?: string
+  aiAutoMergeEnabled?: boolean
+  aiAutoMergeAllowedCategories?: string | null
+  aiAutoMergeMethod?: string
 }
 
 export default function RepositoriesPage() {
@@ -58,6 +72,20 @@ export default function RepositoriesPage() {
     githubToken?: string | null
     requiredBots?: string | null
     architectureInfo?: string | null
+
+    autoDraftEnabled?: boolean
+    autoDraftErrorThreshold?: string
+    autoDraftComplexityScore?: string
+    autoDraftMessage?: string
+    dependencyDashboardEnabled?: boolean
+    dependencyBotRegex?: string
+    dependencyTrackingIssue?: boolean
+    commitValidationEnabled?: boolean
+    commitValidationRegex?: string
+    commitValidationFixMode?: string
+    aiAutoMergeEnabled?: boolean
+    aiAutoMergeAllowedCategories?: string
+    aiAutoMergeMethod?: string
   }>({
     defaultValues: {
       autoMergeEnabled: false,
@@ -398,6 +426,89 @@ const updateData: Record<string, unknown> = {
                                         <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Active</span>
                                       </label>
                                   </div>
+
+              {/* Category R Automation Fields */}
+              <div className="space-y-4 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Workflow Automations (Category R)</h3>
+
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Auto Draft (86)</h4>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" {...register('autoDraftEnabled')} className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                    Convert PR to Draft when limits exceeded
+                  </label>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label className="block text-sm text-gray-500 dark:text-gray-400">Error Count Threshold</label>
+                      <input type="number" {...register('autoDraftErrorThreshold')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" placeholder="e.g. 5" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 dark:text-gray-400">Complexity Score Threshold</label>
+                      <input type="number" {...register('autoDraftComplexityScore')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" placeholder="e.g. 50" />
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-sm text-gray-500 dark:text-gray-400">Draft Message</label>
+                    <textarea {...register('autoDraftMessage')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" placeholder="Message to post when converted to draft" rows={2} />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Dependency Dashboard (88)</h4>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" {...register('dependencyDashboardEnabled')} className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                    Enable Dependency Dashboard
+                  </label>
+                  <div className="mt-2">
+                    <label className="block text-sm text-gray-500 dark:text-gray-400">Bot Regex</label>
+                    <input type="text" {...register('dependencyBotRegex')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" placeholder="^dependabot\\[bot\\]$" />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mt-2">
+                    <input type="checkbox" {...register('dependencyTrackingIssue')} className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                    Maintain Tracking Issue
+                  </label>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Commit Validation (89)</h4>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" {...register('commitValidationEnabled')} className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                    Enable Commit Validation
+                  </label>
+                  <div className="mt-2">
+                    <label className="block text-sm text-gray-500 dark:text-gray-400">Validation Regex</label>
+                    <input type="text" {...register('commitValidationRegex')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" />
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-sm text-gray-500 dark:text-gray-400">Fix Mode</label>
+                    <select {...register('commitValidationFixMode')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                      <option value="comment">Comment</option>
+                      <option value="pr_title">Update PR Title</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">AI Auto Merge (90)</h4>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" {...register('aiAutoMergeEnabled')} className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700" />
+                    Enable AI Auto Merge
+                  </label>
+                  <div className="mt-2">
+                    <label className="block text-sm text-gray-500 dark:text-gray-400">Allowed Categories (JSON array)</label>
+                    <input type="text" {...register('aiAutoMergeAllowedCategories')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" placeholder='["lint", "type_error"]' />
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-sm text-gray-500 dark:text-gray-400">Merge Method</label>
+                    <select {...register('aiAutoMergeMethod')} className="mt-1 block w-full rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                      <option value="merge">Merge</option>
+                      <option value="squash">Squash</option>
+                      <option value="rebase">Rebase</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
                                 </div>
                                 <div className="mt-4 flex justify-end gap-2">
                                   <button type="button" onClick={cancelEdit} className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button>

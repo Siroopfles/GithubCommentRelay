@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ExternalLink, MessageCircle, Clock, CheckCircle, XCircle, RefreshCw, Tag, Plus, Trash2 } from 'lucide-react'
 
 interface BatchSession {
   id: string
@@ -52,6 +52,11 @@ export default function RepositoryPRsPage() {
   const [repoName, setRepoName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [labels, setLabels] = useState<any[]>([])
+  const [newLabelCategory, setNewLabelCategory] = useState<string>('lint')
+  const [newLabelName, setNewLabelName] = useState<string>('')
+
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [expandedPr, setExpandedPr] = useState<number | null>(null)
   const [aiBotUsernames, setAiBotUsernames] = useState('')
@@ -90,6 +95,19 @@ export default function RepositoryPRsPage() {
           throw new Error(errMsg)
         }
         const data = await res.json()
+
+    const fetchLabels = async () => {
+      try {
+        const res = await fetch(`/api/repositories/${params.id}/category-labels`)
+        if (res.ok) {
+          setLabels(await res.json())
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    fetchLabels()
+
         setRepoName(`${data.repository.owner}/${data.repository.name}`)
         setPrs(data.prs)
         setError(null)

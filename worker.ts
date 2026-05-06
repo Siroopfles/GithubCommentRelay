@@ -2115,12 +2115,7 @@ async function syncReactionsAndTTR() {
                data: { resolved: true, resolvedAt }
              });
 
-             // Auto-tuning of Prompts based on Success
-             // If this session used a specific prompt template, increment its success count since the PR merged!
-             const sessionData = await prisma.batchSession.findUnique({ where: { id: session.id }});
-             if (wasMerged && sessionData && sessionData.lastPromptId) {
-                // Feature omitted: successCount does not exist on PromptTemplate.
-             }
+             // TODO: Auto-tune prompt success when a `successCount` field is added to PromptTemplate.
 
           }
         } catch (e) {
