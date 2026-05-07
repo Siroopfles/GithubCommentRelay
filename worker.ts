@@ -2115,7 +2115,7 @@ async function syncReactionsAndTTR() {
                data: { resolved: true, resolvedAt }
              });
 
-             // TODO: Auto-tune prompt success when a `successCount` field is added to PromptTemplate.
+
 
           }
         } catch (e) {
