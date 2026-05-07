@@ -1913,6 +1913,69 @@ async function syncJulesSessions() {
   }
 }
 
+
+async function processDependencyPRs(repos: any[], settings: any) {
+  for (const repo of repos) {
+    if (!repo.dependencyDashboardEnabled || !repo.dependencyBotRegex || !repo.dependencyTrackingIssue) continue;
+
+    const token = repo.githubToken || settings?.githubToken;
+    if (!token) continue;
+
+    try {
+      const octokit = createOctokit(token);
+      let botRegex: RegExp;
+      try {
+        botRegex = new RegExp(repo.dependencyBotRegex, 'i');
+      } catch (e) {
+        logger.error(`Invalid regex for dependency bots in repo ${repo.owner}/${repo.name}: ${repo.dependencyBotRegex}`);
+        continue;
+      }
+
+      const { data: openPRs } = await octokit.rest.pulls.list({
+        owner: repo.owner,
+        repo: repo.name,
+        state: 'open',
+        per_page: 100
+      });
+
+      const dependencyPRs = openPRs.filter(pr => pr.user && botRegex.test(pr.user.login));
+
+      if (dependencyPRs.length > 0) {
+         let dashboardBody = `## 🤖 Dependency PR Dashboard\n\nAutomatically tracked by Jules PR Aggregator.\n\n| PR | Title | Author | Status |\n|---|---|---|---|\n`;
+         for (const pr of dependencyPRs) {
+            dashboardBody += `| #${pr.number} | [${pr.title}](${pr.html_url}) | ${pr.user?.login} | 🟢 Open |\n`;
+         }
+
+         const issueTitle = '📦 Dependency Update Dashboard';
+
+         const { data: searchResults } = await octokit.rest.search.issuesAndPullRequests({
+           q: `repo:${repo.owner}/${repo.name} is:issue in:title "${issueTitle}" is:open`
+         });
+
+         if (searchResults.total_count > 0) {
+            const issueNumber = searchResults.items[0].number;
+            await octokit.rest.issues.update({
+              owner: repo.owner,
+              repo: repo.name,
+              issue_number: issueNumber,
+              body: dashboardBody
+            });
+         } else {
+            await octokit.rest.issues.create({
+              owner: repo.owner,
+              repo: repo.name,
+              title: issueTitle,
+              body: dashboardBody
+            });
+         }
+         logger.info(`Updated Dependency Dashboard for ${repo.owner}/${repo.name} tracking ${dependencyPRs.length} PRs`);
+      }
+    } catch (e) {
+       logger.error(`Failed to process dependency dashboard for ${repo.owner}/${repo.name}`, e);
+    }
+  }
+}
+
 async function start() {
   logger.info(
     "Cleaning up any stuck processing sessions from previous runs...",
@@ -2115,7 +2178,7 @@ async function syncReactionsAndTTR() {
                data: { resolved: true, resolvedAt }
              });
 
-
+             // TODO: Auto-tune prompt success when a `successCount` field is added to PromptTemplate.
 
           }
         } catch (e) {
