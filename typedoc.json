@@ -1,0 +1,16 @@
+{
+  "entryPoints": [
+    "src/lib/julesApi.ts",
+    "src/lib/notifications.ts",
+    "src/lib/format_helper.ts",
+    "src/lib/encryption.ts",
+    "src/lib/auth.ts",
+    "worker.ts"
+  ],
+  "out": "docs-ts",
+  "name": "GitHub PR Comment Aggregator",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "plugin": []
+}

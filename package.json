@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build && tsc -p tsconfig.worker.json",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "docs": "typedoc"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -30,6 +31,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
+    "@playwright/test": "^1.59.1",
+    "@storybook/react": "^10.3.6",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie": "^0.6.0",
@@ -41,10 +44,12 @@
     "@types/rss": "^0.0.32",
     "eslint": "^9",
     "eslint-config-next": "^16.2.3",
+    "playwright": "^1.59.1",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
+    "typedoc": "^0.28.19",
     "typescript": "^5"
   }
 }
