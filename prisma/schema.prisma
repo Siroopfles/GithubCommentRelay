@@ -24,54 +24,76 @@ model Settings {
   setupCompleted           Boolean   @default(false)
   sessionSecret            String?
 
-  healthApiToken           String?
-  rssSecretToken           String?
-  rssEvents                String? // JSON array of selected events
-  updatedAt                DateTime  @updatedAt
-  notificationRules        NotificationRule[]
+  healthApiToken    String?
+  rssSecretToken    String?
+  rssEvents         String? // JSON array of selected events
+  updatedAt         DateTime           @updatedAt
+  notificationRules NotificationRule[]
 }
 
 model Repository {
-  id                     String              @id @default(cuid())
-  owner                  String
-  name                   String
-  isActive               Boolean             @default(true)
-  autoMergeEnabled       Boolean             @default(false)
-  requiredApprovals      Int                 @default(1)
-  requireCI              Boolean             @default(true)
-  mergeStrategy          String              @default("merge") // 'merge', 'squash', 'rebase'
-  taskSourceType         String              @default("none") // 'none', 'local_folder', 'github_issues'
-  taskSourcePath         String? // Path to folder if taskSourceType is 'local_folder'
-  maxConcurrentTasks     Int                 @default(3) // Limits AI tasks running simultaneously
-  julesPromptTemplate    String? // Template for the prompt
-  julesChatForwardMode   String              @default("off") // 'off', 'always', 'failsafe'
-  julesChatForwardDelay  Int                 @default(5) // In minutes
-  aiSystemPrompt         String? // Top-level prompt for AI bots
-  commentTemplate        String? // Markdown template for individual bot comments
-  postAggregatedComments Boolean             @default(true)
-  batchDelay             Int?
-  branchWhitelist        String?
-  branchBlacklist        String?
-  includeCheckRuns       Boolean             @default(false)
-  githubToken            String?
-  requiredBots           String?
-  aiBotUsernames         String? // Comma-separated list of AI agent usernames
-  regressionDetection    Boolean             @default(true)
-  regressionMatchMode    RegressionMatchMode @default(EXACT)
-  infiniteLoopThreshold  Int                 @default(3) // 0 to disable
-  maxDiffLines           Int                 @default(500) // 0 to disable
-  complexityWeights      String? // JSON object for custom complexity weighting
-  groupName              String?             @default("Default")
-  architectureInfo       String?             @default("")
-  createdAt              DateTime            @default(now())
+  id                       String              @id @default(cuid())
+  owner                    String
+  name                     String
+  isActive                 Boolean             @default(true)
+  autoMergeEnabled         Boolean             @default(false)
+  requiredApprovals        Int                 @default(1)
+  requireCI                Boolean             @default(true)
+  mergeStrategy            String              @default("merge") // 'merge', 'squash', 'rebase'
+  taskSourceType           String              @default("none") // 'none', 'local_folder', 'github_issues'
+  taskSourcePath           String? // Path to folder if taskSourceType is 'local_folder'
+  maxConcurrentTasks       Int                 @default(3) // Limits AI tasks running simultaneously
+  julesPromptTemplate      String? // Template for the prompt
+  julesChatForwardMode     String              @default("off") // 'off', 'always', 'failsafe'
+  julesChatForwardDelay    Int                 @default(5) // In minutes
+  aiSystemPrompt           String? // Top-level prompt for AI bots
+  commentTemplate          String? // Markdown template for individual bot comments
+  postAggregatedComments   Boolean             @default(true)
+  batchDelay               Int?
+  branchWhitelist          String?
+  branchBlacklist          String?
+  includeCheckRuns         Boolean             @default(false)
+  githubToken              String?
+  requiredBots             String?
+  aiBotUsernames           String? // Comma-separated list of AI agent usernames
+  regressionDetection      Boolean             @default(true)
+  regressionMatchMode      RegressionMatchMode @default(EXACT)
+  infiniteLoopThreshold    Int                 @default(3) // 0 to disable
+  maxDiffLines             Int                 @default(500) // 0 to disable
+  complexityWeights        String? // JSON object for custom complexity weighting
+  groupName                String?             @default("Default")
+  architectureInfo         String?             @default("")
+  createdAt                DateTime            @default(now())
+  // --- Category R: Workflow Automations ---
+  // 86: Auto Draft
+  autoDraftEnabled         Boolean             @default(false)
+  autoDraftErrorThreshold  Int?
+  autoDraftComplexityScore Int?
+  autoDraftMessage         String?
 
-  tasks           Task[]
-  prLabelRules    PRLabelRule[]
-  promptTemplates PromptTemplate[]
-  agentFeedbacks  AgentFeedback[]
-  flakyTestRules  FlakyTestRule[]
-  errorRewriteRules ErrorRewriteRule[]
-  resolutionTimes ResolutionTime[]
+  // 88: Dependency PRs
+  dependencyDashboardEnabled Boolean @default(false)
+  dependencyBotRegex         String? @default("^dependabot\\[bot\\]$|^renovate\\[bot\\]$")
+  dependencyTrackingIssue    Boolean @default(false)
+
+  // 89: Commit Validation
+  commitValidationEnabled Boolean @default(false)
+  commitValidationRegex   String? @default("^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.*\\))?: .+")
+  commitValidationFixMode String  @default("comment") // 'comment' or 'pr_title'
+
+  // 90: Auto Merge
+  aiAutoMergeEnabled           Boolean @default(false)
+  aiAutoMergeAllowedCategories String? // JSON array of ProcessedCommentCategory
+  aiAutoMergeMethod            String  @default("merge") // 'merge', 'squash', 'rebase'
+
+  tasks                 Task[]
+  prLabelRules          PRLabelRule[]
+  promptTemplates       PromptTemplate[]
+  agentFeedbacks        AgentFeedback[]
+  flakyTestRules        FlakyTestRule[]
+  errorRewriteRules     ErrorRewriteRule[]
+  resolutionTimes       ResolutionTime[]
+  categoryLabelMappings CategoryLabelMapping[]
 
   @@unique([owner, name])
 }
@@ -152,27 +174,27 @@ model AutoMergeLog {
 }
 
 model Task {
-  id                String     @id @default(cuid())
-  repositoryId      String
-  repository        Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  title             String
-  body              String?
-  status            String     @default("backlog") // backlog, todo, in_progress, in_review, blocked, done
-  source            String     @default("manual") // local_folder, github_issue, manual
-  priority          Int        @default(0) // Higher number = higher priority
-  githubIssueNumber Int?
-  julesSessionId    String?
-  julesSessionState String?
-  julesSessionUrl   String?
-  julesSessionPrUrl String?
+  id                    String     @id @default(cuid())
+  repositoryId          String
+  repository            Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  title                 String
+  body                  String?
+  status                String     @default("backlog") // backlog, todo, in_progress, in_review, blocked, done
+  source                String     @default("manual") // local_folder, github_issue, manual
+  priority              Int        @default(0) // Higher number = higher priority
+  githubIssueNumber     Int?
+  julesSessionId        String?
+  julesSessionState     String?
+  julesSessionUrl       String?
+  julesSessionPrUrl     String?
   julesSessionCreatedAt DateTime?
-  prNumber          Int?
-  contextFiles      String? // JSON array of file paths
-  dependsOnId       String?
-  dependsOn         Task?      @relation("TaskDependencies", fields: [dependsOnId], references: [id])
-  dependentTasks    Task[]     @relation("TaskDependencies")
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  prNumber              Int?
+  contextFiles          String? // JSON array of file paths
+  dependsOnId           String?
+  dependsOn             Task?      @relation("TaskDependencies", fields: [dependsOnId], references: [id])
+  dependentTasks        Task[]     @relation("TaskDependencies")
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   @@index([repositoryId, status])
   @@index([julesSessionState])
@@ -256,33 +278,33 @@ enum RegressionMatchMode {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
-  entity    String?  // e.g., "Settings", "Repository"
-  details   String?  // JSON stringified details
+  action    String   @default("") // e.g., "UPDATE_SETTINGS", "IMPORT_CONFIG"
+  entity    String? // e.g., "Settings", "Repository"
+  details   String? // JSON stringified details
   createdAt DateTime @default(now())
 
   @@index([createdAt])
 }
 
 model NotificationRule {
-  id          String   @id @default(cuid())
-  settingsId  Int      @default(1)
-  settings    Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
-  type        String   // discord, telegram, ntfy, gotify, smtp, webhook
-  name        String
-  targetUrl   String?  // Webhook URL, Ntfy URL, Gotify URL
-  token       String?  // Telegram Token, Gotify Token
-  chatId      String?  // Telegram Chat ID
-  smtpHost    String?
-  smtpPort    Int?
-  smtpUser    String?
-  smtpPass    String?
-  smtpFrom    String?
-  smtpTo      String?
-  events      String   // JSON array of event types (SYSTEM_ERROR, PR_AGGREGATED, AI_TASK_COMPLETED, DAILY_SUMMARY, etc.)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  settingsId Int      @default(1)
+  settings   Settings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  type       String // discord, telegram, ntfy, gotify, smtp, webhook
+  name       String
+  targetUrl  String? // Webhook URL, Ntfy URL, Gotify URL
+  token      String? // Telegram Token, Gotify Token
+  chatId     String? // Telegram Chat ID
+  smtpHost   String?
+  smtpPort   Int?
+  smtpUser   String?
+  smtpPass   String?
+  smtpFrom   String?
+  smtpTo     String?
+  events     String // JSON array of event types (SYSTEM_ERROR, PR_AGGREGATED, AI_TASK_COMPLETED, DAILY_SUMMARY, etc.)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([settingsId, isActive])
 }
@@ -295,10 +317,10 @@ model AgentFeedback {
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   agentName    String
   prNumber     Int
-  commentId    BigInt?    // GitHub Comment ID if applicable
+  commentId    BigInt? // GitHub Comment ID if applicable
   upvotes      Int        @default(0)
   downvotes    Int        @default(0)
-  promptUsed   String?    // The prompt or prompt template ID that generated this
+  promptUsed   String? // The prompt or prompt template ID that generated this
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -306,15 +328,15 @@ model AgentFeedback {
 }
 
 model FlakyTestRule {
-  id           String     @id @default(cuid())
-  repositoryId String
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  name         String?    // Friendly name
-  testNameRegex String    // Regex to match the flaky test warning
-  isActive     Boolean    @default(true)
-  ignoreCount  Int        @default(0) // How many times it was ignored
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  repositoryId  String
+  repository    Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name          String? // Friendly name
+  testNameRegex String // Regex to match the flaky test warning
+  isActive      Boolean    @default(true)
+  ignoreCount   Int        @default(0) // How many times it was ignored
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@index([repositoryId, isActive])
 }
@@ -324,8 +346,8 @@ model ErrorRewriteRule {
   repositoryId String
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   name         String?
-  errorRegex   String     // Regex to match the vague error
-  rewriteTo    String     // Human readable text to replace or append
+  errorRegex   String // Regex to match the vague error
+  rewriteTo    String // Human readable text to replace or append
   isActive     Boolean    @default(true)
   applyCount   Int        @default(0) // How many times it was applied
   createdAt    DateTime   @default(now())
@@ -339,11 +361,23 @@ model ResolutionTime {
   repositoryId String
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   prNumber     Int
-  category     String     // Type of error (e.g. 'lint', 'security', 'general')
+  category     String // Type of error (e.g. 'lint', 'security', 'general')
   firstSeenAt  DateTime
-  resolvedAt   DateTime   // When the PR was merged
-  durationSecs Int        // TTR in seconds
+  resolvedAt   DateTime // When the PR was merged
+  durationSecs Int // TTR in seconds
   createdAt    DateTime   @default(now())
 
   @@index([repositoryId, category])
+}
+
+model CategoryLabelMapping {
+  id           String                   @id @default(cuid())
+  repositoryId String
+  repository   Repository               @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  category     ProcessedCommentCategory
+  labelName    String
+  createdAt    DateTime                 @default(now())
+
+  @@unique([repositoryId, category])
+  @@index([repositoryId])
 }

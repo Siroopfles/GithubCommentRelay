@@ -4,6 +4,7 @@ import { encrypt } from '@/lib/encryption';
 import { verifySession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { sessionStore } from '@/lib/sessionStore';
+import { isAuthenticated } from '@/lib/session';
 
 async function getEncryptionKey() {
   const cookieStore = await cookies();
@@ -15,18 +16,6 @@ async function getEncryptionKey() {
 
   const session = await verifySession(settings.sessionSecret, sessionCookie.value);
   return session?.sessionId ? (sessionStore.get(session.sessionId) || null) : null;
-}
-
-async function isAuthenticated() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('session');
-  if (!sessionCookie) return false;
-
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  if (!settings?.sessionSecret) return false;
-
-  const session = await verifySession(settings.sessionSecret, sessionCookie.value);
-  return !!session?.loggedIn;
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
