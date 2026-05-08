@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Sidebar from "@/app/Sidebar";
 
 export default function SandboxPage() {
@@ -8,27 +8,29 @@ export default function SandboxPage() {
   const [text, setText] = useState("");
   const [flags, setFlags] = useState("gi");
 
-  let matchResult = null;
-  let error = null;
-
-  try {
-    if (regex && text) {
+  const { matchResult, error } = useMemo(() => {
+    if (!regex || !text) return { matchResult: null, error: null };
+    try {
       const re = new RegExp(regex, flags);
       const matches = [...text.matchAll(re)];
 
-      if (matches.length > 0) {
-        matchResult = matches.map((m) => {
-          const groups = m.groups ? Object.entries(m.groups).map(([k, v]) => `${k}: ${v}`) : [];
-          return {
-            fullMatch: m[0],
-            groups: groups.length > 0 ? groups : m.slice(1),
-          };
-        });
-      }
+      if (matches.length === 0) return { matchResult: null, error: null };
+
+      const results = matches.map((m) => {
+        const groups = m.groups ? Object.entries(m.groups).map(([k, v]) => `${k}: ${v}`) : [];
+        return {
+          fullMatch: m[0],
+          groups: groups.length > 0 ? groups : m.slice(1),
+        };
+      });
+      return { matchResult: results, error: null };
+    } catch (err) {
+      return {
+        matchResult: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
-  } catch (err: any) {
-    error = err.message;
-  }
+  }, [regex, text, flags]);
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
@@ -108,7 +110,7 @@ export default function SandboxPage() {
                         <div>
                           <span className="text-sm font-medium text-gray-700">Capture Groups:</span>
                           <ul className="mt-1 list-disc pl-5 text-sm text-gray-600">
-                            {match.groups.map((g: any, j: number) => (
+                            {match.groups.map((g, j) => (
                               <li key={j}>{g}</li>
                             ))}
                           </ul>

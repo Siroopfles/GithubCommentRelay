@@ -64,16 +64,22 @@ const server = http.createServer((req: http.IncomingMessage, res: http.ServerRes
       let body = '';
       req.on('data', (chunk: any) => { body += chunk.toString(); });
       req.on('end', () => {
-        const newComment = {
-          id: Date.now(),
-          user: { login: "testuser" },
-          body: JSON.parse(body).body,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        issueComments.push(newComment);
-        res.writeHead(201);
-        res.end(JSON.stringify(newComment));
+        try {
+          const parsed = JSON.parse(body);
+          const newComment = {
+            id: Date.now(),
+            user: { login: "testuser" },
+            body: parsed.body || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          issueComments.push(newComment);
+          res.writeHead(201);
+          res.end(JSON.stringify(newComment));
+        } catch (err) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        }
       });
       return;
     }
