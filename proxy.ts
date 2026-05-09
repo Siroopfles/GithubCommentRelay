@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose';
 // Fetch session secret logic since we can't use prisma directly
 // Actually the most robust way in Edge without DB is passing a secret via env or api
 // We will call a verify API endpoint
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow static files, api routes, and public paths
